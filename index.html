@@ -1,0 +1,1265 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+  <link href="https://fonts.googleapis.com/css2?family=Uncial+Antiqua&display=swap" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="color-scheme" content="only light">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English&display=swap" rel="stylesheet">
+  <title>Roleplay It Yourself</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='48'%3E%F0%9F%8E%B2%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css?v=31">
+  <style>
+    #playerCodeBtn, #playerCodeBtn * {
+      color: #ffd700 !important;
+      background: linear-gradient(#5a3800, #2a1800) !important;
+      border-color: #ffd700 !important;
+      -webkit-text-fill-color: #ffd700 !important;
+    }
+  </style>
+</head>
+
+<body tabindex="0">
+
+<div id="gameWrapper">
+  <div id="startScreen">Chargement du studio...</div>
+
+  <div id="intro">
+    <div id="gameTitle" class="visible">Roleplay It Yourself</div>
+    <div id="introBox">
+      <div class="entryHub">
+        <div class="entryHubHeader">
+          <div class="entryHubEyebrow" id="entryHubEyebrow">CREATEUR DE BOARD RPG</div>
+          <div class="entryHubLead" id="entryHubLead">Choisis ton espace. Le mode MJ sert a construire, personnaliser et piloter ton propre jeu. Le mode joueur sert a rejoindre une partie.</div>
+        </div>
+        <div class="entryHubGrid">
+          <section class="entryCard entryCardMJ">
+            <img class="entryCardFrame" src="images/cadre.png" alt="">
+            <div class="entryCardContent">
+              <div class="entryCardBadge">MJ</div>
+              <h2 id="entryMjTitle">Espace creation</h2>
+              <p id="entryMjDescription">Configure le projet, ajoute tes maps, PNJ, mobs, documents, images et ouvre les outils MJ.</p>
+              <div class="entryCardActions">
+                <button type="button" class="hubButton" onclick="openCreatorStudioEntry()"><span class="btn-inner">OUVRIR LE STUDIO MJ</span></button>
+                <button type="button" class="hubButton" onclick="openProjectCreationWizard()"><span class="btn-inner">NOUVEAU PROJET</span></button>
+                <button type="button" class="hubButton" onclick="loadGame()"><span class="btn-inner">CHARGER UN PROJET</span></button>
+              </div>
+            </div>
+          </section>
+          <section class="entryCard entryCardPlayer">
+            <img class="entryCardFrame" src="images/cadre.png" alt="">
+            <div class="entryCardContent">
+              <div class="entryCardBadge">JOUEUR</div>
+              <h2 id="entryPlayerTitle">Rejoindre la table</h2>
+              <p id="entryPlayerDescription">Connecte-toi, choisis ton slot et rejoins la partie sans passer par les outils de creation.</p>
+              <div class="entryCardActions">
+                <button type="button" class="hubButton" onclick="openPlayerStudio()"><span class="btn-inner">ENTRER COTE JOUEUR</span></button>
+                <button type="button" class="hubButton" onclick="requestPlayerAuth()"><span class="btn-inner">CONNEXION JOUEUR</span></button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="dialogueBox">
+    <img id="dialoguePortrait">
+    <div id="dialogueText"></div>
+  </div>
+
+  <div id="fadeScreen"></div>
+  <div id="madnessOverlay"></div>
+  <div id="madnessGauge">
+    <div id="madnessGaugeTitle">Folie du Groupe</div>
+    <div id="madnessGaugeFrame">
+      <div id="madnessGaugeFill"></div>
+      <div id="madnessGaugeGlow"></div>
+      <div id="madnessGaugeValue">0 / 100</div>
+    </div>
+  </div>
+
+  <div id="playerSelect">
+    <button id="playerToggle" onclick="togglePlayerMenu()">ðŸŽ­</button>
+    <div id="playerMenu">
+      <button onclick="requestGM()">ðŸŽ² MJ</button>
+      <button onclick="requestPlayerAuth()">ðŸ”‘ Connexion</button>
+      <div id="playerAuthStatus" class="menuLabel" style="display:none;"></div>
+      <div class="menuLabel">Choisir un slot :</div>
+      <button class="playerChoiceBtn" data-player-choice="greg" onmousedown="event.stopPropagation()" onclick="choosePlayer('greg')">Joueur 1</button>
+      <button class="playerChoiceBtn" data-player-choice="ju" onmousedown="event.stopPropagation()" onclick="choosePlayer('ju')">Joueur 2</button>
+      <button class="playerChoiceBtn" data-player-choice="elo" onmousedown="event.stopPropagation()" onclick="choosePlayer('elo')">Joueur 3</button>
+      <button class="playerChoiceBtn" data-player-choice="bibi" onmousedown="event.stopPropagation()" onclick="choosePlayer('bibi')">Joueur 4</button>
+    </div>
+  </div>
+</div>
+
+<!-- CAMÃ‰RA -->
+  <div id="camera" tabindex="-1">
+  <div id="map" tabindex="-1">
+
+    <div class="token" id="mobToken" style="left:500px;top:200px;display:none;">
+      <div class="mobHP">
+        <div class="mobHPBarContainer"><div id="mobTokenHPBar"></div></div>
+        <div id="mobTokenHPText"></div>
+      </div>
+      <img id="mobTokenImg">
+    </div>
+
+    <div id="grid"></div>
+    <div id="worldMapFogTopLeft"></div>
+
+    <div class="token" id="greg" style="left:200px;top:300px;">
+      <div class="tokenStats" id="stats_greg"></div>
+      <div class="hpBarToken"><div class="hpBarFill" id="hp_greg"></div></div>
+      <img src="images/greg.png">
+      <div class="nameTag">Joueur 1</div>
+    </div>
+
+    <div class="token" id="ju" style="left:300px;top:300px;">
+      <div class="tokenStats" id="stats_ju"></div>
+      <div class="hpBarToken"><div class="hpBarFill" id="hp_ju"></div></div>
+      <img src="images/ju.png">
+      <div class="nameTag">Joueur 2</div>
+    </div>
+
+    <div class="token" id="elo" style="left:400px;top:300px;">
+      <div class="tokenStats" id="stats_elo"></div>
+      <div class="hpBarToken"><div class="hpBarFill" id="hp_elo"></div></div>
+      <img src="images/elo.png">
+      <div class="nameTag">Joueur 3</div>
+    </div>
+
+    <div class="token" id="bibi" style="left:600px;top:300px;">
+      <div class="tokenStats" id="stats_bibi"></div>
+      <div class="hpBarToken"><div class="hpBarFill" id="hp_bibi"></div></div>
+      <img src="images/bibi.png">
+      <div class="nameTag">Joueur 4</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- NOTIFICATIONS -->
+<div id="notification"></div>
+
+<!-- BARRE DÃ‰S -->
+<div id="diceBar">
+  <button id="diceBarToggle" type="button" onclick="toggleDiceBar()" aria-label="Replier les dÃ©s">â–¾</button>
+  <button onclick="rollDice(4)"   class="diceImgBtn"><img src="images/D4.png"   alt="D4"   class="diceImg"></button>
+  <button onclick="rollDice(6)"   class="diceImgBtn"><img src="images/D6.png"   alt="D6"   class="diceImg"></button>
+  <button onclick="rollDice(8)"   class="diceImgBtn"><img src="images/D8.png"   alt="D8"   class="diceImg"></button>
+  <button onclick="rollDice(10)"  class="diceImgBtn"><img src="images/D10.png"  alt="D10"  class="diceImg"></button>
+  <button onclick="rollDice(12)"  class="diceImgBtn"><img src="images/D12.png"  alt="D12"  class="diceImg"></button>
+  <button onclick="rollDice(20)"  class="diceImgBtn"><img src="images/D20.png"  alt="D20"  class="diceImg"></button>
+  <button onclick="rollDice(100)" class="diceImgBtn"><img src="images/D100.png" alt="D100" class="diceImg"></button>
+  <button id="mobD12" onclick="mobRoll(12)" style="display:none;" class="diceImgBtn mobDiceBtn">
+    <img src="images/D12.png" alt="D12 Mob" class="diceImg"><span class="diceMobLabel">ðŸ‘¹</span>
+  </button>
+  <button id="mobD20" onclick="mobRoll(20)" style="display:none;" class="diceImgBtn mobDiceBtn">
+    <img src="images/D20.png" alt="D20 Mob" class="diceImg"><span class="diceMobLabel">ðŸ‘¹</span>
+  </button>
+</div>
+
+<div id="diceResult"></div>
+<div id="diceLog"></div>
+
+<!-- FICHE PERSONNAGE -->
+<div id="characterSheet">
+  <h2 id="sheetTitle" style="text-align:center;font-family:'Cinzel';margin-bottom:10px;">Personnage</h2>
+  <div id="sheetContainer">
+    <img id="sheetImage" src="images/elosheet.jpg">
+    <input id="lvl"     class="sheetField" style="top:270px;left:420px;width:120px;height:60px;font-size:32px;font-weight:bold;text-align:center;border:2px solid black;background:white;">
+    <input id="xp"      class="sheetField" style="top:400px;left:420px;width:140px;">
+    <input id="force"   class="sheetField playerOnly" onclick="rollStat('force')"   style="top:520px;left:480px;width:280px;">
+    <input id="charme"  class="sheetField playerOnly" onclick="rollStat('charme')"  style="top:570px;left:480px;width:280px;">
+    <input id="perspi"  class="sheetField playerOnly" onclick="rollStat('perspi')"  style="top:620px;left:480px;width:280px;">
+    <input id="chance"  class="sheetField playerOnly" onclick="rollStat('chance')"  style="top:670px;left:480px;width:280px;">
+    <input id="defense" class="sheetField playerOnly" onclick="rollStat('defense')" style="top:720px;left:480px;width:280px;">
+    <textarea id="notes" class="sheetField playerOnly" style="top:880px;left:420px;width:380px;height:140px;"></textarea>
+    <div id="weightContainer" style="position:absolute;top:300px;left:60px;width:300px;">
+      <input id="weight"    class="sheetField" placeholder="Poids" style="top:0;left:0;width:80px;position:relative;">
+      <span style="margin-left:10px;">/</span>
+      <input id="maxWeight" class="sheetField" placeholder="Max"   style="top:0;left:0;width:80px;position:relative;margin-left:10px;">
+      <div id="weightBarContainer" style="margin-top:6px;width:220px;height:14px;background:#222;border-radius:6px;overflow:hidden;">
+        <div id="weightBar" style="height:100%;width:0%;background:lime;"></div>
+      </div>
+    </div>
+    <textarea id="inventaire" class="sheetField" spellcheck="false" style="top:340px;left:60px;width:300px;height:620px;"></textarea>
+    <div id="curseBar" class="playerOnly" style="position:absolute;top:255px;right:60px;">
+      <span class="curseGem" onclick="toggleCurse(1)"></span>
+      <span class="curseGem" onclick="toggleCurse(2)"></span>
+      <span class="curseGem" onclick="toggleCurse(3)"></span>
+      <span class="curseGem" onclick="toggleCurse(4)"></span>
+      <span class="curseGem" onclick="toggleCurse(5)"></span>
+      <span class="curseGem" onclick="toggleCurse(6)"></span>
+      <span class="curseGem" onclick="toggleCurse(7)"></span>
+      <span class="curseGem" onclick="toggleCurse(8)"></span>
+    </div>
+    <input id="hp" class="sheetField" style="top:315px;right:60px;width:90px;font-size:20px;border:2px solid black;background:white;text-align:center;">
+    <div id="hpBarContainer" style="position:absolute;top:285px;right:60px;width:200px;height:18px;background:#222;border:2px solid #555;border-radius:6px;">
+      <div id="hpBar" style="height:100%;width:100%;background:linear-gradient(90deg,#ff5050,#b00000,#600000);border-radius:4px;box-shadow:0 0 8px red;"></div>
+    </div>
+    <div id="corruptionBar" class="playerOnly" style="position:absolute;top:370px;right:60px;">
+      <span class="corruptionPoint" onclick="setCorruption(1)"></span>
+      <span class="corruptionPoint" onclick="setCorruption(2)"></span>
+      <span class="corruptionPoint" onclick="setCorruption(3)"></span>
+      <span class="corruptionPoint" onclick="setCorruption(4)"></span>
+      <span class="corruptionPoint" onclick="setCorruption(5)"></span>
+      <span class="corruptionPoint" onclick="setCorruption(6)"></span>
+      <span class="corruptionPoint" onclick="setCorruption(7)"></span>
+      <span class="corruptionPoint" onclick="setCorruption(8)"></span>
+      <span class="corruptionPoint" onclick="setCorruption(9)"></span>
+      <span class="corruptionPoint" onclick="setCorruption(10)"></span>
+    </div>
+  </div>
+
+  <div id="goldZone" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+    <img src="images/bourse.png" id="goldBtn" onclick="toggleGoldInput()" style="width:48px;height:48px;object-fit:contain;cursor:pointer;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.8));transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">
+    <div id="goldDisplay" style="font-family:Cinzel,serif;font-size:16px;color:#d4a835;text-shadow:0 0 8px gold;display:none;min-width:60px;"></div>
+    <input id="goldInput" type="number" placeholder="Or" onmousedown="event.stopPropagation()" style="display:none;width:90px;padding:5px 8px;font-family:Cinzel,serif;font-size:15px;background:rgba(8,20,24,0.95);color:#d4a835;border:1px solid #8a6520;border-radius:3px;text-align:center;" onchange="saveGold()" onkeydown="if(event.key==='Enter')saveGold()">
+  </div>
+  <button onclick="saveCharacter()">ðŸ’¾ Sauvegarder</button>
+  <button onclick="closeCharacterSheet()">Fermer</button>
+</div>
+
+<!-- SONS -->
+<audio id="victorySound"><source src="audio/victoire.mp3"></audio>
+<audio id="combatSound"><source src="audio/combat.mp3"></audio>
+<audio id="combatMusic" loop><source src="audio/lowcombat.mp3"></audio>
+<audio id="parcheminSound"><source src="audio/parchemin.mp3"></audio>
+<audio id="critSound"><source src="audio/crit.mp3" type="audio/mpeg"></audio>
+<audio id="failSound"><source src="audio/fail.mp3" type="audio/mpeg"></audio>
+<audio id="powerSound"><source src="audio/power.mp3" type="audio/mpeg"></audio>
+<audio id="power1Sound" loop><source src="audio/power.mp3" type="audio/mpeg"></audio>
+<audio id="curseSound"><source src="audio/curse.mp3" type="audio/mpeg"></audio>
+<audio id="curse1Sound"><source src="audio/curse1.mp3" type="audio/mpeg"></audio>
+<audio id="curse2Sound"><source src="audio/curse2.mp3" type="audio/mpeg"></audio>
+<audio id="bark"><source src="audio/bark.mp3" type="audio/mpeg"></audio>
+<audio id="music" loop autoplay preload="auto" playsinline webkit-playsinline>
+  <source src="audio/menumusic.mp3" type="audio/mpeg">
+</audio>
+<audio id="levelUpSound"><source src="audio/lvlup.mp3" type="audio/mpeg"></audio>
+<audio id="defeatSound"><source src="audio/defaite.mp3" type="audio/mpeg"></audio>
+<audio id="musicA" loop></audio>
+<audio id="diceinvSound"><source src="audio/diceinv.mp3" type="audio/mpeg"></audio>
+<audio id="forsureMusic" loop><source src="audio/forsure.mp3" type="audio/mpeg"></audio>
+<audio id="musicB" loop></audio>
+<audio id="auroraMusic" loop><source src="audio/aurore.mp3" type="audio/mpeg"></audio>
+<audio id="madnessLow" loop><source src="audio/madness_low.mp3" type="audio/mpeg"></audio>
+<audio id="madnessMid" loop><source src="audio/madness_mid.mp3" type="audio/mpeg"></audio>
+<audio id="madnessHigh" loop><source src="audio/madness_high.mp3" type="audio/mpeg"></audio>
+<audio id="madnessPeak" loop><source src="audio/madness_peak.mp3" type="audio/mpeg"></audio>
+<audio id="whisperHit"><source src="audio/whisper hit.mp3" type="audio/mpeg"></audio>
+<audio id="thuumSound"><source src="audio/thuum.mp3" type="audio/mpeg"></audio>
+<audio id="criSound"><source src="audio/cri.mp3" type="audio/mpeg"></audio>
+
+<div id="audioSliders" style="position:fixed;top:12px;right:18px;z-index:1000000002;display:flex;flex-direction:column;gap:6px;padding:8px 10px;background:rgba(0,0,0,0.45);border:1px solid rgba(212,168,53,0.35);border-radius:10px;backdrop-filter:blur(4px);">
+  <label style="display:flex;align-items:center;gap:8px;font-family:Cinzel,serif;font-size:12px;color:#f0d8a0;letter-spacing:1px;">
+    <span style="min-width:54px;">Musique</span>
+    <input id="musicVolumeSlider" type="range" min="0" max="1" step="0.01" value="0.8">
+  </label>
+  <label style="display:flex;align-items:center;gap:8px;font-family:Cinzel,serif;font-size:12px;color:#f0d8a0;letter-spacing:1px;">
+    <span style="min-width:54px;">Effets</span>
+    <input id="effectsVolumeSlider" type="range" min="0" max="1" step="0.01" value="0.8">
+  </label>
+</div>
+
+<!-- BARRE MJ SAUVEGARDE -->
+<div id="gmSaveBar">
+  <button id="gmSaveBtn" onclick="showSaveMenu()">ðŸ’¾ Sauvegarder</button>
+</div>
+
+<!-- BARRE MJ -->
+<div id="gmBar">
+  <button class="gmIcon" onclick="toggleGMSection('gmCharacters')" title="Personnages (P)">ðŸŽ­</button>
+  <button class="gmIcon" onclick="toggleGMSection('mapMenu')"      title="Maps (M)">ðŸ—º</button>
+  <button class="gmIcon" onclick="toggleGMSection('pnjMenu')"      title="PNJ (R)">ðŸ‘¤</button>
+  <button class="gmIcon" onclick="toggleGMSection('mobMenu2')"     title="Mobs (T)">ðŸ‘¹</button>
+  <button class="gmIcon" onclick="toggleGMSection('xpMenu')"       title="XP">â­</button>
+  <button class="gmIcon" onclick="toggleGMSection('elementsMenu')" title="Ã‰lÃ©ments (E)">ðŸ—</button>
+  <button class="gmIcon" id="allyBtn" onclick="openAllyPNJPanel()" title="AlliÃ©s (A)" style="display:none;">âš”</button>
+</div>
+
+<!-- SECTIONS MJ -->
+<div id="gmCharacters" class="gmSection">
+  <button onclick="openCharacterSheet('greg')">Joueur 1</button>
+  <button onclick="openCharacterSheet('ju')">Joueur 2</button>
+  <button onclick="openCharacterSheet('elo')">Joueur 3</button>
+  <button onclick="openCharacterSheet('bibi')">Joueur 4</button>
+</div>
+
+<div id="xpMenu" class="gmSection">
+    <button class="gmButton" onclick="giveXP(10)">+10 XP</button>
+    <button class="gmButton" onclick="giveXP(20)">+20 XP</button>
+    <button class="gmButton" onclick="giveXP(50)">+50 XP</button>
+    <button class="gmButton" onclick="giveXP(80)">+80 XP</button>
+    <button class="gmButton" onclick="giveXP(120)">+120 XP</button>
+    <button class="gmButton" onclick="giveXP(200)">+200 XP</button>
+  </div>
+  
+<!-- MENU PNJ / HIGH PNJ -->
+<div id="pnjMenu" class="gmSection">
+  <div class="pnjTabs">
+    <button class="pnjTab active" onclick="openPNJTab('pnjTab', this)">ðŸ‘¤ PNJ</button>
+    <button class="pnjTab" onclick="openPNJTab('highPnjTab', this)">ðŸ‘‘ High PNJ</button>
+  </div>
+
+  <div id="pnjTab" class="pnjTabContent active">
+    <button class="mapCategoryButton" onclick="toggleCategory('pnjRivebois', this)"><span class="arrow">â–¶</span> ðŸº Rivebois</button>
+    <div id="pnjRivebois" class="mapCategory">
+      <button onclick="setPNJImage('tavernier.png')">Tavernier</button>
+      <button onclick="setPNJImage('serveuse.png')">Serveuse</button>
+      <button onclick="setPNJImage('marchand.png')">Marchand</button>
+      <button onclick="setPNJImage('voyantepnj.png')">Voyante</button>
+      <button onclick="setPNJImage('soulard.png')">Soulard</button>
+      <button onclick="setPNJImage('garde.png')">Garde</button>
+      <button onclick="setPNJImage('forgeron.png')">Forgeron</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('pnjBrume', this)"><span class="arrow">â–¶</span> ðŸŒ« Brume</button>
+    <div id="pnjBrume" class="mapCategory">
+      <button onclick="setPNJImage('child baldur.png')">Child Baldur</button>
+      <button onclick="setPNJImage('forgeron1.png')">Forgeron 2</button>
+      <button onclick="setPNJImage('garde baldur.png')">Garde Baldur</button>
+      <button onclick="setPNJImage('marchand2.png')">Marchand 2</button>
+      <button onclick="setPNJImage('capitaine.png')">Capitaine Tobias</button>
+      <button onclick="setPNJImage('serveusebrume.png')">Serveuse</button>
+      <button onclick="setPNJImage('soulard1.png')">Ren le bon</button>
+      <button onclick="setPNJImage('aubergistebrume.png')">Aubergiste</button>
+      <button onclick="setPNJImage('gardedunord.png')">Garde du Nord</button>
+      <button onclick="setPNJImage('garde2.png')">Garde 2</button>
+      <button onclick="setPNJImage('conseillerroinord.png')">Conseiller</button>
+      <button onclick="setPNJImage('pretre.png')">PrÃªtre</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('pnjGenerique', this)"><span class="arrow">â–¶</span> ðŸ‘¥ GÃ©nÃ©riques</button>
+    <div id="pnjGenerique" class="mapCategory">
+      <button onclick="setPNJImage('pnj1.png')">PNJ 1</button>
+      <button onclick="setPNJImage('pnj2.png')">PNJ 2</button>
+      <button onclick="setPNJImage('femmepnj.png')">Femme PNJ</button>
+      <button onclick="setPNJImage('femmepnj1.png')">Femme PNJ 2</button>
+      <button onclick="setPNJImage('femmepnj2.png')">Femme PNJ 3</button>
+      <button onclick="setPNJImage('femmepnj3.png')">Femme PNJ 4</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('pnjChasseur', this)"><span class="arrow">â–¶</span> ðŸŒŒ Chasseur Aurore</button>
+    <div id="pnjChasseur" class="mapCategory">
+      <button onclick="setPNJImage('pirat.png')">Capitaine Quince</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('pnjAutre', this)"><span class="arrow">â–¶</span> ðŸ“¦ Autre</button>
+    <div id="pnjAutre" class="mapCategory">
+      <button onclick="setPNJImage('oldmessager.png')">Vieux Messager</button>
+      <button onclick="setPNJImage('ELO PION.png')">ELO PION</button>
+      <button onclick="setPNJImage('ju pion.png')">JU PION</button>
+      <button onclick="setPNJImage('greg pion.png')">GREG PION</button>
+      <button onclick="setPNJImage('witch.png')">Witch</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('pnjMine', this)"><span class="arrow">â–¶</span> â› Mine</button>
+    <div id="pnjMine" class="mapCategory">
+      <button onclick="setPNJImage('mysterefemme.png')">Femme mysterieuse</button>
+      <button onclick="setPNJImage('mysterefemme1.png')">Glinda</button>
+    </div>
+    <!-- SLOT PNJ -->
+    <div style="margin-top:6px;border-top:1px solid rgba(30,90,102,0.3);padding-top:6px;">
+      <div style="font-family:Cinzel;font-size:10px;color:#1e8a9a;text-align:center;margin-bottom:4px;letter-spacing:1px;">SLOT PNJ</div>
+      <div style="display:flex;gap:4px;justify-content:center;margin-bottom:4px;">
+        <button id="slot1Btn" onclick="setPNJSlot(1)" style="flex:1;padding:4px;font-family:Cinzel;font-size:10px;background:rgba(30,90,102,0.4);color:#a0d8e0;border:1px solid #1e5a66;border-radius:3px;cursor:pointer;">â‘  Centre</button>
+        <button id="slot2Btn" onclick="setPNJSlot(2)" style="flex:1;padding:4px;font-family:Cinzel;font-size:10px;background:rgba(30,90,102,0.15);color:#6a9aaa;border:1px solid rgba(30,90,102,0.3);border-radius:3px;cursor:pointer;">â‘¡ Gauche</button>
+        <button id="slot3Btn" onclick="setPNJSlot(3)" style="flex:1;padding:4px;font-family:Cinzel;font-size:10px;background:rgba(30,90,102,0.15);color:#6a9aaa;border:1px solid rgba(30,90,102,0.3);border-radius:3px;cursor:pointer;">â‘¢ Droite</button>
+      </div>
+      <div style="display:flex;gap:4px;">
+        <button onclick="closePNJBySlot(1)" style="flex:1;padding:3px;font-family:Cinzel;font-size:9px;background:rgba(180,40,40,0.3);color:#ffaaaa;border:1px solid rgba(200,60,60,0.4);border-radius:3px;cursor:pointer;">âœ• C</button>
+        <button onclick="closePNJBySlot(2)" style="flex:1;padding:3px;font-family:Cinzel;font-size:9px;background:rgba(180,40,40,0.3);color:#ffaaaa;border:1px solid rgba(200,60,60,0.4);border-radius:3px;cursor:pointer;">âœ• G</button>
+        <button onclick="closePNJBySlot(3)" style="flex:1;padding:3px;font-family:Cinzel;font-size:9px;background:rgba(180,40,40,0.3);color:#ffaaaa;border:1px solid rgba(200,60,60,0.4);border-radius:3px;cursor:pointer;">âœ• D</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="highPnjTab" class="pnjTabContent">
+    <button onclick="showHighPNJ('maire.png', 'Maire Rivebois')">Maire Rivebois</button>
+    <button onclick="showHighPNJ('roi.png', 'Le Roi')">Roi</button>
+    <button onclick="showHighPNJ('generalmelenchon.png', 'GÃ©nÃ©ral MÃ©lenchon')">GÃ©nÃ©ral MÃ©lenchon</button>
+    <button onclick="showHighPNJ('jarl baldur.png', 'Jarl Baldur')">Jarl Baldur</button>
+    <button onclick="showHighPNJ('intendantbrume.png', 'Intendant de Brume')">Intendant de Brume</button>
+    <button class="mapCategoryButton" onclick="toggleCategory('highPnjDieux', this)"><span class="arrow">â–¶</span> âš¡ Dieux</button>
+    <div id="highPnjDieux" class="mapCategory">
+      <button onclick="showHighPNJ('odin.png', 'Odin')">Odin</button>
+      <button onclick="showHighPNJ('thor.png', 'Thor')">Thor</button>
+      <button onclick="showHighPNJ('freya.png', 'Freya')">Freya</button>
+      <button onclick="showHighPNJ('heimdall.png', 'Heimdall')">Heimdall</button>
+    </div>
+  </div>
+</div>
+
+<!-- MENU MOBS / PNJ COMBAT -->
+<div id="mobMenu2" class="gmSection">
+  <div class="pnjTabs">
+    <button class="pnjTab active" onclick="openPNJTab('mobTab', this)">ðŸ‘¹ Mobs</button>
+    <button class="pnjTab" onclick="openPNJTab('pnjCombatTab', this)">âš” PNJ Combat</button>
+  </div>
+
+  <div id="mobTab" class="pnjTabContent active">
+    <button class="mapCategoryButton" onclick="toggleCategory('mobBetes', this)"><span class="arrow">â–¶</span> ðŸº BÃªtes</button>
+    <div id="mobBetes" class="mapCategory">
+      <button onclick="openMobDiff('loup', event)"  style="width:100%;text-align:left;">Loup</button>
+      <button onclick="openMobDiff('ogre', event)"  style="width:100%;text-align:left;">Ogre</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('mobHumano', this)"><span class="arrow">â–¶</span> ðŸ—¡ HumanoÃ¯des</button>
+    <div id="mobHumano" class="mapCategory">
+      <button onclick="openMobDiff('gobelins', event)"  style="width:100%;text-align:left;">Gobelin</button>
+      <button onclick="openMobDiff('bandit', event)"    style="width:100%;text-align:left;">Bandit</button>
+      <button onclick="openMobDiff('garde', event)"     style="width:100%;text-align:left;">Garde</button>
+      <button onclick="openMobDiff('valkyrie', event)"  style="width:100%;text-align:left;">Valkyrie</button>
+      <button onclick="openMobDiff('liquorice', event)" style="width:100%;text-align:left;">Liquorice</button>
+      <button onclick="openMobDiff('chnaw', event)"     style="width:100%;text-align:left;">Chnaw</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('mobMystique', this)"><span class="arrow">â–¶</span> ðŸ§™ Mystiques</button>
+    <div id="mobMystique" class="mapCategory">
+      <button onclick="openMobDiff('vampire', event)" style="width:100%;text-align:left;">Vampire</button>
+      <button onclick="openMobDiff('witch', event)"   style="width:100%;text-align:left;">SorciÃ¨re</button>
+      <button onclick="openMobDiff('pretre', event)"  style="width:100%;text-align:left;">PrÃªtre Maudit</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('mobGoules', this)"><span class="arrow">â–¶</span> ðŸ’€ Morts-Vivants</button>
+    <div id="mobGoules" class="mapCategory">
+      <button onclick="openMobDiff('fantome', event)" style="width:100%;text-align:left;">FantÃ´me</button>
+      <button onclick="openMobDiff('draugr', event)"  style="width:100%;text-align:left;">Draugr</button>
+      <button onclick="openMobDiff('zombie', event)"  style="width:100%;text-align:left;">Zombie</button>
+      <button onclick="openMobDiff('zombie2', event)" style="width:100%;text-align:left;">Zombie 2</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('mobMonstres', this)"><span class="arrow">â–¶</span> ðŸ‘¹ Monstres</button>
+    <div id="mobMonstres" class="mapCategory">
+      <button onclick="openMobDiff('dragon', event)" style="width:100%;text-align:left;">Dragon</button>
+      <button onclick="openMobDiff('golem', event)"  style="width:100%;text-align:left;">Golem</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('mobWorldBoss', this)"><span class="arrow">â–¶</span> âš¡ World Boss</button>
+    <div id="mobWorldBoss" class="mapCategory">
+      <button onclick="startCombat('balraug','boss')">Balraug</button>
+      <button onclick="startCombat('fenrir','boss')">Fenrir</button>
+      <button onclick="startCombat('jormungand','boss')">Jormungand</button>
+      <button onclick="startCombat('kraken','boss')">Kraken</button>
+      <button onclick="startCombat('nhiddog','boss')">Nhiddog</button>
+      <button onclick="startCombat('roi','boss')">Roi</button>
+    </div>
+  </div>
+
+  <div id="pnjCombatTab" class="pnjTabContent">
+    <button class="mapCategoryButton" onclick="toggleCategory('pnjCombatHumano', this)"><span class="arrow">â–¶</span> Humanoides</button>
+    <div id="pnjCombatHumano" class="mapCategory">
+      <button onclick="openMobDiff('ELO PION', event)"  style="width:100%;text-align:left;">ELO PION</button>
+      <button onclick="openMobDiff('ju pion', event)"   style="width:100%;text-align:left;">JU PION</button>
+      <button onclick="openMobDiff('greg pion', event)" style="width:100%;text-align:left;">GREG PION</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('pnjCombatRivebois', this)"><span class="arrow">â–¶</span> ðŸº Rivebois</button>
+    <div id="pnjCombatRivebois" class="mapCategory">
+      <button onclick="openMobDiff('tavernier', event)"   style="width:100%;text-align:left;">Tavernier</button>
+      <button onclick="openMobDiff('soulard', event)"     style="width:100%;text-align:left;">Soulard</button>
+      <button onclick="openMobDiff('serveuse', event)"    style="width:100%;text-align:left;">Serveuse</button>
+      <button onclick="openMobDiff('marchand', event)"    style="width:100%;text-align:left;">Marchand</button>
+      <button onclick="openMobDiff('forgeron', event)"    style="width:100%;text-align:left;">Forgeron</button>
+      <button onclick="openMobDiff('pnj1', event)"        style="width:100%;text-align:left;">PNJ 1</button>
+      <button onclick="openMobDiff('pnj2', event)"        style="width:100%;text-align:left;">PNJ 2</button>
+      <button onclick="openMobDiff('femmepnj', event)"    style="width:100%;text-align:left;">Femme PNJ</button>
+      <button onclick="openMobDiff('femmepnj1', event)"   style="width:100%;text-align:left;">Femme PNJ 2</button>
+      <button onclick="openMobDiff('femmepnj2', event)"   style="width:100%;text-align:left;">Femme PNJ 3</button>
+      <button onclick="openMobDiff('femmepnj3', event)"   style="width:100%;text-align:left;">Femme PNJ 4</button>
+      <button onclick="openMobDiff('oldmessager', event)" style="width:100%;text-align:left;">Vieux Messager</button>
+      <button onclick="openMobDiff('maire', event)"       style="width:100%;text-align:left;">Maire</button>
+      <button onclick="openMobDiff('voyantepnj', event)"  style="width:100%;text-align:left;">Voyante</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('pnjCombatBrume', this)"><span class="arrow">â–¶</span> ðŸŒ« Brume</button>
+    <div id="pnjCombatBrume" class="mapCategory">
+      <button onclick="openMobDiff('garde', event)"             style="width:100%;text-align:left;">Garde</button>
+      <button onclick="openMobDiff('garde2', event)"            style="width:100%;text-align:left;">Garde 2</button>
+      <button onclick="openMobDiff('gardedunord', event)"       style="width:100%;text-align:left;">Garde du Nord</button>
+      <button onclick="openMobDiff('forgeron1', event)"         style="width:100%;text-align:left;">Forgeron 2</button>
+      <button onclick="openMobDiff('marchand2', event)"         style="width:100%;text-align:left;">Marchand 2</button>
+      <button onclick="openMobDiff('child baldur', event)"      style="width:100%;text-align:left;">Child Baldur</button>
+      <button onclick="openMobDiff('intendantbrume', event)"    style="width:100%;text-align:left;">Intendant de Brume</button>
+      <button onclick="openMobDiff('conseillerroinord', event)" style="width:100%;text-align:left;">Conseiller</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('pnjCombatImportants', this)"><span class="arrow">â–¶</span> ðŸ‘‘ Importants</button>
+    <div id="pnjCombatImportants" class="mapCategory">
+      <button onclick="openMobDiff('pretre', event)"           style="width:100%;text-align:left;">PrÃªtre</button>
+      <button onclick="openMobDiff('garde baldur', event)"     style="width:100%;text-align:left;">Garde Baldur</button>
+      <button onclick="openMobDiff('generalmelenchon', event)" style="width:100%;text-align:left;">GÃ©nÃ©ral MÃ©lenchon</button>
+      <button onclick="openMobDiff('jarl baldur', event)"      style="width:100%;text-align:left;">Jarl Baldur</button>
+      <button onclick="openMobDiff('chnaw', event)"            style="width:100%;text-align:left;">Chnaw</button>
+      <button onclick="openMobDiff('liquorice', event)"        style="width:100%;text-align:left;">Liquorice</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('pnjCombatDieux', this)"><span class="arrow">â–¶</span> âš¡ Dieux</button>
+    <div id="pnjCombatDieux" class="mapCategory">
+      <button onclick="startCombat('odin','boss')">Odin</button>
+      <button onclick="startCombat('thor','boss')">Thor</button>
+      <button onclick="startCombat('freya','boss')">Freya</button>
+      <button onclick="openMobDiff('heimdall', event)" style="width:100%;text-align:left;">Heimdall</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('pnjCombatMine', this)"><span class="arrow">â–¶</span> â› Mine</button>
+    <div id="pnjCombatMine" class="mapCategory">
+      <button onclick="openMobDiff('mysterefemme', event)"  style="width:100%;text-align:left;">Femme mysterieuse</button>
+      <button onclick="openMobDiff('mysterefemme1', event)" style="width:100%;text-align:left;">Glinda</button>
+    </div>
+  </div>
+</div>
+
+<!-- ELEMENTS MENU -->
+<div id="elementsMenu" class="gmSection">
+  <div class="pnjTabs">
+    <button class="pnjTab active" onclick="openPNJTab('elemIndices', this)">ðŸ“œ</button>
+    <button class="pnjTab" onclick="openPNJTab('elemObjets', this)">âš”</button>
+    <button class="pnjTab" onclick="openPNJTab('elemEffets', this)">âœ¨</button>
+    <button class="pnjTab" onclick="openPNJTab('elemCartes', this)">áš¦</button>
+    <button class="pnjTab" onclick="openPNJTab('elemJeu', this)">áš±</button>
+    <button class="pnjTab" onclick="openPNJTab('elemFolie', this)">â˜¾</button>
+    <button class="pnjTab" onclick="openPNJTab('elemWanted', this)">ðŸŽ¯</button>
+  </div>
+  <div id="elemIndices" class="pnjTabContent active">
+    <div class="elem-title">ðŸƒ DOCUMENTS</div>
+    <button onclick="showDocument('note baldur.png','Note de Baldur')" class="elem-doc-btn">ðŸ“œ Note de Baldur</button>
+    <button onclick="showDocument('note foret.png','Note de la ForÃªt')" class="elem-doc-btn">ðŸ“œ Note de la ForÃªt</button>
+    <button onclick="showDocument('fresque.jpg','Fresque Maelstrom')" class="elem-doc-btn">ðŸ–¼ Fresque Maelstrom</button>
+    <div class="panel-divider-tight">
+      <button onclick="clearAllElements()" class="elem-clear-btn">ðŸ—‘ Tout effacer</button>
+    </div>
+  </div>
+  <div id="elemObjets" class="pnjTabContent">
+    <div class="panel-divider">
+      <button onclick="openShop('armurerie')" class="elem-full-btn elem-shop-armurerie">âš” Armurerie</button>
+      <button onclick="openShop('marche')" class="elem-full-btn elem-shop-marche">ðŸ›’ MarchÃ©</button>
+    </div>
+  </div>
+  <div id="elemEffets" class="pnjTabContent">
+    <div class="panel-divider elem-stack">
+      <button onclick="triggerAurora()" class="elem-full-btn elem-effect-aurora">ðŸŒŒ DÃ©clencher Aurore</button>
+      <button onclick="cemeteryEventDone=false;triggerCemeteryEvent()" class="elem-full-btn elem-effect-cemetery">âš¡ Sort CimetiÃ¨re</button>
+    </div>
+  </div>
+  <div id="elemCartes" class="pnjTabContent">
+    <div class="panel-divider">
+      <div class="elem-title-gold">CRI DE MOUCHES - SKRAA</div>
+      <button onclick="grantThuumToPlayer('greg','SKRAA')" class="thuum-grant-btn">Donner SKRAA a GREG</button>
+      <button onclick="grantThuumToPlayer('ju','SKRAA')" class="thuum-grant-btn">Donner SKRAA a JU</button>
+      <button onclick="grantThuumToPlayer('elo','SKRAA')" class="thuum-grant-btn">Donner SKRAA a ELO</button>
+      <button onclick="grantThuumToPlayer('bibi','SKRAA')" class="thuum-grant-btn last">Donner SKRAA a BIBI</button>
+      <div class="spacer-8"></div>
+      <button onclick="grantThuumUseToPlayer('greg','SKRAA')" class="thuum-use-btn">Autoriser SKRAA hors combat a GREG</button>
+      <button onclick="grantThuumUseToPlayer('ju','SKRAA')" class="thuum-use-btn">Autoriser SKRAA hors combat a JU</button>
+      <button onclick="grantThuumUseToPlayer('elo','SKRAA')" class="thuum-use-btn">Autoriser SKRAA hors combat a ELO</button>
+      <button onclick="grantThuumUseToPlayer('bibi','SKRAA')" class="thuum-use-btn last">Autoriser SKRAA hors combat a BIBI</button>
+    </div>
+  </div>
+  <div id="elemJeu" class="pnjTabContent">
+    <div class="rune-title">âš” DÃ‰FI RUNIQUE âš”</div>
+    <button id="runeLaunchBtn" onclick="openRuneChallenge()" class="rune-launch-btn">áš± Lancer le DÃ©fi</button>
+    <button id="runeContinueBtn" onclick="db.ref('game/runeChallenge').once('value',s=>renderRuneChallenge(s.val()))" class="rune-continue-btn">â–¶ Continuer le DÃ©fi</button>
+    <div class="rune-subtitle">â€” RÃ‰VÃ‰LER UNE LETTRE â€”</div>
+    <div id="runeLetterPanel" class="rune-panel">
+      <div class="rune-letter-grid">
+        <button onclick="revealRuneLetter('A')" class="runeLetBtn">A</button><button onclick="revealRuneLetter('B')" class="runeLetBtn">B</button>
+        <button onclick="revealRuneLetter('C')" class="runeLetBtn">C</button><button onclick="revealRuneLetter('D')" class="runeLetBtn">D</button>
+        <button onclick="revealRuneLetter('E')" class="runeLetBtn">E</button><button onclick="revealRuneLetter('F')" class="runeLetBtn">F</button>
+        <button onclick="revealRuneLetter('G')" class="runeLetBtn">G</button><button onclick="revealRuneLetter('H')" class="runeLetBtn">H</button>
+        <button onclick="revealRuneLetter('I')" class="runeLetBtn">I</button><button onclick="revealRuneLetter('J')" class="runeLetBtn">J</button>
+        <button onclick="revealRuneLetter('K')" class="runeLetBtn">K</button><button onclick="revealRuneLetter('L')" class="runeLetBtn">L</button>
+        <button onclick="revealRuneLetter('M')" class="runeLetBtn">M</button><button onclick="revealRuneLetter('N')" class="runeLetBtn">N</button>
+        <button onclick="revealRuneLetter('O')" class="runeLetBtn">O</button><button onclick="revealRuneLetter('P')" class="runeLetBtn">P</button>
+        <button onclick="revealRuneLetter('R')" class="runeLetBtn">R</button><button onclick="revealRuneLetter('S')" class="runeLetBtn">S</button>
+        <button onclick="revealRuneLetter('T')" class="runeLetBtn">T</button><button onclick="revealRuneLetter('U')" class="runeLetBtn">U</button>
+        <button onclick="revealRuneLetter('V')" class="runeLetBtn">V</button><button onclick="revealRuneLetter('W')" class="runeLetBtn">W</button>
+        <button onclick="revealRuneLetter('Y')" class="runeLetBtn">Y</button><button onclick="revealRuneLetter('Z')" class="runeLetBtn">Z</button>
+      </div>
+    </div>
+  </div>
+  <div id="elemFolie" class="pnjTabContent">
+    <div class="madness-panel">
+      <div class="rune-title">FOLIE DU GROUPE</div>
+      <div id="madnessMJValue" class="madness-value">0 / 100</div>
+      <div class="madness-grid">
+        <button onclick="changeGroupMadness(5)" class="madness-btn madness-btn-up">+5</button>
+        <button onclick="changeGroupMadness(10)" class="madness-btn madness-btn-up">+10</button>
+        <button onclick="changeGroupMadness(-5)" class="madness-btn madness-btn-down">-5</button>
+        <button onclick="resetGroupMadness()" class="madness-btn madness-btn-reset">Reset</button>
+      </div>
+    </div>
+  </div>
+  <div id="elemWanted" class="pnjTabContent">
+    <div class="wanted-title">âš” AFFICHES WANTED</div>
+    <button onclick="openWantedBoard()" class="wanted-create-btn" style="margin-bottom:10px;">Wanted Board</button>
+    <div id="wantedList" class="wanted-list"></div>
+    <button onclick="openWantedEditor()" class="wanted-create-btn">+ CrÃ©er une affiche</button>
+  </div>
+</div>
+
+<!-- MAP MENU -->
+<div id="mapMenu" class="gmSection">
+  <div class="pnjTabs">
+    <button class="pnjTab active" onclick="openPNJTab('mapVilles', this)">ðŸ™ Villes</button>
+    <button class="pnjTab" onclick="openPNJTab('mapLandscape', this)">ðŸŒ„ Landscape</button>
+    <button class="pnjTab" onclick="openPNJTab('mapLieux', this)">ðŸ—º Lieux</button>
+    <button class="pnjTab" onclick="openPNJTab('mapMondeTab', this)">Mapmonde</button>
+  </div>
+
+  <!-- VILLES -->
+  <div id="mapVilles" class="pnjTabContent active">
+    <button class="mapCategoryButton" onclick="toggleCategory('villageMaps', this)"><span class="arrow">â–¶</span> Rivebois</button>
+    <div id="villageMaps" class="mapCategory">
+      <button onclick="changeMap('taverne.jpg')">Taverne</button>
+      <button onclick="changeMap('village1.jpg')">Village</button>
+      <button onclick="changeMap('armurerie.jpg')">Armurerie</button>
+      <button onclick="changeMap('marche.jpg')">MarchÃ©</button>
+      <button onclick="changeMap('voyante.jpg')">Voyante</button>
+      <button onclick="changeMap('mairemaison.jpg')">Mairie</button>
+      <button onclick="changeMap('epouventail.jpg')">Ã‰pouvantail</button>
+      <button onclick="changeMap('rivebois.jpg')">Rivebois</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('portMaps', this)"><span class="arrow">â–¶</span> Brume</button>
+    <div id="portMaps" class="mapCategory">
+      <button onclick="changeMap('port.jpg')">EntrÃ©e Brume</button>
+      <button onclick="changeMap('tavernebrume.png')">Taverne de Brume</button>
+      <button onclick="changeMap('bateaunord.png')">Bateau Nord</button>
+      <button onclick="changeMap('egout.jpg')">Ã‰gout de Brume</button>
+      <button onclick="changeMap('balduregout.jpg')">Salle secrÃ¨te de Baldur</button>
+      <button onclick="changeMap('armurerie1.jpg')">Armurerie</button>
+      <button onclick="changeMap('marche1.jpg')">Place du marchÃ©</button>
+      <button onclick="changeMap('palaisville.jpg')">Palais de l'intendant Macron</button>
+      <button onclick="changeMap('bateau.jpg', 'forsure')">Le for sure</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('auroraHunterMaps', this)"><span class="arrow">â–¶</span> Chasseur d'Aurores</button>
+    <div id="auroraHunterMaps" class="mapCategory">
+      <button onclick="changeMap('chasseuraurore.jpg')">Camp chasseurs</button>
+      <button onclick="changeMap('tenteaurore.jpg')">Tente du gÃ©nÃ©ral</button>
+      <button onclick="changeMap('bateau1.jpg')">L'Oregon III</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('asgardMaps', this)"><span class="arrow">â–¶</span> Asgard</button>
+    <div id="asgardMaps" class="mapCategory">
+      <button onclick="changeMap('bifrost.jpg')">Bifrost</button>
+      <button onclick="changeMap('asgard.jpg')">CitÃ© des dieux Asgard</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('niflheimMaps', this)"><span class="arrow">â–¶</span> Niflheim</button>
+    <div id="niflheimMaps" class="mapCategory">
+      <button onclick="changeMap('tourbillon.jpg')">Maelstrom</button>
+      <button onclick="changeMap('niflheim.jpg')">CitÃ© engloutie Niflheim</button>
+      <button onclick="changeMap('hvergelmir.jpg')">Source sacrÃ©e Hvergelmir</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('castleofevilMaps', this)"><span class="arrow">â–¶</span> Castle of Evil</button>
+    <div id="castleofevilMaps" class="mapCategory">
+      <button onclick="changeMap('castleofevil.jpg')">EntrÃ©e castle</button>
+      <button onclick="changeMap('interieurcastle.jpg')">Salle castle</button>
+      <button onclick="changeMap('throne.jpg')">Throne</button>
+    </div>
+  </div>
+
+  <!-- LANDSCAPE -->
+  <div id="mapLandscape" class="pnjTabContent">
+    <button onclick="changeMap('prairie.jpg')" class="map-simple-btn">Prairie</button>
+    <button onclick="changeMap('neige.jpg')" class="map-simple-btn">Neige</button>
+  </div>
+
+  <!-- LIEUX -->
+  <div id="mapLieux" class="pnjTabContent">
+    <button class="mapCategoryButton" onclick="toggleCategory('forestMaps', this)"><span class="arrow">â–¶</span> ForÃªt</button>
+    <div id="forestMaps" class="mapCategory">
+      <button onclick="changeMap('foret.jpg')">ForÃªt</button>
+      <button onclick="changeMap('arbre.jpg')">Arbre</button>
+      <button onclick="changeMap('portail.jpg')">Portail</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('mineMaps', this)"><span class="arrow">â–¶</span> Mine</button>
+    <div id="mineMaps" class="mapCategory">
+      <button onclick="changeMap('mine.jpg')">EntrÃ©e mine</button>
+      <button onclick="changeMap('interieurmine.jpg')">Salle mine</button>
+      <button onclick="changeMap('prebalraug.jpg')">Pre-Balraug</button>
+      <button onclick="changeMap('balraug.jpg', 'balraug')">Antre de Balraug</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('cimetiereMaps', this)"><span class="arrow">â–¶</span> CimetiÃ¨re</button>
+    <div id="cimetiereMaps" class="mapCategory">
+      <button onclick="changeMap('cimetiere.jpg')">CimetiÃ¨re</button>
+      <button onclick="changeMap('chapelle.jpg')">Chapelle</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('antreMaps', this)"><span class="arrow">â–¶</span> Antre</button>
+    <div id="antreMaps" class="mapCategory">
+      <button onclick="changeMap('trou.jpg')">Passage</button>
+      <button onclick="changeMap('antre.jpg')">L'Antre</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('ruinesBaldurMaps', this)"><span class="arrow">â–¶</span> ðŸš Ruines Baldur</button>
+    <div id="ruinesBaldurMaps" class="mapCategory">
+      <button onclick="changeMap('ruines.jpg')">Village du Jarl</button>
+    </div>
+    <button class="mapCategoryButton" onclick="toggleCategory('autreMaps', this)"><span class="arrow">â–¶</span> Autres</button>
+    <div id="autreMaps" class="mapCategory">
+      <button onclick="changeMap('cristaux.jpg')">Cristaux</button>
+    </div>
+  </div>
+
+  <!-- MAPMONDE -->
+  <div id="mapMondeTab" class="pnjTabContent">
+    <button onclick="changeMap('MAPMONDE.jpg')" class="map-simple-btn">MAP MONDE</button>
+    <button onclick="toggleWorldMapFogTopLeft()" class="map-simple-btn">Fog haut-gauche</button>
+  </div>
+</div>
+
+<!-- JOURNAL MJ -->
+<div id="mjLog">
+  <div class="mjTitle mj-log-head">
+    <span>ðŸ“œ Journal du MJ</span>
+    <span id="mjLogToggle" onclick="toggleMJLog()" class="mj-log-toggle" title="RÃ©duire">â–¼</span>
+  </div>
+  <div id="mjLogContent"></div>
+</div>
+
+<div id="locationBanner">
+  <div id="locationParticles"></div>
+  <div id="locationPaper"><span id="locationText"></span></div>
+</div>
+
+<div id="storyImage" style="display:none;opacity:0;"><img id="storyImageContent"></div>
+<div id="storyImage2" style="display:none;"><img id="storyImageContent2"></div>
+<div id="storyImage3" style="display:none;"><img id="storyImageContent3"></div>
+
+<div id="combatIntro"><div id="combatIntroText">âš” PREPAREZ-VOUS Ã€ COMBATTRE âš”</div></div>
+<div id="victoryScreen"><div id="victoryText">VICTOIRE!</div></div>
+<div id="combatFilter"></div>
+<div id="thuumUnlockScreen">
+  <div id="thuumUnlockInner">
+    <img id="thuumUnlockImage" src="images/thuum.png" alt="Thuum">
+    <div id="thuumUnlockTitle">Nouveau Cri de Mouches appris : SKRAA</div>
+    <div id="thuumUnlockWords">SKRAA - VORTH - NAAK</div>
+    <div id="thuumUnlockPlayer"></div>
+  </div>
+</div>
+
+<button id="playerAttackBtn" onclick="togglePlayerAttacks()" style="display:none;">âš”</button>
+<button id="playerThuumBtn" onclick="togglePlayerThuumPanel()" style="display:none;" aria-label="Thuum"><img src="images/runeskraa.png" alt="SKRAA"></button>
+<div id="playerThuumPanel" style="display:none;"></div>
+
+<div id="combatHUD">
+  <img id="combatHUDPortrait">
+  <div id="combatHUDInfo">
+    <div id="combatHUDName"></div>
+    <div id="combatHUDAttacks"></div>
+  </div>
+</div>
+
+<div id="gmDamagePanel">
+  <div id="gmDamagePanelInner">
+    <div id="mobHPDisplay">
+      <div id="mobHPBarTop"><span id="mobHPTopText">â€” / â€”</span></div>
+      <div id="mobHPBarTopContainer"><div id="mobHPBarTop"></div></div>
+    </div>
+    <div id="gmDamageRow">
+      <label>DÃ©gÃ¢ts :</label>
+      <input id="mobDamageInput" type="number" placeholder="0">
+    </div>
+    <div id="gmCombatButtons">
+      <button id="btnVictoire" onclick="showVictory()">âš” VICTOIRE</button>
+      <button id="btnDefaite"  onclick="showDefeat()">ðŸ’€ DÃ‰FAITE</button>
+    </div>
+  </div>
+</div>
+
+<div id="gmCombatPanel"></div>
+
+<div id="addMobPanel" style="display:none;margin-top:8px;border-top:1px solid rgba(200,60,60,0.3);padding-top:8px;">
+  <div style="font-family:Cinzel,serif;font-size:10px;color:#ff8888;text-align:center;margin-bottom:6px;letter-spacing:2px;">+ AJOUTER UN MOB</div>
+  <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;" id="addMobButtons"></div>
+</div>
+
+<div id="mobHUD">
+  <div id="mobName"></div>
+  <div id="mobHPBarContainer"><div id="mobHPBar"></div></div>
+  <div id="mobHPText"></div>
+</div>
+
+<div id="playerCombatPanel">
+  <div class="playerCombatTitle">Stats</div>
+  <div class="playerStat">Force :   <input id="combat_force"></div>
+  <div class="playerStat">Charme :  <input id="combat_charme"></div>
+  <div class="playerStat">Perspi :  <input id="combat_perspi"></div>
+  <div class="playerStat">Chance :  <input id="combat_chance"></div>
+  <div class="playerStat">DÃ©fense : <input id="combat_defense"></div>
+  <div class="playerStat">â¤ï¸ HP :   <input id="combat_hp">
+    <div id="combatHPBarContainer"><div id="combatHPBar"></div></div>
+  </div>
+</div>
+
+<div id="combatArena">
+  <div id="combatGrid"></div>
+  <div id="combatTokens"></div>
+  <div id="defeatScreen">
+    <div id="defeatText">DÃ‰FAITE</div>
+    <div id="defeatSubText">Vos hÃ©ros tombent dans l'obscuritÃ©...<br>La prophÃ©tie n'est pas encore accomplie.</div>
+  </div>
+</div>
+
+<!-- MENU SÃ‰LECTION MOBS PRÃ‰-COMBAT -->
+<div id="mobSelectionMenu" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:1000000004;align-items:center;justify-content:center;flex-direction:column;gap:16px;" data-darkreader-ignore>
+  <canvas id="mobMenuBg" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;"></canvas>
+  <div style="position:relative;z-index:1;text-align:center;padding:30px;background:rgb(15,0,0)!important;border:2px solid rgb(180,40,40);border-radius:12px;min-width:400px;box-shadow:0 0 60px rgb(200,0,0);" data-darkreader-ignore>
+    <div id="mobMenuTitle" style="font-family:'Cinzel Decorative',serif;font-size:20px;color:rgb(255,100,100);letter-spacing:4px;margin-bottom:8px;">âš” CONFIGURATION DU COMBAT</div>
+    <div id="mobMenuSub"   style="font-family:Cinzel,serif;font-size:12px;color:rgb(180,80,80);letter-spacing:2px;margin-bottom:20px;"></div>
+    <div style="display:flex;gap:16px;justify-content:center;margin-bottom:20px;">
+      <div style="background:rgb(25,5,5);border:1px solid rgb(120,30,30);border-radius:8px;padding:12px;width:160px;">
+        <div style="font-family:Cinzel,serif;font-size:10px;color:rgb(160,60,60);margin-bottom:8px;letter-spacing:1px;">MOB 2 (optionnel)</div>
+        <div id="mobSlot2Select" data-value="" onmousedown="event.stopPropagation()" style="width:100%;padding:5px;font-family:Cinzel,serif;font-size:11px;background:rgb(20,5,5);color:rgb(255,180,180);border:1px solid rgb(120,30,30);border-radius:3px;cursor:pointer;text-align:center;" onclick="event.stopPropagation();toggleMobDropdown('slot2',this)">â€” Aucun â€”</div>
+        <div id="mobDropdown_slot2" onmousedown="event.stopPropagation()" style="display:none;position:fixed;background:rgb(15,3,3);border:1px solid rgb(150,30,30);border-radius:4px;max-height:180px;overflow-y:auto;z-index:999999999;width:160px;"></div>
+      </div>
+      <div style="background:rgb(25,5,5);border:1px solid rgb(120,30,30);border-radius:8px;padding:12px;width:160px;">
+        <div style="font-family:Cinzel,serif;font-size:10px;color:rgb(160,60,60);margin-bottom:8px;letter-spacing:1px;">MOB 3 (optionnel)</div>
+        <div id="mobSlot3Select" data-value="" onmousedown="event.stopPropagation()" style="width:100%;padding:5px;font-family:Cinzel,serif;font-size:11px;background:rgb(20,5,5);color:rgb(255,180,180);border:1px solid rgb(120,30,30);border-radius:3px;cursor:pointer;text-align:center;" onclick="event.stopPropagation();toggleMobDropdown('slot3',this)">â€” Aucun â€”</div>
+        <div id="mobDropdown_slot3" onmousedown="event.stopPropagation()" style="display:none;position:fixed;background:rgb(15,3,3);border:1px solid rgb(150,30,30);border-radius:4px;max-height:180px;overflow-y:auto;z-index:999999999;width:160px;"></div>
+      </div>
+    </div>
+    <div id="mobPreviewRow" style="display:flex;gap:24px;justify-content:center;margin-bottom:16px;min-height:70px;align-items:center;"></div>
+    <div style="display:flex;gap:12px;justify-content:center;">
+      <button id="mobMenuLaunch" onclick="launchFromMobMenu()" style="padding:12px 30px;font-family:Cinzel,serif;font-size:13px;letter-spacing:2px;background:rgb(100,0,0);color:rgb(255,150,150);border:2px solid rgb(180,40,40);border-radius:6px;cursor:pointer;">âš” Lancer</button>
+      <button onclick="document.getElementById('mobSelectionMenu').style.display='none'" style="padding:12px 20px;font-family:Cinzel,serif;font-size:12px;background:rgb(30,30,30);color:rgb(150,150,150);border:1px solid rgb(80,80,80);border-radius:6px;cursor:pointer;">âœ• Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- POPUP DIFFICULTÃ‰ MOB -->
+<div id="mobDiffPopup" style="display:none;position:fixed;z-index:1000000005;background:rgb(15,3,3);border:1px solid rgb(180,40,40);border-radius:6px;padding:8px;box-shadow:0 0 20px rgba(180,0,0,0.4);" onmousedown="event.stopPropagation()">
+  <div id="mobDiffName" style="font-family:Cinzel,serif;font-size:10px;color:rgb(200,100,100);letter-spacing:2px;text-align:center;margin-bottom:6px;"></div>
+  <div style="display:flex;flex-direction:column;gap:4px;">
+    <button onclick="launchMobDiff('weak')"   style="padding:4px 14px;font-family:Cinzel,serif;font-size:11px;background:rgb(30,10,10);color:rgb(180,220,180);border:1px solid rgb(60,120,60);border-radius:3px;cursor:pointer;">â— Faible</button>
+    <button onclick="launchMobDiff('medium')" style="padding:4px 14px;font-family:Cinzel,serif;font-size:11px;background:rgb(30,10,10);color:rgb(220,180,100);border:1px solid rgb(120,90,30);border-radius:3px;cursor:pointer;">â—â— Moyen</button>
+    <button onclick="launchMobDiff('high')"   style="padding:4px 14px;font-family:Cinzel,serif;font-size:11px;background:rgb(30,10,10);color:rgb(220,120,80);border:1px solid rgb(150,60,30);border-radius:3px;cursor:pointer;">â—â—â— Puissant</button>
+    <button onclick="launchMobDiff('boss')"   style="padding:4px 14px;font-family:Cinzel,serif;font-size:11px;background:rgb(30,10,10);color:rgb(255,180,80);border:1px solid rgb(180,100,0);border-radius:3px;cursor:pointer;">âš¡ Boss</button>
+  </div>
+</div>
+
+<!-- Ã‰DITEUR WANTED -->
+<div id="wantedEditor" onmousedown="event.stopPropagation()" onclick="event.stopPropagation()" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:99999999;align-items:center;justify-content:center;">
+  <div style="background:rgb(20,12,5);border:2px solid rgb(150,100,30);border-radius:10px;padding:20px;width:320px;font-family:Cinzel,serif;">
+    <div style="font-size:14px;color:rgb(255,200,80);letter-spacing:3px;text-align:center;margin-bottom:14px;">âš” CRÃ‰ER UNE AFFICHE</div>
+    <div id="wantedMobBtn" data-value="" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();toggleWantedDropdown(this)" style="width:100%;padding:6px;margin-bottom:4px;font-family:Cinzel,serif;font-size:11px;background:rgb(15,8,3);color:rgb(255,200,120);border:1px solid rgb(120,80,20);border-radius:3px;cursor:pointer;text-align:center;box-sizing:border-box;">â€” Choisir un mob â€”</div>
+    <div id="wantedMobDropdown" onmousedown="event.stopPropagation()" style="display:none;position:fixed;background:rgb(15,5,0);border:1px solid rgb(120,80,20);border-radius:4px;max-height:200px;overflow-y:auto;z-index:999999999;width:280px;"></div>
+    <div id="wantedTierBtn" data-value="weak" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();toggleWantedTierDropdown(this)" style="width:100%;padding:6px;margin-bottom:4px;font-family:Cinzel,serif;font-size:11px;background:rgb(15,8,3);color:rgb(255,200,120);border:1px solid rgb(120,80,20);border-radius:3px;cursor:pointer;text-align:center;box-sizing:border-box;">Faible â€” 50-150 po</div>
+    <div id="wantedTierDropdown" onmousedown="event.stopPropagation()" style="display:none;position:fixed;background:rgb(15,5,0);border:1px solid rgb(120,80,20);border-radius:4px;z-index:999999999;width:280px;">
+      <div onmousedown="event.stopPropagation()" onclick="event.stopPropagation();selectWantedTier('weak','Faible â€” 50-150 po')"       style="padding:6px 10px;font-family:Cinzel,serif;font-size:11px;color:rgb(180,220,180);cursor:pointer;">Faible â€” 50-150 po</div>
+      <div onmousedown="event.stopPropagation()" onclick="event.stopPropagation();selectWantedTier('medium','Moyen â€” 200-500 po')"     style="padding:6px 10px;font-family:Cinzel,serif;font-size:11px;color:rgb(220,180,100);cursor:pointer;">Moyen â€” 200-500 po</div>
+      <div onmousedown="event.stopPropagation()" onclick="event.stopPropagation();selectWantedTier('high','Puissant â€” 600-1200 po')"   style="padding:6px 10px;font-family:Cinzel,serif;font-size:11px;color:rgb(220,120,80);cursor:pointer;">Puissant â€” 600-1200 po</div>
+      <div onmousedown="event.stopPropagation()" onclick="event.stopPropagation();selectWantedTier('boss','Boss â€” 2000-5000 po')"      style="padding:6px 10px;font-family:Cinzel,serif;font-size:11px;color:rgb(255,180,80);cursor:pointer;">Boss â€” 2000-5000 po</div>
+    </div>
+    <input id="wantedReward" type="number" placeholder="RÃ©compense (po)" onmousedown="event.stopPropagation()" style="width:100%;padding:6px;margin-bottom:8px;font-family:Cinzel,serif;font-size:11px;background:rgb(15,8,3);color:rgb(255,200,120);border:1px solid rgb(120,80,20);border-radius:3px;box-sizing:border-box;">
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <button onclick="createWantedPoster()" style="flex:1;padding:8px;font-family:Cinzel,serif;font-size:12px;background:rgb(80,50,10);color:rgb(255,200,80);border:1px solid rgb(150,100,30);border-radius:4px;cursor:pointer;">âœ“ CrÃ©er</button>
+      <button onclick="document.getElementById('wantedEditor').style.display='none'" style="flex:1;padding:8px;font-family:Cinzel,serif;font-size:12px;background:rgb(40,20,5);color:rgb(180,140,80);border:1px solid rgb(100,70,20);border-radius:4px;cursor:pointer;">âœ• Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================== -->
+<!-- SCRIPTS â€” ordre de chargement important        -->
+<!-- ============================================== -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<!-- 1. DonnÃ©es statiques -->
+<script src="config.js?v=3"></script>
+<!-- 2. Variables d'Ã©tat -->
+<script src="state.js?v=1"></script>
+<!-- 3. Utilitaires (pas de dÃ©pendances Firebase) -->
+<script src="utils.js?v=7"></script>
+<script src="customization.js?v=9"></script>
+<!-- 4. Logique principale + Firebase listeners -->
+<script src="game.js?v=16"></script>
+<!-- 5. Interface utilisateur -->
+<script src="ui.js?v=2"></script>
+<!-- 6. Combat -->
+<script src="combat.js?v=2"></script>
+<script>
+function playMenuMusicIfPossible() {
+  var music = document.getElementById("music")
+  if (!music) return
+  var targetVolume = 0.8
+  try {
+    if (typeof getUserMusicVolume === "function") targetVolume = getUserMusicVolume()
+  } catch (e) {}
+  music.loop = true
+  music.__baseVolume = 1
+  music.__audioChannel = "music"
+  if (music.paused) {
+    music.volume = Math.max(0, Math.min(1, targetVolume))
+    music.play().then(function() {
+      document.removeEventListener("pointerdown", playMenuMusicIfPossible, true)
+      document.removeEventListener("keydown", playMenuMusicIfPossible, true)
+      document.removeEventListener("touchstart", playMenuMusicIfPossible, true)
+    }).catch(function() {})
+  }
+}
+
+function closeProjectCreationWizard() {
+  const existing = document.getElementById("projectCreationWizardOverlay")
+  if (existing) existing.remove()
+}
+
+function openProjectCreationWizard() {
+  closeProjectCreationWizard()
+
+  var themeOptions = typeof getProjectThemeOptions === "function"
+    ? getProjectThemeOptions()
+    : [
+        { value: "medieval_fantasy", label: "Medieval fantasy", description: "Royaumes, magie, quetes et monstres." },
+        { value: "science_fiction",  label: "Science-fiction",  description: "Technologie, futur, stations et exploration." },
+        { value: "pirate",           label: "Pirate",           description: "Iles, tresors, tempetes et navires." },
+        { value: "contemporain",     label: "Contemporaine",    description: "Ville actuelle, enquete, survie ou mystere." }
+      ]
+
+  var wizState = { step: 1, title: "", theme: themeOptions[0] ? themeOptions[0].value : "medieval_fantasy", playerCount: 4, tone: "epique", starterMode: "empty" }
+
+  var overlay = document.createElement("div")
+  overlay.id = "projectCreationWizardOverlay"
+  overlay.style.cssText = "position:fixed;inset:0;z-index:1000000016;background:rgba(0,0,0,0.88);display:flex;align-items:center;justify-content:center;padding:20px;"
+  overlay.addEventListener("mousedown", function(e) { if (e.target === overlay) closeProjectCreationWizard() })
+
+  var panel = document.createElement("div")
+  panel.style.cssText = "width:min(920px,95vw);max-height:92vh;overflow:auto;padding:26px;border-radius:20px;background:linear-gradient(180deg,rgba(18,14,10,0.99),rgba(7,7,7,0.99));border:1px solid rgba(214,180,106,0.42);box-shadow:0 28px 70px rgba(0,0,0,0.82);color:#f3e7cf;font-family:Cinzel,serif;"
+  overlay.appendChild(panel)
+  document.body.appendChild(overlay)
+
+  function makeBtn(label, primary) {
+    var b = document.createElement("button")
+    b.type = "button"
+    b.textContent = label
+    b.style.cssText = "padding:12px 18px;border-radius:10px;cursor:pointer;font-family:Cinzel,serif;"
+    if (primary) { b.style.border = "1px solid #caa46b"; b.style.background = "linear-gradient(#7a5533,#4b321c)"; b.style.color = "#f5e6c8" }
+    else { b.style.border = "1px solid rgba(214,180,106,0.22)"; b.style.background = "rgba(255,255,255,0.05)"; b.style.color = "#f3e7cf" }
+    return b
+  }
+
+  function mkCard(selected) {
+    var c = document.createElement("button")
+    c.type = "button"
+    c.style.cssText = "text-align:left;padding:18px;border-radius:16px;cursor:pointer;font-family:Cinzel,serif;color:#f5e6c8;"
+    c.style.border = selected ? "1px solid rgba(240,208,135,0.75)" : "1px solid rgba(214,180,106,0.18)"
+    c.style.background = selected ? "linear-gradient(180deg,rgba(104,72,36,0.42),rgba(17,34,46,0.88))" : "rgba(255,255,255,0.04)"
+    return c
+  }
+  function mkTitle(text) { var d = document.createElement("div"); d.textContent = text; d.style.cssText = "font-size:19px;color:#f0d087;"; return d }
+  function mkDesc(text)  { var d = document.createElement("div"); d.textContent = text; d.style.cssText = "margin-top:8px;font-size:13px;line-height:1.6;color:#d5c4a2;"; return d }
+
+  function goNext() {
+    if (wizState.step === 1) {
+      var t = String(wizState.title || "").trim()
+      if (!t) { if (typeof showNotification === "function") showNotification("Donne d'abord un nom au projet"); return }
+      wizState.title = t; wizState.step = 2; render(); return
+    }
+    if (wizState.step === 2) { wizState.step = 3; render(); return }
+    if (wizState.step === 3) { wizState.step = 4; render(); return }
+    if (wizState.step === 4) { wizState.step = 5; render(); return }
+    if (wizState.step === 5) {
+      if (typeof getDefaultCustomization !== "function" || typeof saveCustomization !== "function") {
+        if (typeof showNotification === "function") showNotification("Fonctions manquantes"); return
+      }
+      var base = getDefaultCustomization()
+      base.project.title = wizState.title || base.project.title
+      base.project.theme = wizState.theme || base.project.theme
+      base.project.playerCount = Math.max(1, Math.min(12, parseInt(wizState.playerCount, 10) || 4))
+      base.project.tone = wizState.tone || ""
+      base.project.starterMode = wizState.starterMode || "empty"
+      saveCustomization(base)
+      window.__pendingProjectSeed = { title: base.project.title, theme: base.project.theme, playerCount: base.project.playerCount, tone: base.project.tone, starterMode: base.project.starterMode }
+      closeProjectCreationWizard()
+      if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
+      if (typeof newGame === "function") {
+        var oc = window.confirm; window.confirm = function() { return true }
+        newGame()
+        window.confirm = oc
+      }
+    }
+  }
+
+  function render() {
+    panel.innerHTML = ""
+
+    var hdr = document.createElement("div"); hdr.style.cssText = "display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:20px;"
+    var htxt = document.createElement("div")
+    var ey = document.createElement("div"); ey.textContent = "CREATION MJ"; ey.style.cssText = "font-size:13px;letter-spacing:2px;color:#cdbb96;"
+    var ht = document.createElement("div"); ht.textContent = "Creer un nouveau projet"; ht.style.cssText = "margin-top:8px;font-size:30px;color:#f0d087;"
+      var hl = document.createElement("div"); hl.textContent = "5 etapes pour poser les bases du projet."; hl.style.cssText = "margin-top:8px;font-size:14px;line-height:1.7;color:#cdbb96;"
+    htxt.appendChild(ey); htxt.appendChild(ht); htxt.appendChild(hl)
+    var closeBtn = makeBtn("Fermer", false); closeBtn.onclick = closeProjectCreationWizard
+    hdr.appendChild(htxt); hdr.appendChild(closeBtn); panel.appendChild(hdr)
+
+    var steps = document.createElement("div"); steps.style.cssText = "display:flex;gap:10px;align-items:center;margin-bottom:20px;"
+    var labels = ["1. Nom", "2. Ambiance", "3. Joueurs", "4. Ton", "5. Depart"]
+    labels.forEach(function(lbl, i) {
+      if (i > 0) { var sep = document.createElement("div"); sep.style.cssText = "width:18px;height:1px;background:rgba(214,180,106,0.25);"; steps.appendChild(sep) }
+      var pill = document.createElement("div"); pill.textContent = lbl
+      var active = wizState.step === i + 1
+      pill.style.cssText = "padding:8px 12px;border-radius:999px;font-size:12px;letter-spacing:1px;"
+      pill.style.border = active ? "1px solid rgba(240,208,135,0.68)" : "1px solid rgba(214,180,106,0.18)"
+      pill.style.background = active ? "rgba(97,64,28,0.4)" : "rgba(255,255,255,0.04)"
+      steps.appendChild(pill)
+    })
+    panel.appendChild(steps)
+
+    var body = document.createElement("div")
+    body.style.cssText = "padding:18px;border-radius:16px;background:rgba(255,255,255,0.035);border:1px solid rgba(214,180,106,0.16);"
+    panel.appendChild(body)
+
+    if (wizState.step === 1) {
+      var l1 = document.createElement("div"); l1.textContent = "Donne un nom a ton projet"; l1.style.cssText = "font-size:24px;color:#f5e6c8;"
+      var d1 = document.createElement("div"); d1.textContent = "Tu pourras le modifier plus tard."; d1.style.cssText = "margin-top:8px;font-size:14px;line-height:1.7;color:#cdbb96;"
+      var inp = document.createElement("input"); inp.type = "text"; inp.value = wizState.title; inp.placeholder = "Ex : Les Brumes d'Arkenfall"
+      inp.style.cssText = "margin-top:18px;width:100%;padding:16px 18px;background:rgba(8,8,8,0.92);border:1px solid rgba(180,150,90,0.45);border-radius:12px;color:#f5e6c8;font-family:Cinzel,serif;font-size:18px;box-sizing:border-box;"
+      inp.oninput = function() { wizState.title = inp.value }
+      inp.onkeydown = function(e) { if (e.key === "Enter") { e.preventDefault(); goNext() } }
+      body.appendChild(l1); body.appendChild(d1); body.appendChild(inp)
+      setTimeout(function() { inp.focus(); inp.select() }, 20)
+
+    } else if (wizState.step === 2) {
+      var l2 = document.createElement("div"); l2.textContent = "Dans quelle aventure nous embarques-tu ?"; l2.style.cssText = "font-size:24px;color:#f5e6c8;"
+      var g2 = document.createElement("div"); g2.style.cssText = "margin-top:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;"
+      themeOptions.forEach(function(opt) {
+        var c = mkCard(opt.value === wizState.theme)
+        c.appendChild(mkTitle(opt.label)); c.appendChild(mkDesc(opt.description))
+        c.onclick = function() { wizState.theme = opt.value; render() }
+        g2.appendChild(c)
+      })
+      body.appendChild(l2); body.appendChild(g2)
+
+    } else if (wizState.step === 3) {
+      var l3 = document.createElement("div"); l3.textContent = "Combien de joueurs ?"; l3.style.cssText = "font-size:24px;color:#f5e6c8;"
+      var d3 = document.createElement("div"); d3.textContent = "Choisis un format rapide ou indique directement un nombre personnalise."; d3.style.cssText = "margin-top:8px;font-size:14px;line-height:1.7;color:#cdbb96;"
+      var g3 = document.createElement("div"); g3.style.cssText = "margin-top:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;"
+      ;[1,2,3,4].forEach(function(n) {
+        var c = mkCard(n === wizState.playerCount)
+        c.appendChild(mkTitle(n + " joueur" + (n > 1 ? "s" : "")))
+        c.appendChild(mkDesc(n === 1 ? "Format solo ou narration centree." : "Table pour " + n + " slots joueurs."))
+        c.onclick = function() { wizState.playerCount = n; render() }
+        g3.appendChild(c)
+      })
+      var customWrap = document.createElement("div"); customWrap.style.cssText = "margin-top:16px;display:grid;gap:8px;"
+      var customLabel = document.createElement("div"); customLabel.textContent = "Nombre personnalise (1 a 12)"; customLabel.style.cssText = "font-size:13px;color:#d5c4a2;"
+      var customInput = document.createElement("input"); customInput.type = "number"; customInput.min = "1"; customInput.max = "12"; customInput.value = String(wizState.playerCount || 4)
+      customInput.style.cssText = "width:100%;padding:14px 16px;background:rgba(8,8,8,0.92);border:1px solid rgba(180,150,90,0.45);border-radius:12px;color:#f5e6c8;font-family:Cinzel,serif;font-size:17px;box-sizing:border-box;"
+      customInput.oninput = function() { wizState.playerCount = Math.max(1, Math.min(12, parseInt(customInput.value, 10) || 1)) }
+      customWrap.appendChild(customLabel); customWrap.appendChild(customInput)
+      body.appendChild(l3); body.appendChild(d3); body.appendChild(g3); body.appendChild(customWrap)
+
+    } else if (wizState.step === 4) {
+      var l4 = document.createElement("div"); l4.textContent = "Quel ton pour la campagne ?"; l4.style.cssText = "font-size:24px;color:#f5e6c8;"
+      var d4 = document.createElement("div"); d4.textContent = "Choisis l'ambiance narrative de ton projet. Tu pourras toujours la changer plus tard."; d4.style.cssText = "margin-top:8px;font-size:14px;line-height:1.7;color:#cdbb96;"
+      var g4 = document.createElement("div"); g4.style.cssText = "margin-top:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;"
+      ;[
+        { value: "epique",       label: "Epique",       desc: "Grand souffle, heros, legendes et scenes marquantes." },
+        { value: "sombre",       label: "Sombre",       desc: "Danger, tension, pertes, ambiance lourde et brutale." },
+        { value: "leger",        label: "Leger",        desc: "Aventure accessible, rythme souple et respiration." },
+        { value: "mystere",      label: "Mystere",      desc: "Secrets, indices, revelations et progression feutree." },
+        { value: "heroique",     label: "Heroique",     desc: "Les heros triomphent, l'espoir guide chaque acte." },
+        { value: "humoristique", label: "Humoristique", desc: "Derision, quiproquos, aventure legere et decalee." }
+      ].forEach(function(t) {
+        var c = mkCard(t.value === wizState.tone)
+        c.appendChild(mkTitle(t.label)); c.appendChild(mkDesc(t.desc))
+        c.onclick = function() { wizState.tone = (wizState.tone === t.value ? "" : t.value); render() }
+        g4.appendChild(c)
+      })
+      body.appendChild(l4); body.appendChild(d4); body.appendChild(g4)
+    } else if (wizState.step === 5) {
+      var l5 = document.createElement("div"); l5.textContent = "Avec quelle base veux-tu commencer ?"; l5.style.cssText = "font-size:24px;color:#f5e6c8;"
+      var d5 = document.createElement("div"); d5.textContent = "Tu peux partir sur un projet totalement vide, puis tout construire dans le studio MJ."; d5.style.cssText = "margin-top:8px;font-size:14px;line-height:1.7;color:#cdbb96;"
+      var g5 = document.createElement("div"); g5.style.cssText = "margin-top:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;"
+      ;[
+        { value: "empty", label: "Projet vide a remplir", desc: "Aucune structure prechargee. Tu construis tout toi-meme." },
+        { value: "maps", label: "Base cartes", desc: "Une base orientee lieux, maps et organisation spatiale." },
+        { value: "characters", label: "Base personnages", desc: "Une base centree fiches, slots et casting de depart." },
+        { value: "combat", label: "Base combat", desc: "Une base pour accelerer les tests de mobs et affrontements." }
+      ].forEach(function(mode) {
+        var c = mkCard(mode.value === wizState.starterMode)
+        c.appendChild(mkTitle(mode.label)); c.appendChild(mkDesc(mode.desc))
+        c.onclick = function() { wizState.starterMode = mode.value; render() }
+        g5.appendChild(c)
+      })
+      body.appendChild(l5); body.appendChild(d5); body.appendChild(g5)
+    }
+
+    var ftr = document.createElement("div"); ftr.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-top:18px;flex-wrap:wrap;gap:12px;"
+    var info = document.createElement("div"); info.style.cssText = "font-size:12px;color:#bfae8b;"
+    var txt = wizState.title || "Sans nom"
+    if (wizState.step >= 2) txt += " Â· " + wizState.theme
+    if (wizState.step >= 3) txt += " Â· " + wizState.playerCount + " joueur" + (wizState.playerCount > 1 ? "s" : "")
+    if (wizState.step >= 4 && wizState.tone) txt += " Â· " + wizState.tone
+    if (wizState.step >= 5) txt += " Â· " + wizState.starterMode
+    info.textContent = txt
+    var acts = document.createElement("div"); acts.style.cssText = "display:flex;gap:10px;"
+    if (wizState.step >= 2) { var bk = makeBtn("Retour", false); bk.onclick = function() { wizState.step--; render() }; acts.appendChild(bk) }
+    var nx = makeBtn(wizState.step < 5 ? "Continuer" : "Creer le projet", true)
+    nx.onclick = goNext
+    acts.appendChild(nx)
+    ftr.appendChild(info); ftr.appendChild(acts); panel.appendChild(ftr)
+  }
+
+  render()
+}
+function closeCreatorStudioEntry() {
+  const overlay = document.getElementById("creatorStudioEntryOverlay")
+  if (overlay) overlay.remove()
+}
+
+function openCreatorStudioEntry() {
+  closeCreatorStudioEntry()
+
+  const overlay = document.createElement("div")
+  overlay.id = "creatorStudioEntryOverlay"
+  overlay.style.cssText = "position:fixed;inset:0;z-index:1000000015;background:rgba(0,0,0,0.84);display:flex;align-items:center;justify-content:center;padding:20px;"
+  overlay.addEventListener("mousedown", function(event) {
+    if (event.target === overlay) closeCreatorStudioEntry()
+  })
+
+  const panel = document.createElement("div")
+  panel.style.cssText = "width:min(760px,94vw);max-height:90vh;overflow:auto;padding:24px;border-radius:18px;background:linear-gradient(180deg,rgba(18,14,10,0.98),rgba(7,7,7,0.98));border:1px solid rgba(214,180,106,0.42);box-shadow:0 24px 60px rgba(0,0,0,0.78);color:#f3e7cf;font-family:Cinzel,serif;"
+  panel.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px;">
+      <div>
+        <div style="font-size:28px;letter-spacing:2px;color:#f0d087;">Studio MJ</div>
+        <div style="margin-top:8px;font-size:14px;line-height:1.6;color:#cdbb96;">Centre de creation pour configurer ton projet, ouvrir l'edition et acceder aux outils MJ.</div>
+      </div>
+      <button type="button" id="creatorStudioEntryClose" style="padding:10px 14px;border-radius:10px;border:1px solid rgba(214,180,106,0.36);background:rgba(255,255,255,0.06);color:#f3e7cf;cursor:pointer;font-family:Cinzel,serif;">Fermer</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
+      <button type="button" data-entry-action="customize" style="padding:14px 16px;border-radius:12px;border:1px solid rgba(90,140,165,0.34);background:rgba(14,38,54,0.82);color:#f0dba1;cursor:pointer;font-family:Cinzel,serif;">Editer le projet</button>
+      <button type="button" data-entry-action="gm" style="padding:14px 16px;border-radius:12px;border:1px solid rgba(90,140,165,0.34);background:rgba(14,38,54,0.82);color:#f0dba1;cursor:pointer;font-family:Cinzel,serif;">Activer le mode MJ</button>
+      <button type="button" data-entry-action="maps" style="padding:14px 16px;border-radius:12px;border:1px solid rgba(90,140,165,0.34);background:rgba(14,38,54,0.82);color:#f0dba1;cursor:pointer;font-family:Cinzel,serif;">Outils maps</button>
+      <button type="button" data-entry-action="pnj" style="padding:14px 16px;border-radius:12px;border:1px solid rgba(90,140,165,0.34);background:rgba(14,38,54,0.82);color:#f0dba1;cursor:pointer;font-family:Cinzel,serif;">Outils PNJ</button>
+      <button type="button" data-entry-action="mobs" style="padding:14px 16px;border-radius:12px;border:1px solid rgba(90,140,165,0.34);background:rgba(14,38,54,0.82);color:#f0dba1;cursor:pointer;font-family:Cinzel,serif;">Outils mobs</button>
+      <button type="button" data-entry-action="docs" style="padding:14px 16px;border-radius:12px;border:1px solid rgba(90,140,165,0.34);background:rgba(14,38,54,0.82);color:#f0dba1;cursor:pointer;font-family:Cinzel,serif;">Outils documents</button>
+    </div>
+    <div style="margin-top:16px;padding:14px 16px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(214,180,106,0.16);font-size:12px;line-height:1.6;color:#bfae8b;">
+      Si l'ancien flux MJ pose encore probleme, ce studio d'entree reste accessible et sert de passerelle vers les outils.
+    </div>
+  `
+
+  overlay.appendChild(panel)
+  document.body.appendChild(overlay)
+
+  document.getElementById("creatorStudioEntryClose").onclick = closeCreatorStudioEntry
+
+  panel.querySelectorAll("[data-entry-action]").forEach(function(button) {
+    button.onclick = function() {
+      const action = String(button.dataset.entryAction || "")
+      if (action === "customize") {
+        if (typeof openCustomizationPanel === "function") {
+          closeCreatorStudioEntry()
+          openCustomizationPanel()
+          return
+        }
+        if (typeof showNotification === "function") showNotification("Editeur indisponible pour le moment.")
+        return
+      }
+
+      if (action === "gm") {
+        if (typeof requestGM === "function") requestGM()
+        return
+      }
+
+      if (typeof requestGM === "function") requestGM()
+
+      const menuMap = {
+        maps: "mapMenu",
+        pnj: "pnjMenu",
+        mobs: "mobMenu2",
+        docs: "elementsMenu"
+      }
+      const menuId = menuMap[action]
+      if (!menuId) return
+
+      if (typeof startGame === "function" && !window.gameStarted) startGame()
+
+      setTimeout(function() {
+        if (typeof toggleGMSection === "function") {
+          closeCreatorStudioEntry()
+          toggleGMSection(menuId)
+        }
+      }, 900)
+    }
+  })
+}
+
+function safeStartIntro(event) {
+  if (event) {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+  if (window.__introBooted) return
+  window.__introBooted = true
+  window.__introClickLockUntil = Date.now() + 800
+  const start = document.getElementById("startScreen")
+  const intro = document.getElementById("intro")
+  if (start) {
+    start.style.pointerEvents = "none"
+    start.style.zIndex = "999999999"
+  }
+  if (intro) intro.style.pointerEvents = "none"
+  try {
+    if (typeof startIntro === "function") {
+      startIntro()
+      setTimeout(playMenuMusicIfPossible, 250)
+    } else {
+      throw new Error("startIntro introuvable")
+    }
+  } catch (error) {
+    console.error("safeStartIntro fallback:", error)
+    forceShowIntroHub()
+    setTimeout(playMenuMusicIfPossible, 60)
+  }
+}
+
+function forceShowIntroHub() {
+  const start = document.getElementById("startScreen")
+  const intro = document.getElementById("intro")
+  if (start) {
+    start.style.display = "none"
+    start.style.opacity = "0"
+    start.style.visibility = "hidden"
+    start.style.pointerEvents = "none"
+  }
+  if (intro) {
+    intro.style.display = "flex"
+    intro.style.opacity = "1"
+    intro.style.visibility = "visible"
+    intro.style.pointerEvents = "auto"
+    intro.style.zIndex = "15"
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const start = document.getElementById("startScreen")
+  if (start) {
+    start.style.zIndex = "999999999"
+    start.style.pointerEvents = "none"
+  }
+  document.addEventListener("pointerdown", playMenuMusicIfPossible, true)
+  document.addEventListener("keydown", playMenuMusicIfPossible, true)
+  document.addEventListener("touchstart", playMenuMusicIfPossible, true)
+  window.addEventListener("focus", playMenuMusicIfPossible, true)
+  window.addEventListener("pageshow", playMenuMusicIfPossible, true)
+  document.addEventListener("visibilitychange", function() {
+    if (document.visibilityState === "visible") playMenuMusicIfPossible()
+  }, true)
+  setTimeout(() => safeStartIntro(), 60)
+  setTimeout(() => {
+    const intro = document.getElementById("intro")
+    const start = document.getElementById("startScreen")
+    const introHidden = !intro || intro.style.display === "none" || intro.style.visibility === "hidden"
+    const startVisible = !!start && start.style.display !== "none"
+    if (introHidden || startVisible) forceShowIntroHub()
+    playMenuMusicIfPossible()
+  }, 1800)
+  document.addEventListener("click", function(event) {
+    if (Date.now() < (window.__introClickLockUntil || 0)) {
+      const intro = document.getElementById("intro")
+      if (intro && intro.contains(event.target)) {
+        event.preventDefault()
+        event.stopPropagation()
+      }
+    }
+  }, true)
+})
+</script>
+
+<div id="menuMusicCredit">
+  <div>Copyright free Music-"Embers in the Wind"</div>
+  <div>Find more at @alexepicmusic</div>
+</div>
+
+</body>
+</html>
+
+

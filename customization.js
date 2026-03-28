@@ -1,0 +1,652 @@
+"use strict"
+
+(function () {
+  const PLAYER_IDS = ["greg", "ju", "elo", "bibi"]
+
+  function byId(id) { return document.getElementById(id) }
+  function clone(value) { return JSON.parse(JSON.stringify(value)) }
+  function esc(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;")
+  }
+
+  function getExtendedCustomization() {
+    const data = getCustomization()
+    data.content = data.content && typeof data.content === "object" ? data.content : {}
+    data.content.maps = Array.isArray(data.content.maps) ? data.content.maps : []
+    data.content.pnjs = Array.isArray(data.content.pnjs) ? data.content.pnjs : []
+    data.content.highPnjs = Array.isArray(data.content.highPnjs) ? data.content.highPnjs : []
+    data.content.mobs = Array.isArray(data.content.mobs) ? data.content.mobs : []
+    data.content.documents = Array.isArray(data.content.documents) ? data.content.documents : []
+    return data
+  }
+
+  function saveExtendedCustomization(data) {
+    saveCustomization(data)
+  }
+
+  function getDefaultCatalog() {
+    return {
+      maps: {
+        villes: [],
+        landscape: [],
+        lieux: [],
+        monde: []
+      },
+      pnjs: [],
+      highPnjs: [],
+      mobs: {
+        normal: [],
+        combat: []
+      },
+      documents: []
+    }
+  }
+
+  function getCatalog() {
+    const catalog = clone(getDefaultCatalog())
+    const custom = getExtendedCustomization().content
+    custom.maps.forEach(item => {
+      const section = item.section || "lieux"
+      if (!catalog.maps[section]) catalog.maps[section] = []
+      let group = catalog.maps[section].find(entry => entry[0] === (item.category || "Custom"))
+      if (!group) { group = [item.category || "Custom", []]; catalog.maps[section].push(group) }
+      group[1].push([item.label, item.map, item.audio || ""])
+    })
+    custom.pnjs.forEach(item => {
+      let group = catalog.pnjs.find(entry => entry[0] === (item.category || "Custom"))
+      if (!group) { group = [item.category || "Custom", []]; catalog.pnjs.push(group) }
+      group[1].push([item.label, item.image])
+    })
+    custom.highPnjs.forEach(item => {
+      let group = catalog.highPnjs.find(entry => entry[0] === (item.category || "Custom"))
+      if (!group) { group = [item.category || "Custom", []]; catalog.highPnjs.push(group) }
+      group[1].push([item.label, item.image, item.title || item.label])
+    })
+    custom.mobs.forEach(item => {
+      const target = item.combatOnly ? catalog.mobs.combat : catalog.mobs.normal
+      let group = target.find(entry => entry[0] === (item.category || "Custom"))
+      if (!group) { group = [item.category || "Custom", []]; target.push(group) }
+      group[1].push([item.label, item.id, item.action || "diff"])
+    })
+    custom.documents.forEach(item => {
+      let group = catalog.documents.find(entry => entry[0] === (item.category || "Custom"))
+      if (!group) { group = [item.category || "Custom", []]; catalog.documents.push(group) }
+      group[1].push([item.label, item.image, item.title || item.label])
+    })
+    return catalog
+  }
+
+  function ensureCustomMobsRegistered() {
+    getExtendedCustomization().content.mobs.forEach(item => {
+      if (!item || !item.id) return
+      if (typeof mobStats === "object" && mobStats && !mobStats[item.id]) mobStats[item.id] = { tier: item.tier || "weak", baseHP: Number(item.baseHP) || 30 }
+      if (Array.isArray(WANTED_MOBS) && !WANTED_MOBS.includes(item.id)) WANTED_MOBS.push(item.id)
+      if (Array.isArray(MOB_SELECT_LIST) && !MOB_SELECT_LIST.includes(item.id)) MOB_SELECT_LIST.push(item.id)
+    })
+  }
+
+  function createCategoryBlock(id, label, buttonsHtml) {
+    return `<button class="mapCategoryButton" onclick="toggleCategory('${id}', this)"><span class="arrow">&#9656;</span> ${esc(label)}</button><div id="${esc(id)}" class="mapCategory">${buttonsHtml}</div>`
+  }
+
+  function slugify(value) {
+    return String(value || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "") || "custom_mob"
+  }
+
+  function refreshProjectTitle() {
+    const title = String(getExtendedCustomization().project.title || "Roleplay It Yourself").trim() || "Roleplay It Yourself"
+    document.title = title
+    const titleEl = byId("gameTitle")
+    if (titleEl) {
+      titleEl.innerText = title
+      titleEl.classList.add("visible")
+      titleEl.style.opacity = "1"
+    }
+  }
+
+  function refreshThemePresentation() {
+    const customization = getExtendedCustomization()
+    if (typeof getProjectThemePresentation !== "function") return
+    const presentation = getProjectThemePresentation(customization.project.theme)
+    document.body.setAttribute("data-project-theme", presentation.theme)
+
+    const eyebrow = byId("entryHubEyebrow")
+    if (eyebrow) eyebrow.innerText = presentation.eyebrow
+    const lead = byId("entryHubLead")
+    if (lead) lead.innerText = presentation.lead
+    const mjTitle = byId("entryMjTitle")
+    if (mjTitle) mjTitle.innerText = presentation.mjTitle
+    const mjDescription = byId("entryMjDescription")
+    if (mjDescription) mjDescription.innerText = presentation.mjDescription
+    const playerTitle = byId("entryPlayerTitle")
+    if (playerTitle) playerTitle.innerText = presentation.playerTitle
+    const playerDescription = byId("entryPlayerDescription")
+    if (playerDescription) playerDescription.innerText = presentation.playerDescription
+  }
+
+  function refreshPlayerLabels() {
+    PLAYER_IDS.forEach(playerId => {
+      const player = getPlayerCustomization(playerId)
+      const name = getPlayerDisplayName(playerId)
+      const image = player.image || resolveImagePath(playerId + ".png")
+      document.querySelectorAll(`[data-player-choice="${playerId}"]`).forEach(button => { button.innerText = name })
+      const token = byId(playerId)
+      if (token) {
+        const img = token.querySelector("img")
+        if (img) img.src = image
+        const tag = token.querySelector(".nameTag")
+        if (tag) tag.innerText = name
+      }
+      document.querySelectorAll(`button[onclick="openCharacterSheet('${playerId}')"]`).forEach(button => { button.innerText = name })
+    })
+  }
+
+  function refreshAuthSelect() {
+    const select = byId("playerAuthCharacter")
+    if (!select) return
+    ;[...select.options].forEach(option => {
+      if (!option.value) return
+      option.text = getPlayerDisplayName(option.value)
+    })
+  }
+
+  function renderMapMenu() {
+    const catalog = getCatalog()
+    const renderMapBtn = item => `<button onclick="changeMap('${esc(item[1])}'${item[2] ? `, '${esc(item[2])}'` : ""})">${esc(item[0])}</button>`
+    const renderSection = (groups, prefix) => groups.map((group, index) => createCategoryBlock(`${prefix}_${index}`, group[0], group[1].map(renderMapBtn).join(""))).join("")
+    if (byId("mapVilles")) byId("mapVilles").innerHTML = renderSection(catalog.maps.villes, "dynMapVilles")
+    if (byId("mapLandscape")) byId("mapLandscape").innerHTML = catalog.maps.landscape.flatMap(group => group[1]).map(item => `<button onclick="changeMap('${esc(item[1])}'${item[2] ? `, '${esc(item[2])}'` : ""})" class="map-simple-btn">${esc(item[0])}</button>`).join("")
+    if (byId("mapLieux")) byId("mapLieux").innerHTML = renderSection(catalog.maps.lieux, "dynMapLieux")
+    if (byId("mapMondeTab")) byId("mapMondeTab").innerHTML = catalog.maps.monde.flatMap(group => group[1]).map(item => `<button onclick="changeMap('${esc(item[1])}')" class="map-simple-btn">${esc(item[0])}</button>`).join("") + `<button onclick="toggleWorldMapFogTopLeft()" class="map-simple-btn">Fog haut-gauche</button>`
+  }
+
+  function renderPNJMenu() {
+    const catalog = getCatalog()
+    const pnjButtons = catalog.pnjs.map((group, index) => createCategoryBlock(`dynPnj_${index}`, group[0], group[1].map(item => `<button onclick="setPNJImage('${esc(item[1])}')">${esc(item[0])}</button>`).join(""))).join("")
+    const slotControls = `<div style="margin-top:6px;border-top:1px solid rgba(30,90,102,0.3);padding-top:6px;"><div style="font-family:Cinzel;font-size:10px;color:#1e8a9a;text-align:center;margin-bottom:4px;letter-spacing:1px;">SLOT PNJ</div><div style="display:flex;gap:4px;justify-content:center;margin-bottom:4px;"><button id="slot1Btn" onclick="setPNJSlot(1)" style="flex:1;padding:4px;font-family:Cinzel;font-size:10px;background:rgba(30,90,102,0.4);color:#a0d8e0;border:1px solid #1e5a66;border-radius:3px;cursor:pointer;">1 Centre</button><button id="slot2Btn" onclick="setPNJSlot(2)" style="flex:1;padding:4px;font-family:Cinzel;font-size:10px;background:rgba(30,90,102,0.15);color:#6a9aaa;border:1px solid rgba(30,90,102,0.3);border-radius:3px;cursor:pointer;">2 Gauche</button><button id="slot3Btn" onclick="setPNJSlot(3)" style="flex:1;padding:4px;font-family:Cinzel;font-size:10px;background:rgba(30,90,102,0.15);color:#6a9aaa;border:1px solid rgba(30,90,102,0.3);border-radius:3px;cursor:pointer;">3 Droite</button></div><div style="display:flex;gap:4px;"><button onclick="closePNJBySlot(1)" style="flex:1;padding:3px;font-family:Cinzel;font-size:9px;background:rgba(180,40,40,0.3);color:#ffaaaa;border:1px solid rgba(200,60,60,0.4);border-radius:3px;cursor:pointer;">X C</button><button onclick="closePNJBySlot(2)" style="flex:1;padding:3px;font-family:Cinzel;font-size:9px;background:rgba(180,40,40,0.3);color:#ffaaaa;border:1px solid rgba(200,60,60,0.4);border-radius:3px;cursor:pointer;">X G</button><button onclick="closePNJBySlot(3)" style="flex:1;padding:3px;font-family:Cinzel;font-size:9px;background:rgba(180,40,40,0.3);color:#ffaaaa;border:1px solid rgba(200,60,60,0.4);border-radius:3px;cursor:pointer;">X D</button></div></div>`
+    if (byId("pnjTab")) byId("pnjTab").innerHTML = pnjButtons + slotControls
+    if (byId("highPnjTab")) byId("highPnjTab").innerHTML = catalog.highPnjs.map((group, index) => {
+      const buttons = group[1].map(item => `<button onclick="showHighPNJ('${esc(item[1])}', '${esc(item[2])}')">${esc(item[0])}</button>`).join("")
+      return index === 0 ? buttons : createCategoryBlock(`dynHighPnj_${index}`, group[0], buttons)
+    }).join("")
+  }
+
+  function renderMobsMenu() {
+    const catalog = getCatalog()
+    const renderMobBtn = item => item[2] === "boss"
+      ? `<button onclick="startCombat('${esc(item[1])}','boss')">${esc(item[0])}</button>`
+      : `<button onclick="openMobDiff('${esc(item[1])}', event)" style="width:100%;text-align:left;">${esc(item[0])}</button>`
+    if (byId("mobTab")) byId("mobTab").innerHTML = catalog.mobs.normal.map((group, index) => createCategoryBlock(`dynMob_${index}`, group[0], group[1].map(renderMobBtn).join(""))).join("")
+    if (byId("pnjCombatTab")) byId("pnjCombatTab").innerHTML = catalog.mobs.combat.map((group, index) => createCategoryBlock(`dynCombatMob_${index}`, group[0], group[1].map(renderMobBtn).join(""))).join("")
+  }
+
+  function renderDocumentsMenu() {
+    const docs = getCatalog().documents.flatMap(group => group[1])
+    if (byId("elemIndices")) {
+      byId("elemIndices").innerHTML = `<div class="elem-title">DOCUMENTS</div>` + docs.map(item => `<button onclick="showDocument('${esc(item[1])}','${esc(item[2])}')" class="elem-doc-btn">${esc(item[0])}</button>`).join("") + `<div class="panel-divider-tight"><button onclick="clearAllElements()" class="elem-clear-btn">Tout effacer</button></div>`
+    }
+  }
+
+  function applyCustomizationToUI() {
+    ensureCustomMobsRegistered()
+    refreshProjectTitle()
+    refreshThemePresentation()
+    refreshPlayerLabels()
+    refreshAuthSelect()
+    renderMapMenu()
+    renderPNJMenu()
+    renderMobsMenu()
+    renderDocumentsMenu()
+  }
+
+  function readFileAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ""))
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
+  function renderCustomList() {
+    const list = byId("customContentList")
+    if (!list) return
+    const custom = getExtendedCustomization().content
+    const items = []
+    custom.maps.forEach((item, index) => items.push(["maps", index, item.label, (item.section || "lieux") + " / " + (item.category || "Custom")]))
+    custom.pnjs.forEach((item, index) => items.push(["pnjs", index, item.label, item.category || "Custom"]))
+    custom.highPnjs.forEach((item, index) => items.push(["highPnjs", index, item.label, item.category || "Custom"]))
+    custom.mobs.forEach((item, index) => items.push(["mobs", index, item.label, (item.category || "Custom") + " / " + (item.tier || "weak")]))
+    custom.documents.forEach((item, index) => items.push(["documents", index, item.label, item.category || "Custom"]))
+    list.innerHTML = items.length ? items.map(item => `<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 10px;background:rgba(0,0,0,0.2);border:1px solid rgba(160,130,80,0.22);border-radius:8px;"><div><div style="font-size:12px;color:#f5e6c8;">${esc(item[2])}</div><div style="font-size:11px;color:#bfae8b;">${esc(item[3])}</div></div><button data-remove-bucket="${item[0]}" data-remove-index="${item[1]}" style="padding:8px 10px;background:#311819;color:#ffd5d5;border:1px solid #6a3434;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Supprimer</button></div>`).join("") : `<div style="font-size:12px;color:#bfae8b;">Aucun contenu custom pour le moment.</div>`
+    list.querySelectorAll("[data-remove-bucket]").forEach(button => {
+      button.onclick = () => {
+        const next = getExtendedCustomization()
+        next.content[button.dataset.removeBucket].splice(Number(button.dataset.removeIndex), 1)
+        saveExtendedCustomization(next)
+        renderCustomList()
+        applyCustomizationToUI()
+      }
+    })
+  }
+
+  function renderAssetOverrides() {
+    const list = byId("assetOverrideList")
+    if (!list) return
+    const items = Object.entries(getExtendedCustomization().assets || {})
+    list.innerHTML = items.length ? items.map(([key, value]) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 10px;background:rgba(0,0,0,0.2);border:1px solid rgba(160,130,80,0.22);border-radius:8px;"><div style="display:flex;align-items:center;gap:10px;"><img src="${esc(value)}" style="width:42px;height:42px;object-fit:cover;border-radius:6px;"><div style="font-size:12px;color:#f5e6c8;">${esc(key)}</div></div><button data-remove-asset="${esc(key)}" style="padding:8px 10px;background:#311819;color:#ffd5d5;border:1px solid #6a3434;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Supprimer</button></div>`).join("") : `<div style="font-size:12px;color:#bfae8b;">Aucun override d'image.</div>`
+    list.querySelectorAll("[data-remove-asset]").forEach(button => {
+      button.onclick = () => {
+        const next = getExtendedCustomization()
+        delete next.assets[button.dataset.removeAsset]
+        saveExtendedCustomization(next)
+        renderAssetOverrides()
+        applyCustomizationToUI()
+      }
+    })
+  }
+
+  function getStudioSummary() {
+    const customization = getExtendedCustomization()
+    const catalog = getCatalog()
+    return {
+      title: String(customization.project.title || "Roleplay It Yourself").trim() || "Roleplay It Yourself",
+      themeLabel: typeof getProjectThemeLabel === "function"
+        ? getProjectThemeLabel(customization.project.theme)
+        : String(customization.project.theme || "Medieval fantasy"),
+      players: PLAYER_IDS.map(id => ({ id, name: getPlayerDisplayName(id) })),
+      customCounts: {
+        maps: customization.content.maps.length,
+        pnjs: customization.content.pnjs.length + customization.content.highPnjs.length,
+        mobs: customization.content.mobs.length,
+        documents: customization.content.documents.length,
+        assets: Object.keys(customization.assets || {}).length
+      },
+      totalCounts: {
+        maps: Object.values(catalog.maps).flat().reduce((sum, group) => sum + group[1].length, 0),
+        pnjs: catalog.pnjs.reduce((sum, group) => sum + group[1].length, 0) + catalog.highPnjs.reduce((sum, group) => sum + group[1].length, 0),
+        mobs: catalog.mobs.normal.reduce((sum, group) => sum + group[1].length, 0) + catalog.mobs.combat.reduce((sum, group) => sum + group[1].length, 0),
+        documents: catalog.documents.reduce((sum, group) => sum + group[1].length, 0)
+      },
+      latestCustom: [
+        ...customization.content.maps.map(item => ({ type: "Map", label: item.label, meta: (item.section || "lieux") + " / " + (item.category || "Custom") })),
+        ...customization.content.pnjs.map(item => ({ type: "PNJ", label: item.label, meta: item.category || "Custom" })),
+        ...customization.content.highPnjs.map(item => ({ type: "High PNJ", label: item.label, meta: item.category || "Custom" })),
+        ...customization.content.mobs.map(item => ({ type: "Mob", label: item.label, meta: (item.category || "Custom") + " / " + (item.tier || "weak") })),
+        ...customization.content.documents.map(item => ({ type: "Document", label: item.label, meta: item.category || "Custom" }))
+      ].slice(-8).reverse()
+    }
+  }
+
+  function closeStudioOverlay() {
+    const existing = byId("creatorStudioOverlay")
+    if (existing) existing.remove()
+  }
+
+  function openStudioGameMenu(menuId) {
+    const targetMenuId = String(menuId || "").trim()
+    if (!targetMenuId) return
+    const bootDelay = ensureGameStartedForHub()
+    const openMenu = () => {
+      if (typeof toggleGMSection === "function") toggleGMSection(targetMenuId)
+    }
+    if (isGMValue()) {
+      setTimeout(openMenu, 180 + bootDelay)
+      return
+    }
+    window.__pendingStudioMenuId = targetMenuId
+    if (typeof requestGM === "function") {
+      setTimeout(() => requestGM(), bootDelay)
+    }
+  }
+
+  function openStudioCustomization(type) {
+    closeStudioOverlay()
+    openCustomizationPanel(type ? { focusType: type } : undefined)
+  }
+
+  function showCreatorStudioHome() {
+    closeStudioOverlay()
+    const summary = getStudioSummary()
+    const studioPresentation = typeof getProjectThemePresentation === "function"
+      ? getProjectThemePresentation(getExtendedCustomization().project.theme)
+      : { studioLead: "Tableau de bord de creation pour construire ton projet, organiser le contenu et ouvrir les outils de jeu." }
+    const overlay = document.createElement("div")
+    overlay.id = "creatorStudioOverlay"
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(5,5,5,0.82);display:flex;align-items:center;justify-content:center;z-index:1000000011;padding:18px;"
+    overlay.addEventListener("mousedown", event => { if (event.target === overlay) overlay.remove() })
+    const panel = document.createElement("div")
+    panel.style.cssText = "width:min(1220px,96vw);max-height:92vh;overflow:auto;background:linear-gradient(180deg,rgba(18,14,10,0.98),rgba(6,6,6,0.98));border:1px solid rgba(214,180,106,0.45);border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,0.7);padding:24px;color:#f3e7cf;font-family:Cinzel,serif;"
+    panel.innerHTML = `
+      <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:18px;">
+        <div>
+          <div style="font-size:26px;letter-spacing:2px;color:#f0d087;">Studio MJ</div>
+          <div style="font-size:13px;line-height:1.6;color:#cdbb96;margin-top:6px;">${esc(studioPresentation.studioLead)}</div>
+        </div>
+        <button id="creatorStudioClose" style="padding:10px 14px;background:#222;color:#f3e7cf;border:1px solid #555;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Fermer</button>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(320px,1.05fr) minmax(420px,1.35fr);gap:18px;align-items:start;">
+        <div style="display:grid;gap:18px;">
+          <section style="padding:18px;background:rgba(255,255,255,0.03);border:1px solid rgba(214,180,106,0.22);border-radius:14px;">
+            <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;">
+              <div>
+                <div style="font-size:12px;letter-spacing:2px;color:#cdbb96;">PROJET</div>
+                <div style="font-size:22px;color:#f0d087;margin-top:4px;">${esc(summary.title)}</div>
+                <div style="font-size:12px;color:#bfae8b;margin-top:6px;">Ambiance : ${esc(summary.themeLabel)}</div>
+              </div>
+              <button data-studio-open="project" style="padding:10px 14px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Configurer</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+              ${summary.players.map(player => `<div style="padding:10px 12px;border:1px solid rgba(160,130,80,0.22);border-radius:10px;background:rgba(0,0,0,0.18);"><div style="font-size:10px;letter-spacing:2px;color:#bfae8b;margin-bottom:4px;">${esc(player.id.toUpperCase())}</div><div style="font-size:14px;color:#f5e6c8;">${esc(player.name)}</div></div>`).join("")}
+            </div>
+          </section>
+          <section style="padding:18px;background:rgba(255,255,255,0.03);border:1px solid rgba(214,180,106,0.22);border-radius:14px;">
+            <div style="font-size:12px;letter-spacing:2px;color:#cdbb96;margin-bottom:12px;">OUTILS DE JEU</div>
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+              <button data-studio-open-menu="mapMenu" style="padding:12px 14px;background:rgba(15,40,56,0.7);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:10px;cursor:pointer;font-family:Cinzel,serif;">Maps</button>
+              <button data-studio-open-menu="pnjMenu" style="padding:12px 14px;background:rgba(15,40,56,0.7);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:10px;cursor:pointer;font-family:Cinzel,serif;">PNJ</button>
+              <button data-studio-open-menu="mobMenu2" style="padding:12px 14px;background:rgba(15,40,56,0.7);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:10px;cursor:pointer;font-family:Cinzel,serif;">Mobs</button>
+              <button data-studio-open-menu="elementsMenu" style="padding:12px 14px;background:rgba(15,40,56,0.7);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:10px;cursor:pointer;font-family:Cinzel,serif;">Documents</button>
+              <button data-studio-open="save" style="padding:12px 14px;background:rgba(15,40,56,0.7);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:10px;cursor:pointer;font-family:Cinzel,serif;">Sauvegardes</button>
+              <button id="creatorStudioOpenBoard" style="padding:12px 14px;background:rgba(18,60,42,0.85);color:#d5ffe4;border:1px solid rgba(90,180,120,0.45);border-radius:10px;cursor:pointer;font-family:Cinzel,serif;">Ouvrir le board</button>
+            </div>
+          </section>
+        </div>
+        <div style="display:grid;gap:18px;">
+          <section style="padding:18px;background:rgba(255,255,255,0.03);border:1px solid rgba(214,180,106,0.22);border-radius:14px;">
+            <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px;">
+              <div>
+                <div style="font-size:12px;letter-spacing:2px;color:#cdbb96;">BIBLIOTHEQUE</div>
+                <div style="font-size:20px;color:#f0d087;margin-top:4px;">Contenu du jeu</div>
+              </div>
+              <button data-studio-open="project" style="padding:10px 14px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Edition complete</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
+              <div style="padding:14px;border:1px solid rgba(214,180,106,0.22);border-radius:12px;background:rgba(0,0,0,0.18);"><div style="font-size:16px;color:#f5e6c8;">Maps</div><div style="font-size:28px;color:#f0d087;margin:6px 0 4px;">${summary.totalCounts.maps}</div><div style="font-size:12px;color:#bfae8b;margin-bottom:10px;">${summary.customCounts.maps} custom</div><div style="display:flex;gap:8px;"><button data-studio-open="map" style="flex:1;padding:9px 10px;background:rgba(15,40,56,0.72);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ajouter</button><button data-studio-open-menu="mapMenu" style="flex:1;padding:9px 10px;background:rgba(15,40,56,0.72);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ouvrir</button></div></div>
+              <div style="padding:14px;border:1px solid rgba(214,180,106,0.22);border-radius:12px;background:rgba(0,0,0,0.18);"><div style="font-size:16px;color:#f5e6c8;">PNJ</div><div style="font-size:28px;color:#f0d087;margin:6px 0 4px;">${summary.totalCounts.pnjs}</div><div style="font-size:12px;color:#bfae8b;margin-bottom:10px;">${summary.customCounts.pnjs} custom</div><div style="display:flex;gap:8px;"><button data-studio-open="pnj" style="flex:1;padding:9px 10px;background:rgba(15,40,56,0.72);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ajouter</button><button data-studio-open-menu="pnjMenu" style="flex:1;padding:9px 10px;background:rgba(15,40,56,0.72);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ouvrir</button></div></div>
+              <div style="padding:14px;border:1px solid rgba(214,180,106,0.22);border-radius:12px;background:rgba(0,0,0,0.18);"><div style="font-size:16px;color:#f5e6c8;">Mobs</div><div style="font-size:28px;color:#f0d087;margin:6px 0 4px;">${summary.totalCounts.mobs}</div><div style="font-size:12px;color:#bfae8b;margin-bottom:10px;">${summary.customCounts.mobs} custom</div><div style="display:flex;gap:8px;"><button data-studio-open="mob" style="flex:1;padding:9px 10px;background:rgba(15,40,56,0.72);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ajouter</button><button data-studio-open-menu="mobMenu2" style="flex:1;padding:9px 10px;background:rgba(15,40,56,0.72);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ouvrir</button></div></div>
+              <div style="padding:14px;border:1px solid rgba(214,180,106,0.22);border-radius:12px;background:rgba(0,0,0,0.18);"><div style="font-size:16px;color:#f5e6c8;">Documents</div><div style="font-size:28px;color:#f0d087;margin:6px 0 4px;">${summary.totalCounts.documents}</div><div style="font-size:12px;color:#bfae8b;margin-bottom:10px;">${summary.customCounts.documents} custom</div><div style="display:flex;gap:8px;"><button data-studio-open="document" style="flex:1;padding:9px 10px;background:rgba(15,40,56,0.72);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ajouter</button><button data-studio-open-menu="elementsMenu" style="flex:1;padding:9px 10px;background:rgba(15,40,56,0.72);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ouvrir</button></div></div>
+            </div>
+          </section>
+          <section style="padding:18px;background:rgba(255,255,255,0.03);border:1px solid rgba(214,180,106,0.22);border-radius:14px;">
+            <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;">
+              <div>
+                <div style="font-size:12px;letter-spacing:2px;color:#cdbb96;">ACTIVITE</div>
+                <div style="font-size:20px;color:#f0d087;margin-top:4px;">Derniers contenus custom</div>
+              </div>
+              <div style="font-size:12px;color:#bfae8b;">Assets custom : ${summary.customCounts.assets}</div>
+            </div>
+            <div style="display:grid;gap:8px;">
+              ${summary.latestCustom.length
+                ? summary.latestCustom.map(item => `<div style="display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border:1px solid rgba(160,130,80,0.18);border-radius:10px;background:rgba(0,0,0,0.18);"><div><div style="font-size:14px;color:#f5e6c8;">${esc(item.label)}</div><div style="font-size:11px;color:#bfae8b;">${esc(item.type)} • ${esc(item.meta)}</div></div><button data-studio-open="${String(item.type).toLowerCase().includes("document") ? "document" : String(item.type).toLowerCase().includes("mob") ? "mob" : String(item.type).toLowerCase().includes("pnj") ? "pnj" : "map"}" style="padding:8px 12px;background:rgba(15,40,56,0.72);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Editer</button></div>`).join("")
+                : `<div style="padding:14px;border:1px dashed rgba(214,180,106,0.28);border-radius:12px;color:#bfae8b;">Aucun contenu custom pour l’instant. Commence par ajouter une map, un PNJ, un mob ou un document.</div>`
+              }
+            </div>
+          </section>
+        </div>
+      </div>
+      `
+    overlay.appendChild(panel)
+    document.body.appendChild(overlay)
+    byId("creatorStudioClose").onclick = () => overlay.remove()
+    byId("creatorStudioOpenBoard").onclick = () => overlay.remove()
+    panel.querySelectorAll("[data-studio-open]").forEach(button => {
+      button.onclick = () => {
+        const action = String(button.dataset.studioOpen || "")
+        if (action === "save") {
+          overlay.remove()
+          if (typeof showSaveMenu === "function") showSaveMenu()
+          return
+        }
+        openStudioCustomization(action === "project" ? "" : action)
+      }
+    })
+    panel.querySelectorAll("[data-studio-open-menu]").forEach(button => {
+      button.onclick = () => {
+        const menuId = String(button.dataset.studioOpenMenu || "")
+        overlay.remove()
+        openStudioGameMenu(menuId)
+      }
+    })
+  }
+
+  function openCustomizationPanel(options) {
+    const existing = byId("customizationOverlay")
+    if (existing) existing.remove()
+    const customization = getExtendedCustomization()
+    const themeOptionsMarkup = getProjectThemeOptions().map(option => `<option value="${esc(option.value)}"${option.value === customization.project.theme ? " selected" : ""}>${esc(option.label)}</option>`).join("")
+    const focusType = options && typeof options === "object" ? String(options.focusType || "") : ""
+    const overlay = document.createElement("div")
+    overlay.id = "customizationOverlay"
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;z-index:1000000010;padding:18px;"
+    overlay.addEventListener("mousedown", event => { if (event.target === overlay) overlay.remove() })
+    const panel = document.createElement("div")
+    panel.style.cssText = "width:min(1080px,96vw);max-height:92vh;overflow:auto;background:linear-gradient(180deg,rgba(20,16,12,0.98),rgba(8,8,8,0.98));border:1px solid rgba(214,180,106,0.45);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,0.85);padding:22px;color:#f3e7cf;font-family:Cinzel,serif;"
+    overlay.appendChild(panel)
+    panel.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px;"><div><div style="font-size:22px;letter-spacing:2px;color:#f0d087;">Personnaliser le projet</div><div style="font-size:12px;line-height:1.5;color:#cdbb96;margin-top:6px;">Les listes maps, PNJ, mobs et documents sont generees, et tu peux ajouter les tiens.</div></div><button id="customizationClose" style="padding:10px 14px;background:#222;color:#f3e7cf;border:1px solid #555;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Fermer</button></div>
+      <div style="display:grid;gap:18px;">
+        <div style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);display:grid;gap:14px;"><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Titre</div><input id="customProjectTitle" type="text" value="${esc(customization.project.title)}" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"></div><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Ambiance</div><select id="customProjectTheme" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;">${themeOptionsMarkup}</select></div></div>
+        <div style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);"><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:12px;">Slots joueurs</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">${PLAYER_IDS.map(playerId => { const player = customization.players[playerId]; return `<div style="padding:12px;border:1px solid rgba(160,130,80,0.22);border-radius:10px;background:rgba(0,0,0,0.18);"><div style="font-size:11px;color:#d7c39c;letter-spacing:2px;margin-bottom:10px;">${playerId.toUpperCase()}</div><label style="display:grid;gap:6px;margin-bottom:10px;"><span style="font-size:12px;color:#bfae8b;">Nom affiche</span><input data-custom-name="${playerId}" type="text" value="${esc(player.name)}" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;margin-bottom:10px;"><span style="font-size:12px;color:#bfae8b;">URL image</span><input data-custom-image="${playerId}" type="text" value="${esc(player.image)}" placeholder="https://... ou data:image/..." style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Uploader une image</span><input data-custom-upload="${playerId}" type="file" accept="image/*" style="font-size:12px;color:#e8d6b3;"></label></div>` }).join("")}</div></div>
+        <div style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);"><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Ajouter du contenu custom</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:end;"><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Type</span><select id="customItemType" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"><option value="map">Map</option><option value="pnj">PNJ</option><option value="highPnj">High PNJ</option><option value="mob">Mob</option><option value="document">Document</option></select></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Categorie</span><input id="customItemCategory" type="text" placeholder="Ex : Mon univers" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Titre</span><input id="customItemLabel" type="text" placeholder="Ex : Temple du feu" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Image / nom de map / id</span><input id="customItemAsset" type="text" placeholder="Ex : temple.jpg" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Upload image</span><input id="customItemUpload" type="file" accept="image/*" style="font-size:12px;color:#e8d6b3;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Section map</span><select id="customItemSection" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"><option value="villes">Villes</option><option value="landscape">Landscape</option><option value="lieux">Lieux</option><option value="monde">Mapmonde</option></select></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Audio map / tier mob</span><input id="customItemExtra" type="text" placeholder="Ex : maMusique ou weak" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><button id="addCustomItem" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ajouter</button></div><div id="customContentList" style="display:grid;gap:8px;margin-top:14px;"></div></div>
+        <div style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);"><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Override d'image cible</div><div style="display:grid;grid-template-columns:1.4fr 1fr auto;gap:10px;align-items:end;"><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Nom du fichier existant</span><input id="assetOverrideKey" type="text" placeholder="Ex : taverne.jpg" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Image de remplacement</span><input id="assetOverrideFile" type="file" accept="image/*" style="font-size:12px;color:#e8d6b3;"></label><button id="assetOverrideSave" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ajouter</button></div><div id="assetOverrideList" style="display:grid;gap:8px;margin-top:14px;"></div></div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;"><button id="customizationReset" style="padding:10px 14px;background:#3a0000;color:#ffd1d1;border:1px solid #6e2e2e;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Reset personnalisation</button><button id="customizationSave" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Sauvegarder</button></div>
+      </div>`
+    document.body.appendChild(overlay)
+    byId("customizationClose").onclick = () => overlay.remove()
+    if (focusType && byId("customItemType")) byId("customItemType").value = focusType
+    panel.querySelectorAll("[data-custom-upload]").forEach(input => {
+      input.addEventListener("change", async event => {
+        const file = event.target.files && event.target.files[0]
+        if (!file) return
+        const dataUrl = await readFileAsDataURL(file)
+        const playerId = event.target.dataset.customUpload
+        const target = panel.querySelector(`[data-custom-image="${playerId}"]`)
+        if (target) target.value = dataUrl
+      })
+    })
+    byId("addCustomItem").onclick = async () => {
+      const next = getExtendedCustomization()
+      const type = String(byId("customItemType").value || "")
+      const category = String(byId("customItemCategory").value || "").trim() || "Custom"
+      const label = String(byId("customItemLabel").value || "").trim()
+      let asset = String(byId("customItemAsset").value || "").trim()
+      const file = byId("customItemUpload").files && byId("customItemUpload").files[0]
+      const section = String(byId("customItemSection").value || "lieux")
+      const extra = String(byId("customItemExtra").value || "").trim()
+      if (!label) return
+      if (file) asset = await readFileAsDataURL(file)
+      if (!asset) return
+      if (type === "map") next.content.maps.push({ label, category, map: asset, audio: extra, section })
+      if (type === "pnj") next.content.pnjs.push({ label, category, image: asset })
+      if (type === "highPnj") next.content.highPnjs.push({ label, category, image: asset, title: label })
+      if (type === "document") next.content.documents.push({ label, category, image: asset, title: label })
+      if (type === "mob") {
+        const mobId = slugify(label)
+        next.content.mobs.push({ label, category, id: mobId, action: extra === "boss" ? "boss" : "diff", tier: extra || "weak", baseHP: 30, combatOnly: false })
+        next.assets[mobId + ".png"] = /^(https?:|data:|blob:|\/|images\/)/i.test(asset) ? asset : ("images/" + asset.replace(/^images\//i, ""))
+      }
+      saveExtendedCustomization(next)
+      ;["customItemCategory", "customItemLabel", "customItemAsset", "customItemExtra"].forEach(id => byId(id).value = "")
+      byId("customItemUpload").value = ""
+      renderCustomList()
+      applyCustomizationToUI()
+    }
+    byId("assetOverrideSave").onclick = async () => {
+      const key = String(byId("assetOverrideKey").value || "").trim()
+      const file = byId("assetOverrideFile").files && byId("assetOverrideFile").files[0]
+      if (!key || !file) return
+      const next = getExtendedCustomization()
+      next.assets[key] = await readFileAsDataURL(file)
+      saveExtendedCustomization(next)
+      byId("assetOverrideKey").value = ""
+      byId("assetOverrideFile").value = ""
+      renderAssetOverrides()
+      applyCustomizationToUI()
+    }
+    byId("customizationSave").onclick = () => {
+      const next = getExtendedCustomization()
+      next.project.title = String(byId("customProjectTitle").value || "").trim() || "Roleplay It Yourself"
+      next.project.theme = String(byId("customProjectTheme").value || "").trim() || getDefaultCustomization().project.theme
+      PLAYER_IDS.forEach(playerId => {
+        next.players[playerId].name = String(panel.querySelector(`[data-custom-name="${playerId}"]`).value || "").trim() || getDefaultCustomization().players[playerId].name
+        next.players[playerId].image = String(panel.querySelector(`[data-custom-image="${playerId}"]`).value || "").trim()
+      })
+      saveExtendedCustomization(next)
+      applyCustomizationToUI()
+      overlay.remove()
+      if (typeof showNotification === "function") showNotification("Personnalisation sauvegardee")
+    }
+    byId("customizationReset").onclick = () => {
+      localStorage.removeItem(CUSTOMIZATION_STORAGE_KEY)
+      applyCustomizationToUI()
+      overlay.remove()
+      if (typeof showNotification === "function") showNotification("Personnalisation reinitialisee")
+    }
+    renderCustomList()
+    renderAssetOverrides()
+  }
+
+  function injectCustomizationButton() {
+    if (byId("customizationLauncher")) return
+    const button = document.createElement("button")
+    button.id = "customizationLauncher"
+    button.type = "button"
+    button.innerText = "Personnaliser"
+    button.style.cssText = "position:fixed;right:14px;top:14px;z-index:1000000002;padding:10px 14px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:10px;cursor:pointer;font-family:Cinzel,serif;box-shadow:0 8px 22px rgba(0,0,0,0.45);"
+    button.onclick = openCustomizationPanel
+    document.body.appendChild(button)
+  }
+
+  function isGameStartedValue() {
+    try {
+      return typeof gameStarted !== "undefined" ? !!gameStarted : !!window.gameStarted
+    } catch (e) {
+      return !!window.gameStarted
+    }
+  }
+
+  function isGMValue() {
+    try {
+      return typeof isGM !== "undefined" ? !!isGM : !!window.isGM
+    } catch (e) {
+      return !!window.isGM
+    }
+  }
+
+  function ensureGameStartedForHub() {
+    if (!isGameStartedValue() && typeof startGame === "function") {
+      startGame()
+      return 1650
+    }
+    return 0
+  }
+
+  function openCreatorStudio() {
+    try {
+      showCreatorStudioHome()
+    } catch (error) {
+      console.warn("Studio MJ fallback:", error)
+      try {
+        openCustomizationPanel()
+      } catch (fallbackError) {
+        console.error("Studio MJ unavailable:", fallbackError)
+        if (typeof showNotification === "function") {
+          showNotification("Studio MJ indisponible, ouverture du mode personnalisation impossible.")
+        }
+      }
+    }
+  }
+
+  function openPlayerStudio() {
+    const bootDelay = ensureGameStartedForHub()
+    setTimeout(() => {
+      if (typeof openPlayerMenuOnStart === "function") openPlayerMenuOnStart()
+      if (!window.__authPlayerId && typeof requestPlayerAuth === "function") requestPlayerAuth()
+    }, 220 + bootDelay)
+  }
+
+  function patchRuntimeFunctions() {
+    if (typeof window.choosePlayer === "function" && !window.__customChoosePlayerPatched) {
+      const original = window.choosePlayer
+      window.choosePlayer = function () {
+        const result = original.apply(this, arguments)
+        setTimeout(applyCustomizationToUI, 20)
+        return result
+      }
+      window.__customChoosePlayerPatched = true
+    }
+    if (typeof window.openCharacterSheet === "function" && !window.__customSheetPatched) {
+      const original = window.openCharacterSheet
+      window.openCharacterSheet = function (id) {
+        const result = original.apply(this, arguments)
+        const playerId = id || (window.myToken && window.myToken.id) || ""
+        const title = byId("sheetTitle")
+        if (title && playerId) title.innerText = getPlayerDisplayName(playerId)
+        const image = byId("sheetImage")
+        const playerImage = getPlayerCustomization(playerId).image
+        if (image && playerImage) image.src = playerImage
+        return result
+      }
+      window.__customSheetPatched = true
+    }
+    if (typeof window.showPlayerAuthModal === "function" && !window.__customPlayerAuthPatched) {
+      const original = window.showPlayerAuthModal
+      window.showPlayerAuthModal = function () {
+        const result = original.apply(this, arguments)
+        setTimeout(refreshAuthSelect, 20)
+        return result
+      }
+      window.__customPlayerAuthPatched = true
+    }
+    if (typeof window.animateGameTitle === "function" && !window.__customTitlePatched) {
+      const original = window.animateGameTitle
+      window.animateGameTitle = function () {
+        const result = original.apply(this, arguments)
+        setTimeout(refreshProjectTitle, 0)
+        return result
+      }
+      window.__customTitlePatched = true
+    }
+    if (typeof window.activateGM === "function" && !window.__customActivateGMPatched) {
+      const original = window.activateGM
+      window.activateGM = function () {
+        const result = original.apply(this, arguments)
+        if (window.__pendingStudioMenuId) {
+          const pendingMenuId = String(window.__pendingStudioMenuId)
+          window.__pendingStudioMenuId = ""
+          setTimeout(() => openStudioGameMenu(pendingMenuId), 180)
+        }
+        if (window.__openBuilderAfterGMAuth) {
+          window.__openBuilderAfterGMAuth = false
+          setTimeout(showCreatorStudioHome, 180)
+        }
+        return result
+      }
+      window.__customActivateGMPatched = true
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    ensureCustomMobsRegistered()
+    injectCustomizationButton()
+    applyCustomizationToUI()
+    setTimeout(patchRuntimeFunctions, 300)
+    setTimeout(applyCustomizationToUI, 700)
+  })
+
+  window.applyCustomizationToUI = applyCustomizationToUI
+  window.openCustomizationPanel = openCustomizationPanel
+  window.openCreatorStudio = openCreatorStudio
+  window.openPlayerStudio = openPlayerStudio
+})()
