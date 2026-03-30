@@ -8,6 +8,7 @@
     elo:  { left: 400, top: 260 },
     bibi: { left: 520, top: 260 }
   }
+  const SANDBOX_MAX_PLAYERS = 12
 
   function byId(id) { return document.getElementById(id) }
   function clone(value) { return JSON.parse(JSON.stringify(value)) }
@@ -131,6 +132,56 @@
       .replace(/^_+|_+$/g, "") || "custom_mob"
   }
 
+  function getSandboxVisiblePlayerCount(rawCount) {
+    return Math.max(1, Math.min(SANDBOX_MAX_PLAYERS, parseInt(rawCount, 10) || 4))
+  }
+
+  function getSandboxExtraSlotImage(index) {
+    const safeIndex = Math.max(5, Math.min(SANDBOX_MAX_PLAYERS, parseInt(index, 10) || 5))
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160"><defs><linearGradient id="gx${safeIndex}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f5ecd6"/><stop offset="100%" stop-color="#d9c39a"/></linearGradient></defs><circle cx="80" cy="80" r="76" fill="url(#gx${safeIndex})" stroke="#9d8357" stroke-width="8"/><circle cx="80" cy="62" r="24" fill="#8f7a56"/><path d="M42 126c7-24 26-36 38-36s31 12 38 36" fill="#8f7a56"/><text x="80" y="150" text-anchor="middle" font-family="Cinzel, serif" font-size="24" fill="#5b482c">${safeIndex}</text></svg>`
+    return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg)
+  }
+
+  function getSandboxExtraSlotPosition(index) {
+    const safeIndex = Math.max(5, parseInt(index, 10) || 5) - 1
+    const col = safeIndex % 4
+    const row = Math.floor(safeIndex / 4)
+    return {
+      left: 160 + (col * 120),
+      top: 260 + (row * 150)
+    }
+  }
+
+  function ensureSandboxExtraTokens(count) {
+    const map = byId("map")
+    if (!map) return
+    const visibleCount = getSandboxVisiblePlayerCount(count)
+    map.querySelectorAll(".sandboxExtraToken").forEach(node => {
+      const slotIndex = parseInt(node.dataset.slotIndex, 10) || 0
+      if (slotIndex > visibleCount) node.remove()
+    })
+    for (let slotIndex = 5; slotIndex <= visibleCount; slotIndex += 1) {
+      let token = byId("sandbox_extra_" + slotIndex)
+      if (!token) {
+        token = document.createElement("div")
+        token.className = "token sandboxExtraToken"
+        token.id = "sandbox_extra_" + slotIndex
+        token.dataset.slotIndex = String(slotIndex)
+        token.innerHTML = `<img alt="Joueur ${slotIndex}"><div class="nameTag">Joueur ${slotIndex}</div>`
+        map.appendChild(token)
+      }
+      const pos = getSandboxExtraSlotPosition(slotIndex)
+      if (token.dataset.mjPlaced !== "true") {
+        token.style.left = pos.left + "px"
+        token.style.top = pos.top + "px"
+      }
+      const img = token.querySelector("img")
+      if (img) img.src = getSandboxExtraSlotImage(slotIndex)
+      const tag = token.querySelector(".nameTag")
+      if (tag) tag.textContent = "Joueur " + slotIndex
+    }
+  }
+
   function refreshProjectTitle() {
     const title = String(getExtendedCustomization().project.title || "Roleplay It Yourself").trim() || "Roleplay It Yourself"
     document.title = title
@@ -162,21 +213,55 @@
     if (playerDescription) playerDescription.innerText = presentation.playerDescription
   }
 
+  function forceSandboxPlayerVisibility(count) {
+    const visibleCount = getSandboxVisiblePlayerCount(count)
+    if (document.body) {
+      document.body.setAttribute("data-sandbox-player-count", String(visibleCount))
+    }
+    ensureSandboxExtraTokens(visibleCount)
+    PLAYER_IDS.forEach(playerId => {
+      const token = byId(playerId)
+      const isVisible = PLAYER_IDS.indexOf(playerId) < visibleCount && getPlayerCustomization(playerId).enabled !== false
+      if (token) {
+        token.hidden = !isVisible
+        token.setAttribute("aria-hidden", isVisible ? "false" : "true")
+        token.style.setProperty("display", isVisible ? "flex" : "none", "important")
+        token.style.setProperty("visibility", isVisible ? "visible" : "hidden", "important")
+        token.style.setProperty("pointer-events", isVisible ? "auto" : "none", "important")
+      }
+      document.querySelectorAll(`[data-player-choice="${playerId}"]`).forEach(button => {
+        button.hidden = !isVisible
+        button.style.setProperty("display", isVisible ? "" : "none", "important")
+      })
+    })
+    document.querySelectorAll(".sandboxExtraToken").forEach(token => {
+      const slotIndex = parseInt(token.dataset.slotIndex, 10) || 0
+      const isVisible = slotIndex > 4 && slotIndex <= visibleCount
+      token.hidden = !isVisible
+      token.style.setProperty("display", isVisible ? "flex" : "none", "important")
+      token.style.setProperty("visibility", isVisible ? "visible" : "hidden", "important")
+      token.style.setProperty("pointer-events", isVisible ? "auto" : "none", "important")
+    })
+    const gmCharacters = byId("gmCharacters")
+    if (gmCharacters) {
+      gmCharacters.innerHTML = PLAYER_IDS
+        .filter(playerId => PLAYER_IDS.indexOf(playerId) < visibleCount && getPlayerCustomization(playerId).enabled !== false)
+        .map(playerId => `<button onclick="openCharacterSheet('${playerId}')">${esc(getPlayerDisplayName(playerId))}</button>`)
+        .join("")
+    }
+  }
+
   function refreshPlayerLabels() {
     const customization = getExtendedCustomization()
-    const visibleCount = Math.max(1, Math.min(4, parseInt(customization.project.playerCount, 10) || 4))
+    const visibleCount = getSandboxVisiblePlayerCount(customization.project.playerCount)
     PLAYER_IDS.forEach(playerId => {
       const player = getPlayerCustomization(playerId)
       const name = getPlayerDisplayName(playerId)
       const image = player.image || getDefaultPlayerSlotImage(playerId)
       const isVisible = PLAYER_IDS.indexOf(playerId) < visibleCount && player.enabled !== false
       document.querySelectorAll(`[data-player-choice="${playerId}"]`).forEach(button => { button.innerText = name })
-      document.querySelectorAll(`[data-player-choice="${playerId}"]`).forEach(button => {
-        button.style.display = isVisible ? "" : "none"
-      })
       const token = byId(playerId)
       if (token) {
-        token.style.display = isVisible ? "flex" : "none"
         const position = PLAYER_TOKEN_POSITIONS[playerId]
         if (isVisible && position && token.dataset.mjPlaced !== "true") {
           token.style.left = position.left + "px"
@@ -189,14 +274,7 @@
         if (tag) tag.innerText = name
       }
     })
-
-    const gmCharacters = byId("gmCharacters")
-    if (gmCharacters) {
-      gmCharacters.innerHTML = PLAYER_IDS
-        .filter(playerId => PLAYER_IDS.indexOf(playerId) < visibleCount && getPlayerCustomization(playerId).enabled !== false)
-        .map(playerId => `<button onclick="openCharacterSheet('${playerId}')">${esc(getPlayerDisplayName(playerId))}</button>`)
-        .join("")
-    }
+    forceSandboxPlayerVisibility(visibleCount)
   }
 
   function refreshAuthSelect() {
@@ -281,7 +359,11 @@
     renderPNJMenu()
     renderMobsMenu()
     renderDocumentsMenu()
-    const projectCount = Math.max(1, Math.min(4, parseInt(getExtendedCustomization().project.playerCount, 10) || 4))
+    const projectCount = getSandboxVisiblePlayerCount(getExtendedCustomization().project.playerCount)
+    ensureSandboxExtraTokens(projectCount)
+    if (document.body) {
+      document.body.setAttribute("data-sandbox-player-count", String(projectCount))
+    }
     syncSandboxPlayerCountControls(projectCount)
   }
 
@@ -814,38 +896,60 @@
   })
 
   function closeSandboxPlayerMenu() {
-    const menu = byId("sandboxPlayersDropdown")
-    const button = byId("sandboxPlayersBtn")
-    if (menu) {
-      menu.classList.remove("open")
-      menu.style.display = "none"
-    }
-    if (button) button.setAttribute("aria-expanded", "false")
+    const menu = byId("sandboxPlayersMenu")
+    if (menu) menu.open = false
   }
 
-  function toggleSandboxPlayerMenu() {
-    const menu = byId("sandboxPlayersDropdown")
-    const button = byId("sandboxPlayersBtn")
-    if (!menu) return
-    const nextOpen = menu.style.display === "none" || !menu.classList.contains("open")
-    menu.classList.toggle("open", nextOpen)
-    menu.style.display = nextOpen ? "grid" : "none"
-    if (button) button.setAttribute("aria-expanded", nextOpen ? "true" : "false")
+  function forceSandboxPlayerCountUI(count) {
+    const safeCount = getSandboxVisiblePlayerCount(count)
+    if (document.body) {
+      document.body.setAttribute("data-sandbox-player-count", String(safeCount))
+    }
+    ensureSandboxExtraTokens(safeCount)
+    PLAYER_IDS.forEach((playerId, index) => {
+      const token = byId(playerId)
+      const isVisible = index < safeCount
+      if (token) {
+        token.hidden = !isVisible
+        token.style.display = isVisible ? "flex" : "none"
+        token.style.visibility = isVisible ? "visible" : "hidden"
+        token.style.pointerEvents = isVisible ? "auto" : "none"
+      }
+      document.querySelectorAll(`[data-player-choice="${playerId}"]`).forEach(button => {
+        button.hidden = !isVisible
+        button.style.display = isVisible ? "" : "none"
+      })
+    })
+    const gmCharacters = byId("gmCharacters")
+    if (gmCharacters) {
+      gmCharacters.innerHTML = PLAYER_IDS
+        .slice(0, safeCount)
+        .map((playerId, index) => `<button onclick="openCharacterSheet('${playerId}')">Joueur ${index + 1}</button>`)
+        .join("")
+    }
+    syncSandboxPlayerCountControls(safeCount)
   }
 
   function syncSandboxPlayerCountControls(count) {
+    const safeCount = getSandboxVisiblePlayerCount(count)
+    if (document.body) {
+      document.body.setAttribute("data-sandbox-player-count", String(safeCount))
+    }
     const input = byId("sandboxPlayersCustomInput")
-    if (input) input.value = String(count)
+    if (input) input.value = String(safeCount)
     const button = byId("sandboxPlayersBtn")
-    if (button) button.textContent = count > 1 ? `Joueurs (${count})` : "Joueurs (1)"
+    if (button) button.textContent = safeCount > 1 ? `Joueurs (${safeCount})` : "Joueurs (1)"
   }
 
   function applySandboxPlayerCountToBoard(count) {
     const next = getExtendedCustomization()
-    next.project.playerCount = Math.max(1, Math.min(4, parseInt(count, 10) || 4))
+    next.project.playerCount = getSandboxVisiblePlayerCount(count)
     saveExtendedCustomization(next)
+    forceSandboxPlayerCountUI(next.project.playerCount)
+    forceSandboxPlayerVisibility(next.project.playerCount)
     applyCustomizationToUI()
     syncSandboxPlayerCountControls(next.project.playerCount)
+    if (typeof showNotification === "function") showNotification("Slots joueurs : " + next.project.playerCount)
   }
 
   function setSandboxPlayerCount(count) {
@@ -865,6 +969,6 @@
   window.openPlayerStudio = openPlayerStudio
   window.setSandboxPlayerCount = setSandboxPlayerCount
   window.applyCustomSandboxPlayerCount = applyCustomSandboxPlayerCount
-  window.toggleSandboxPlayerMenu = toggleSandboxPlayerMenu
   window.closeSandboxPlayerMenu = closeSandboxPlayerMenu
+  window.forceSandboxPlayerCountUI = forceSandboxPlayerCountUI
 })()

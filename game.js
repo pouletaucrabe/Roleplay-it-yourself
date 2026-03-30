@@ -4038,6 +4038,27 @@ document.querySelectorAll(".token").forEach(token => {
   })
 })
 
+document.addEventListener("pointerdown", e => {
+  if (!document.body.classList.contains("sandbox-studio-mode")) return
+  const token = e.target && e.target.closest ? e.target.closest(".token") : null
+  if (!token || token.id === "mobToken") return
+  const map = document.getElementById("map")
+  if (!map) return
+  const rect = map.getBoundingClientRect()
+  document.querySelectorAll(".token").forEach(t => t.classList.remove("gmSelected"))
+  token.classList.add("gmSelected")
+  window.__sandboxTokenDrag = {
+    token,
+    offsetX: e.clientX - rect.left - token.offsetLeft,
+    offsetY: e.clientY - rect.top - token.offsetTop
+  }
+  token.dataset.mjPlaced = "true"
+  token.style.transition = "none"
+  token.style.cursor = "grabbing"
+  e.preventDefault()
+  e.stopPropagation()
+}, true)
+
 document.addEventListener("pointermove", e => {
   const drag = window.__sandboxTokenDrag
   if (!drag) return
@@ -4057,7 +4078,7 @@ document.addEventListener("pointerup", () => {
   const token = drag.token
   token.style.transition = ""
   token.style.cursor = ""
-  if (token && token.id) {
+  if (token && token.id && !/^sandbox_extra_/.test(token.id)) {
     const finalX = parseInt(token.style.left, 10) || 0
     const finalY = parseInt(token.style.top, 10) || 0
     db.ref("tokens/" + token.id).update({ x: finalX, y: finalY })

@@ -1741,6 +1741,7 @@ html, body {
 }
 
 #sandboxPlayersBtn {
+  list-style: none;
   font-family: var(--font-body); font-size: 13px; padding: 10px 18px;
   background: linear-gradient(180deg, rgba(28,21,12,0.96), rgba(11,10,8,0.98));
   color: #f4dfb0;
@@ -1749,6 +1750,10 @@ html, body {
   border-radius: 999px; cursor: pointer; transition: 0.2s;
   letter-spacing: 2px;
   text-transform: uppercase;
+}
+
+#sandboxPlayersBtn::-webkit-details-marker {
+  display: none;
 }
 
 #sandboxPlayersBtn:hover {
@@ -1773,6 +1778,10 @@ html, body {
 }
 
 .sandboxPlayersDropdown.open {
+  display: grid;
+}
+
+.sandboxPlayersMenu[open] .sandboxPlayersDropdown {
   display: grid;
 }
 
@@ -3586,6 +3595,15 @@ body.sandbox-studio-mode .hpBarToken {
   top: -10px !important;
   background: rgba(66, 52, 29, 0.2) !important;
   border: 1px solid rgba(111, 92, 59, 0.24) !important;
+}
+
+body.sandbox-studio-mode[data-sandbox-player-count="1"] #ju,
+body.sandbox-studio-mode[data-sandbox-player-count="1"] #elo,
+body.sandbox-studio-mode[data-sandbox-player-count="1"] #bibi,
+body.sandbox-studio-mode[data-sandbox-player-count="2"] #elo,
+body.sandbox-studio-mode[data-sandbox-player-count="2"] #bibi,
+body.sandbox-studio-mode[data-sandbox-player-count="3"] #bibi {
+  display: none !important;
 }
 
 body.sandbox-studio-mode #gmBar {
