@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English&family=Cormorant+SC:wght@500;700&family=Marcellus&family=Orbitron:wght@500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <title>Roleplay It Yourself</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='48'%3E%F0%9F%8E%B2%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?v=133">
+  <link rel="stylesheet" href="style.css?v=143">
   <style>
     #playerCodeBtn, #playerCodeBtn * {
       color: #ffd700 !important;
@@ -29,7 +29,8 @@
       <p class="builderShellLead">Une base propre pour ouvrir un bac a sable, construire ton board dans le studio MJ, puis lancer la partie.</p>
     </div>
     <div class="builderShellActions">
-      <button type="button" class="builderShellPrimary" onclick="forceOpenSandboxFromClick()">Nouveau bac a sable</button>
+      <button type="button" class="builderShellPrimary" onclick="forceOpenSandboxFromClick(true)">Nouveau bac a sable</button>
+      <button type="button" class="builderShellSecondary" onclick="forceOpenSandboxFromClick(false)">Charger le bac a sable</button>
       <button type="button" class="builderShellSecondary" onclick="openPlayerStudio()">Rejoindre une partie</button>
     </div>
   </div>
@@ -54,8 +55,8 @@
               <h2 id="entryMjTitle">Espace creation</h2>
               <p id="entryMjDescription">Configure le bac a sable, ajoute tes maps, PNJ, mobs, documents et images, puis ouvre les outils MJ.</p>
               <div class="entryCardActions">
-                <button type="button" id="entryNewProjectBtn" class="hubButton" onclick="forceOpenSandboxFromClick()"><span class="btn-inner">NOUVEAU BAC A SABLE</span></button>
-                <button type="button" id="entryLoadProjectBtn" class="hubButton" onclick="forceOpenSandboxFromClick()"><span class="btn-inner">OUVRIR LE BAC A SABLE</span></button>
+                <button type="button" id="entryNewProjectBtn" class="hubButton" onclick="forceOpenSandboxFromClick(true)"><span class="btn-inner">NOUVEAU BAC A SABLE</span></button>
+                <button type="button" id="entryLoadProjectBtn" class="hubButton" onclick="forceOpenSandboxFromClick(false)"><span class="btn-inner">CHARGER LE BAC A SABLE</span></button>
               </div>
             </div>
           </section>
@@ -104,8 +105,9 @@
 </div>
 
 <!-- CAMÃ‰RA -->
-  <div id="camera" tabindex="-1">
+<div id="camera" tabindex="-1">
   <div id="map" tabindex="-1">
+    <img id="sandboxStartMapLayer" alt="" style="display:none;">
 
     <div class="token" id="mobToken" style="left:500px;top:200px;display:none;">
       <div class="mobHP">
@@ -120,28 +122,28 @@
 
     <div class="token" id="greg" style="left:200px;top:300px;">
       <div class="tokenStats" id="stats_greg"></div>
-      <div class="hpBarToken"><div class="hpBarFill" id="hp_greg"></div></div>
+      <div class="hpBarToken"><div class="hpBarFill" id="hp_greg"></div><div class="hpBarTokenValue" id="hp_label_greg">0/0</div></div>
       <img src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cdefs%3E%3ClinearGradient id='g1' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23f5ecd6'/%3E%3Cstop offset='100%25' stop-color='%23d9c39a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='80' cy='80' r='76' fill='url(%23g1)' stroke='%239d8357' stroke-width='8'/%3E%3Ccircle cx='80' cy='62' r='24' fill='%238f7a56'/%3E%3Cpath d='M42 126c7-24 26-36 38-36s31 12 38 36' fill='%238f7a56'/%3E%3Ctext x='80' y='150' text-anchor='middle' font-family='Cinzel, serif' font-size='24' fill='%235b482c'%3E1%3C/text%3E%3C/svg%3E">
       <div class="nameTag">Joueur 1</div>
     </div>
 
     <div class="token" id="ju" style="left:300px;top:300px;">
       <div class="tokenStats" id="stats_ju"></div>
-      <div class="hpBarToken"><div class="hpBarFill" id="hp_ju"></div></div>
+      <div class="hpBarToken"><div class="hpBarFill" id="hp_ju"></div><div class="hpBarTokenValue" id="hp_label_ju">0/0</div></div>
       <img src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cdefs%3E%3ClinearGradient id='g2' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23f5ecd6'/%3E%3Cstop offset='100%25' stop-color='%23d9c39a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='80' cy='80' r='76' fill='url(%23g2)' stroke='%239d8357' stroke-width='8'/%3E%3Ccircle cx='80' cy='62' r='24' fill='%238f7a56'/%3E%3Cpath d='M42 126c7-24 26-36 38-36s31 12 38 36' fill='%238f7a56'/%3E%3Ctext x='80' y='150' text-anchor='middle' font-family='Cinzel, serif' font-size='24' fill='%235b482c'%3E2%3C/text%3E%3C/svg%3E">
       <div class="nameTag">Joueur 2</div>
     </div>
 
     <div class="token" id="elo" style="left:400px;top:300px;">
       <div class="tokenStats" id="stats_elo"></div>
-      <div class="hpBarToken"><div class="hpBarFill" id="hp_elo"></div></div>
+      <div class="hpBarToken"><div class="hpBarFill" id="hp_elo"></div><div class="hpBarTokenValue" id="hp_label_elo">0/0</div></div>
       <img src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cdefs%3E%3ClinearGradient id='g3' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23f5ecd6'/%3E%3Cstop offset='100%25' stop-color='%23d9c39a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='80' cy='80' r='76' fill='url(%23g3)' stroke='%239d8357' stroke-width='8'/%3E%3Ccircle cx='80' cy='62' r='24' fill='%238f7a56'/%3E%3Cpath d='M42 126c7-24 26-36 38-36s31 12 38 36' fill='%238f7a56'/%3E%3Ctext x='80' y='150' text-anchor='middle' font-family='Cinzel, serif' font-size='24' fill='%235b482c'%3E3%3C/text%3E%3C/svg%3E">
       <div class="nameTag">Joueur 3</div>
     </div>
 
     <div class="token" id="bibi" style="left:600px;top:300px;">
       <div class="tokenStats" id="stats_bibi"></div>
-      <div class="hpBarToken"><div class="hpBarFill" id="hp_bibi"></div></div>
+      <div class="hpBarToken"><div class="hpBarFill" id="hp_bibi"></div><div class="hpBarTokenValue" id="hp_label_bibi">0/0</div></div>
       <img src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cdefs%3E%3ClinearGradient id='g4' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23f5ecd6'/%3E%3Cstop offset='100%25' stop-color='%23d9c39a'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='80' cy='80' r='76' fill='url(%23g4)' stroke='%239d8357' stroke-width='8'/%3E%3Ccircle cx='80' cy='62' r='24' fill='%238f7a56'/%3E%3Cpath d='M42 126c7-24 26-36 38-36s31 12 38 36' fill='%238f7a56'/%3E%3Ctext x='80' y='150' text-anchor='middle' font-family='Cinzel, serif' font-size='24' fill='%235b482c'%3E4%3C/text%3E%3C/svg%3E">
       <div class="nameTag">Joueur 4</div>
     </div>
@@ -477,6 +479,10 @@
       <button class="sandboxPlayersAction" type="button" onclick="event.preventDefault();event.stopPropagation();applySandboxStyleTheme('contemporain');return false;">Moderne</button>
     </div>
   </details>
+</div>
+
+<div id="sandboxStartMapBar">
+  <button id="sandboxStartMapBtn" type="button" onclick="launchOnboardingStartMap()">Map de depart</button>
 </div>
 
 <div id="sandboxSheetsTestBar">
@@ -1070,9 +1076,9 @@
 <script src="state.js?v=2"></script>
 <!-- 3. Utilitaires (pas de dÃ©pendances Firebase) -->
 <script src="utils.js?v=14"></script>
-<script src="customization.js?v=46"></script>
+<script src="customization.js?v=53"></script>
 <!-- 4. Logique principale + Firebase listeners -->
-<script src="game.js?v=74"></script>
+<script src="game.js?v=81"></script>
 <!-- 5. Interface utilisateur -->
 <script src="ui.js?v=8"></script>
 <!-- 6. Combat -->
@@ -1665,6 +1671,7 @@ function applySandboxStyleTheme(themeValue) {
 
 function applyProjectThemeToDocument(themeValue) {
   var nextTheme = String(themeValue || "medieval_fantasy").trim() || "medieval_fantasy"
+  try { window.__currentProjectTheme = nextTheme } catch (e) {}
   try { document.body.setAttribute("data-project-theme", nextTheme) } catch (e) {}
   try { document.documentElement.setAttribute("data-project-theme", nextTheme) } catch (e) {}
   try {
@@ -1798,8 +1805,8 @@ function openGMCharacterPickerInline(event) {
 
   var pickerTheme = "medieval_fantasy"
   try {
-    pickerTheme = document.body.getAttribute("data-project-theme") || pickerTheme
-    if (typeof getCustomization === "function") {
+    pickerTheme = String(window.__currentProjectTheme || document.body.getAttribute("data-project-theme") || document.documentElement.getAttribute("data-project-theme") || pickerTheme).trim() || pickerTheme
+    if ((pickerTheme === "medieval_fantasy" || !pickerTheme) && typeof getCustomization === "function") {
       var pickerCustomization = getCustomization()
       if (pickerCustomization && pickerCustomization.project && pickerCustomization.project.theme) {
         pickerTheme = pickerCustomization.project.theme
@@ -1983,6 +1990,92 @@ function saveSimpleSheetLocal(playerId, data) {
   } catch (e) {}
 }
 
+function syncSimpleSheetIdentityToCustomization(playerId, data) {
+  if (!playerId || !data || typeof getCustomization !== "function" || typeof saveCustomization !== "function") return
+  try {
+    var next = getCustomization()
+    next.players = next.players || {}
+    var playerKey = String(playerId || "")
+    var targetKey = playerKey
+    var extraMatch = playerKey.match(/^sandbox_extra_(\d+)$/)
+    if (extraMatch) targetKey = "slot_" + extraMatch[1]
+    var current = next.players[targetKey] || {}
+    var nextName = String(data.characterName || "").trim()
+    var nextImage = String(data.profileImage || "").trim()
+    next.players[targetKey] = {
+      ...current,
+      name: nextName || (current.name || ""),
+      image: nextImage,
+      enabled: current.enabled !== false
+    }
+    saveCustomization(next)
+    if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
+  } catch (e) {}
+}
+
+function syncSimpleSheetIdentityToToken(playerId, data) {
+  if (!playerId || !data) return
+  try {
+    var safePlayerId = String(playerId || "")
+    var tokenId = safePlayerId
+    var extraMatch = safePlayerId.match(/^slot_(\d+)$/)
+    if (extraMatch) tokenId = "sandbox_extra_" + extraMatch[1]
+    var token = document.getElementById(tokenId)
+    var name = String(data.characterName || "").trim()
+    var image = String(data.profileImage || "").trim()
+    if (token) {
+      var tokenImage = token.querySelector("img")
+      if (tokenImage && image) tokenImage.src = image
+      var tag = token.querySelector(".nameTag")
+      if (tag && name) tag.textContent = name
+    }
+    document.querySelectorAll('[data-player-choice="' + safePlayerId + '"]').forEach(function(button) {
+      if (name) button.textContent = name
+    })
+    document.querySelectorAll('[data-sheet-player-id="' + safePlayerId + '"]').forEach(function(button) {
+      if (name) button.textContent = name
+    })
+  } catch (e) {}
+}
+
+function syncSimpleSheetVitalsToToken(playerId, data) {
+  if (!playerId || !data) return
+  try {
+    var safePlayerId = String(playerId || "")
+    var tokenId = safePlayerId
+    var extraMatch = safePlayerId.match(/^slot_(\d+)$/)
+    if (extraMatch) tokenId = "sandbox_extra_" + extraMatch[1]
+    var hp = parseInt(data.hp, 10) || 0
+    var hpMax = Math.max(1, parseInt(data.hpMax, 10) || 1)
+    var bar = document.getElementById("hp_" + tokenId)
+    if (bar) bar.style.width = Math.max(0, Math.min(100, (hp / hpMax) * 100)) + "%"
+    var label = document.getElementById("hp_label_" + tokenId)
+    if (label) label.textContent = hp + "/" + hpMax
+  } catch (e) {}
+}
+
+function syncSimpleSheetIdentityFromPanel(playerId, panel) {
+  if (!playerId || !panel) return
+  var nameField = panel.querySelector('[data-simple-sheet-field="characterName"]')
+  var profileField = panel.querySelector("[data-simple-profile-image]")
+  var nextIdentity = {
+    characterName: nameField ? nameField.value : "",
+    profileImage: profileField ? profileField.value : ""
+  }
+  syncSimpleSheetIdentityToToken(playerId, nextIdentity)
+  syncSimpleSheetIdentityToCustomization(playerId, nextIdentity)
+}
+
+function syncSimpleSheetVitalsFromPanel(playerId, panel) {
+  if (!playerId || !panel) return
+  var hpField = panel.querySelector('[data-simple-sheet-field="hp"]')
+  var hpMaxField = panel.querySelector('[data-simple-sheet-field="hpMax"]')
+  syncSimpleSheetVitalsToToken(playerId, {
+    hp: hpField ? hpField.value : 0,
+    hpMax: hpMaxField ? hpMaxField.value : 0
+  })
+}
+
 function loadSimpleSheetLocal(playerId) {
   try {
     var raw = localStorage.getItem(getSimpleSheetStorageKey(playerId))
@@ -2009,6 +2102,7 @@ function saveSimpleCharacterSheet(playerId, root) {
   if (!playerId || !root) return
   var data = collectSimpleSheetData(root)
   saveSimpleSheetLocal(playerId, data)
+  syncSimpleSheetIdentityToCustomization(playerId, data)
   try {
     if (typeof db !== "undefined" && db && typeof db.ref === "function") {
       db.ref("characters/" + playerId).update(data).catch(function() {})
@@ -2040,6 +2134,7 @@ function openSimpleCharacterSheet(playerId, event) {
     if (!playerId) return
     var data = collectSimpleSheetData(panel)
     saveSimpleSheetLocal(playerId, data)
+    syncSimpleSheetIdentityToCustomization(playerId, data)
     try {
       if (typeof db !== "undefined" && db && typeof db.ref === "function") {
         db.ref("characters/" + playerId).update(data).catch(function() {})
@@ -2222,6 +2317,14 @@ function openSimpleCharacterSheet(playerId, event) {
     var portraitImage = panel.querySelector(".simpleSheetPortrait img")
     if (!portraitImage) return
     portraitImage.src = src || portrait
+  }
+
+  function refreshSimpleSheetIdentityPreview() {
+    var title = panel.querySelector(".simpleSheetTitle")
+    var nameField = panel.querySelector('[data-simple-sheet-field="characterName"]')
+    if (title && nameField) {
+      title.textContent = String(nameField.value || "").trim() || "Joueur"
+    }
   }
 
   function getDefaultCustomBlock(type) {
@@ -2616,10 +2719,12 @@ function openSimpleCharacterSheet(playerId, event) {
   if (profileImageInput) {
     profileImageInput.addEventListener("input", function() {
       updateSimplePortrait(profileImageInput.value)
+      syncSimpleSheetIdentityFromPanel(playerId, panel)
       queueAutoSave()
     })
     profileImageInput.addEventListener("change", function() {
       updateSimplePortrait(profileImageInput.value)
+      syncSimpleSheetIdentityFromPanel(playerId, panel)
       queueAutoSave()
     })
   }
@@ -2630,6 +2735,7 @@ function openSimpleCharacterSheet(playerId, event) {
       readSimpleSheetFileAsDataURL(file).then(function(dataUrl) {
         if (profileImageInput) profileImageInput.value = dataUrl
         updateSimplePortrait(dataUrl)
+        syncSimpleSheetIdentityFromPanel(playerId, panel)
         queueAutoSave()
       }).catch(function() {
         if (typeof showNotification === "function") showNotification("Import image impossible")
@@ -2639,10 +2745,25 @@ function openSimpleCharacterSheet(playerId, event) {
 
   panel.querySelectorAll("[data-simple-sheet-field]").forEach(function(field) {
     field.addEventListener("input", function() {
+      refreshSimpleSheetIdentityPreview()
+      if (field.getAttribute("data-simple-sheet-field") === "characterName") {
+        syncSimpleSheetIdentityFromPanel(playerId, panel)
+      }
+      if (field.getAttribute("data-simple-sheet-field") === "hp" || field.getAttribute("data-simple-sheet-field") === "hpMax") {
+        syncSimpleSheetVitalsFromPanel(playerId, panel)
+      }
       queueAutoSave()
       refreshSimpleSheetGauges()
     })
-    field.addEventListener("change", queueAutoSave)
+    field.addEventListener("change", function() {
+      if (field.getAttribute("data-simple-sheet-field") === "characterName") {
+        syncSimpleSheetIdentityFromPanel(playerId, panel)
+      }
+      if (field.getAttribute("data-simple-sheet-field") === "hp" || field.getAttribute("data-simple-sheet-field") === "hpMax") {
+        syncSimpleSheetVitalsFromPanel(playerId, panel)
+      }
+      queueAutoSave()
+    })
   })
 
   function applyData(data) {
@@ -2655,6 +2776,11 @@ function openSimpleCharacterSheet(playerId, event) {
     renderSimpleCustomBlocks((data && data.customBlocks) || [])
     applyBaseBlocksState((data && data.baseBlocks) || defaults.baseBlocks || [])
     refreshHiddenBaseBlockOptions()
+    refreshSimpleSheetIdentityPreview()
+    syncSimpleSheetVitalsToToken(playerId, {
+      hp: data && data.hp,
+      hpMax: data && data.hpMax
+    })
   }
 
   bindSimpleCustomBlocks()
@@ -2703,7 +2829,12 @@ document.addEventListener("click", function(event) {
   openCharacterSheetFromMenuWithFallback(button.getAttribute("data-sheet-player-id"), event)
 }, true)
 
-function forceOpenSandboxFromClick() {
+function forceOpenSandboxFromClick(showTutorial) {
+  window.__showNewMJSandboxTutorial = showTutorial !== false
+  if (window.__showNewMJSandboxTutorial) {
+    if (window.__mjSandboxTutorialImmediateTimer) clearTimeout(window.__mjSandboxTutorialImmediateTimer)
+    if (window.__mjSandboxTutorialWatchdogTimer) clearTimeout(window.__mjSandboxTutorialWatchdogTimer)
+  }
   try {
     window.__skipIntroHub = true
     document.body.classList.add("sandbox-studio-mode")
@@ -2749,7 +2880,17 @@ function forceOpenSandboxFromClick() {
 
   try {
     if (typeof launchBlankSandboxFromEntry === "function") {
-      launchBlankSandboxFromEntry()
+      launchBlankSandboxFromEntry(showTutorial)
+      if (window.__showNewMJSandboxTutorial && typeof openMJSandboxOnboarding === "function") {
+        window.__mjSandboxTutorialImmediateTimer = setTimeout(function() {
+          try { openMJSandboxOnboarding() } catch (e) {}
+        }, 220)
+        window.__mjSandboxTutorialWatchdogTimer = setTimeout(function() {
+          if (!document.getElementById("mjSandboxOnboardingOverlay")) {
+            try { openMJSandboxOnboarding() } catch (e) {}
+          }
+        }, 1800)
+      }
       return
     }
   } catch (error) {
@@ -2768,13 +2909,17 @@ function forceOpenSandboxFromClick() {
   }
 }
 
-function launchBlankSandboxFromEntry() {
+function launchBlankSandboxFromEntry(showTutorial) {
   try {
+    var isNewSandbox = showTutorial !== false
+    window.__showNewMJSandboxTutorial = isNewSandbox
     window.__skipIntroHub = true
     document.body.classList.add("sandbox-studio-mode")
-    var base = typeof getCustomization === "function"
-      ? getCustomization()
-      : (typeof getDefaultCustomization === "function" ? getDefaultCustomization() : null)
+    var base = isNewSandbox
+      ? (typeof getDefaultCustomization === "function" ? getDefaultCustomization() : null)
+      : (typeof getCustomization === "function"
+          ? getCustomization()
+          : (typeof getDefaultCustomization === "function" ? getDefaultCustomization() : null))
 
     if (!base && typeof getDefaultCustomization === "function") base = getDefaultCustomization()
     if (!base) {
@@ -2798,6 +2943,15 @@ function launchBlankSandboxFromEntry() {
     }
     window.__projectWizardCommitted = true
     window.__startInSandboxMode = true
+
+    if (isNewSandbox && typeof applyCustomizationToUI === "function") {
+      try { applyCustomizationToUI() } catch (e) {}
+    }
+
+    if (isNewSandbox && typeof newGame === "function") {
+      newGame()
+      return
+    }
 
     if (typeof setBuilderShellVisible === "function") setBuilderShellVisible(false)
     try {
@@ -2854,11 +3008,6 @@ function launchBlankSandboxFromEntry() {
       try { applyCustomizationToUI() } catch (e) {}
     }
 
-    if (typeof newGame === "function") {
-      newGame()
-      return
-    }
-
     if (typeof openSandboxAfterProjectCreation === "function") {
       openSandboxAfterProjectCreation("Bac a sable MJ pret")
       return
@@ -2878,6 +3027,652 @@ function launchBlankSandboxFromEntry() {
     if (typeof showNotification === "function") showNotification("Impossible d'ouvrir le bac a sable")
   }
 }
+
+function closeMJSandboxOnboarding() {
+  var overlay = document.getElementById("mjSandboxOnboardingOverlay")
+  if (overlay) overlay.remove()
+}
+
+function closeSandboxBoardHint(hintId) {
+  var container = document.getElementById("sandboxBoardHints")
+  if (!container) return
+  var target = container.querySelector('[data-hint-id="' + String(hintId || "") + '"]')
+  if (target) target.remove()
+  if (!container.querySelector(".sandboxBoardHint")) container.remove()
+}
+
+function dismissAllSandboxBoardHints() {
+  var container = document.getElementById("sandboxBoardHints")
+  if (container) container.remove()
+}
+
+function openSandboxBoardHints() {
+  dismissAllSandboxBoardHints()
+  if (!document.body || !document.body.classList.contains("sandbox-studio-mode")) return false
+  var container = document.createElement("div")
+  container.id = "sandboxBoardHints"
+  container.className = "sandboxBoardHints"
+  container.setAttribute("data-project-theme", String(window.__currentProjectTheme || document.body.getAttribute("data-project-theme") || "medieval_fantasy"))
+  container.innerHTML = `
+    <div class="sandboxBoardHint hint-save" data-hint-id="save">
+      <button type="button" class="sandboxBoardHintClose" onclick="closeSandboxBoardHint('save')" aria-label="Fermer">×</button>
+      <div class="sandboxBoardHintTitle">Save</div>
+      <div class="sandboxBoardHintText">Sauvegarde ton bac a sable, exporte une version jouable ou quitte proprement.</div>
+    </div>
+    <div class="sandboxBoardHint hint-players" data-hint-id="players">
+      <button type="button" class="sandboxBoardHintClose" onclick="closeSandboxBoardHint('players')" aria-label="Fermer">×</button>
+      <div class="sandboxBoardHintTitle">Joueurs</div>
+      <div class="sandboxBoardHintText">Ajuste ici le nombre de slots visibles sur le board pendant ta preparation.</div>
+    </div>
+    <div class="sandboxBoardHint hint-style" data-hint-id="style">
+      <button type="button" class="sandboxBoardHintClose" onclick="closeSandboxBoardHint('style')" aria-label="Fermer">×</button>
+      <div class="sandboxBoardHintTitle">Style</div>
+      <div class="sandboxBoardHintText">Change l'ambiance generale du board, des menus et des fiches en un clic.</div>
+    </div>
+    <div class="sandboxBoardHint hint-mjmenu" data-hint-id="mjmenu">
+      <button type="button" class="sandboxBoardHintClose" onclick="closeSandboxBoardHint('mjmenu')" aria-label="Fermer">×</button>
+      <div class="sandboxBoardHintTitle">Menu MJ</div>
+      <div class="sandboxBoardHintText">Le menu du bas regroupe tes outils de jeu : fiches, maps, PNJ, mobs, XP et elements.</div>
+    </div>
+    <div class="sandboxBoardHint hint-dice" data-hint-id="dice">
+      <button type="button" class="sandboxBoardHintClose" onclick="closeSandboxBoardHint('dice')" aria-label="Fermer">×</button>
+      <div class="sandboxBoardHintTitle">Des</div>
+      <div class="sandboxBoardHintText">Cette barre te permet de lancer rapidement les jets utiles pendant la preparation ou la partie.</div>
+    </div>
+    <button type="button" class="sandboxBoardHintDismissAll" onclick="dismissAllSandboxBoardHints()">Tout fermer</button>
+  `
+  document.body.appendChild(container)
+  return true
+}
+
+function saveMJSandboxOnboardingState(state) {
+  if (!state || typeof getCustomization !== "function" || typeof saveCustomization !== "function") return state
+  try {
+    var next = getCustomization()
+    next.project = next.project || {}
+    next.project.title = String(state.title || "").trim() || "Nouvelle partie"
+    next.project.theme = String(state.theme || "").trim() || "medieval_fantasy"
+    next.project.playerCount = Math.max(1, Math.min(12, parseInt(state.playerCount, 10) || 4))
+    next.project.startMapId = String(state.mapId || getMJSandboxOnboardingStartMapId()).trim()
+    next.project.startMapAsset = String(state.mapAsset || "").trim()
+    next.project.startMapLabel = String(state.mapLabel || "").trim()
+    saveCustomization(next)
+    if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
+  } catch (e) {}
+  return state
+}
+
+function getMJSandboxOnboardingStartMapId() {
+  return "tutorial_start_map"
+}
+
+function setRuntimeOnboardingStartMapState(mapId, mapAsset, mapLabel) {
+  try {
+    window.__onboardingStartMapId = String(mapId || getMJSandboxOnboardingStartMapId()).trim()
+    window.__onboardingStartMapAsset = String(mapAsset || "").trim()
+    window.__onboardingStartMapLabel = String(mapLabel || "").trim()
+  } catch (e) {}
+}
+
+function launchOnboardingStartMap() {
+  try {
+    var launchButton = document.getElementById("sandboxStartMapBtn")
+    if (launchButton) launchButton.textContent = "Map de depart..."
+    var current = typeof getCustomization === "function" ? getCustomization() : null
+    var startMapId = current && current.project ? String(current.project.startMapId || "") : ""
+    var startMapAsset = current && current.project ? String(current.project.startMapAsset || "") : ""
+    var startMapLabel = current && current.project ? String(current.project.startMapLabel || "") : ""
+    if (!startMapId) startMapId = String(window.__onboardingStartMapId || "")
+    if (!startMapAsset) startMapAsset = String(window.__onboardingStartMapAsset || "")
+    if (!startMapLabel) startMapLabel = String(window.__onboardingStartMapLabel || "")
+    if (!startMapAsset) {
+      if (launchButton) launchButton.textContent = "Aucune map"
+      if (typeof showNotification === "function") showNotification("Aucune map de depart enregistree")
+      return false
+    }
+    var startMapLayer = document.getElementById("sandboxStartMapLayer")
+    if (startMapLayer) {
+      startMapLayer.src = startMapAsset
+      startMapLayer.style.display = "block"
+      startMapLayer.style.opacity = "1"
+    }
+    var map = document.getElementById("map")
+    if (map) {
+      map.style.setProperty("background", "url('" + startMapAsset.replace(/'/g, "\\'") + "') center / cover no-repeat", "important")
+    }
+    try {
+      if (startMapId) window.__latestMapValue = startMapId
+      if (startMapId) currentMap = startMapId
+    } catch (e) {}
+    if (startMapLabel && typeof showLocation === "function") {
+      try { showLocation(startMapLabel) } catch (e) {}
+    }
+    setRuntimeOnboardingStartMapState(startMapId, startMapAsset, startMapLabel)
+    if (launchButton) launchButton.textContent = startMapLabel || "Map de depart"
+    if (typeof showNotification === "function") showNotification("Map de depart lancee")
+    try {
+      if (typeof updateCamera === "function") updateCamera()
+    } catch (e) {}
+    try {
+      if (typeof changeMap === "function" && startMapId) {
+        setTimeout(function() {
+          try { changeMap(startMapId, "") } catch (e) {}
+        }, 60)
+      }
+    } catch (e) {}
+  } catch (e) {
+    try {
+      var fallbackButton = document.getElementById("sandboxStartMapBtn")
+      if (fallbackButton) fallbackButton.textContent = "Erreur map"
+    } catch (_) {}
+  }
+  return false
+}
+
+try { window.launchOnboardingStartMap = launchOnboardingStartMap } catch (e) {}
+
+function applyMJSandboxOnboardingPlayerCount(count) {
+  var safeCount = Math.max(1, Math.min(12, parseInt(count, 10) || 4))
+  try {
+    var playerIds = ["greg", "ju", "elo", "bibi"]
+    if (document.body) document.body.setAttribute("data-sandbox-player-count", String(safeCount))
+    playerIds.forEach(function(playerId, index) {
+      var token = document.getElementById(playerId)
+      var visible = index < safeCount
+      if (token) {
+        token.hidden = !visible
+        token.style.display = visible ? "flex" : "none"
+        token.style.visibility = visible ? "visible" : "hidden"
+        token.style.pointerEvents = visible ? "auto" : "none"
+      }
+    })
+    var map = document.getElementById("map")
+    if (map) {
+      map.querySelectorAll(".sandboxExtraToken").forEach(function(node) {
+        var slotIndex = parseInt(node.dataset.slotIndex, 10) || 0
+        var visible = slotIndex > 4 && slotIndex <= safeCount
+        node.hidden = !visible
+        node.style.display = visible ? "flex" : "none"
+        node.style.visibility = visible ? "visible" : "hidden"
+        node.style.pointerEvents = visible ? "auto" : "none"
+      })
+    }
+    var gmCharacters = document.getElementById("gmCharacters")
+    if (gmCharacters && typeof buildSandboxCharacterButtonsMarkup === "function") {
+      gmCharacters.innerHTML = buildSandboxCharacterButtonsMarkup(safeCount)
+    }
+  } catch (e) {}
+  try {
+    if (typeof setSandboxPlayerCount === "function") {
+      setSandboxPlayerCount(safeCount)
+      return safeCount
+    }
+  } catch (e) {}
+  try {
+    if (typeof forceSandboxPlayerCountUI === "function") forceSandboxPlayerCountUI(safeCount)
+  } catch (e) {}
+  try {
+    if (typeof getCustomization === "function" && typeof saveCustomization === "function") {
+      var next = getCustomization()
+      next.project = next.project || {}
+      next.project.playerCount = safeCount
+      saveCustomization(next)
+      if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
+    }
+  } catch (e) {}
+  return safeCount
+}
+
+function applyMJSandboxOnboardingMapAsset(asset) {
+  var safeAsset = String(asset || "").trim()
+  var overlay = document.getElementById("mjSandboxOnboardingOverlay")
+  var state = overlay && overlay.__wizardState ? overlay.__wizardState : null
+  var safeLabel = state ? (String(state.mapLabel || "").trim() || "Map de depart") : "Map de depart"
+  var startMapId = getMJSandboxOnboardingStartMapId()
+  setRuntimeOnboardingStartMapState(startMapId, safeAsset, safeLabel)
+  try {
+    var next = typeof getCustomization === "function" ? getCustomization() : null
+    if (next) {
+      next.project = next.project || {}
+      next.project.startMapAsset = safeAsset
+      next.project.startMapId = safeAsset ? startMapId : ""
+      next.project.startMapLabel = safeLabel
+      next.assets = next.assets || {}
+      if (safeAsset) next.assets[startMapId] = safeAsset
+      else if (next.assets[startMapId]) delete next.assets[startMapId]
+      next.content = next.content || {}
+      next.content.maps = Array.isArray(next.content.maps) ? next.content.maps : []
+      next.content.maps = next.content.maps.filter(function(item) {
+        return String(item && item.category || "") !== "Tutoriel MJ"
+      })
+      if (safeAsset) {
+        next.content.maps.unshift({
+          label: safeLabel,
+          category: "Tutoriel MJ",
+          map: startMapId,
+          section: "villes",
+          audio: ""
+        })
+      }
+      if (typeof saveCustomization === "function") saveCustomization(next)
+      if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
+    }
+  } catch (e) {}
+  try {
+    var startMapBar = document.getElementById("sandboxStartMapBar")
+    if (startMapBar) startMapBar.style.display = safeAsset ? "block" : "none"
+  } catch (e) {}
+  try {
+    if (safeAsset && typeof changeMap === "function") {
+      changeMap(startMapId, "")
+      return safeAsset
+    }
+  } catch (e) {}
+  try {
+    var map = document.getElementById("map")
+    var startMapLayer = document.getElementById("sandboxStartMapLayer")
+    if (!map) return safeAsset
+    if (safeAsset) {
+      if (startMapLayer) {
+        startMapLayer.src = safeAsset
+        startMapLayer.style.display = "block"
+      }
+      map.style.setProperty("background", "url('" + safeAsset.replace(/'/g, "\\'") + "') center / cover no-repeat", "important")
+      map.dataset.onboardingMapAsset = safeAsset
+      try {
+        window.__latestMapValue = startMapId
+        currentMap = startMapId
+      } catch (e) {}
+      if (typeof showLocation === "function") showLocation(safeLabel)
+    } else {
+      if (startMapLayer) {
+        startMapLayer.removeAttribute("src")
+        startMapLayer.style.display = "none"
+      }
+      map.style.removeProperty("background-image")
+      map.style.removeProperty("background-size")
+      map.style.removeProperty("background-position")
+      map.style.removeProperty("background-repeat")
+      delete map.dataset.onboardingMapAsset
+      try {
+        if (currentMap === startMapId) currentMap = ""
+      } catch (e) {}
+    }
+  } catch (e) {}
+  return safeAsset
+}
+
+function renderMJSandboxOnboardingStep(state) {
+  var overlay = document.getElementById("mjSandboxOnboardingOverlay")
+  if (!overlay) return
+  var panel = overlay.querySelector(".mjSandboxOnboardingPanel")
+  if (!panel) return
+  var step = Math.max(1, Math.min(4, parseInt(state.step, 10) || 1))
+  var theme = String(state.theme || "medieval_fantasy").trim() || "medieval_fantasy"
+  var playerCount = Math.max(1, Math.min(12, parseInt(state.playerCount, 10) || 4))
+  var mapAsset = String(state.mapAsset || "").trim()
+  var mapLabel = String(state.mapLabel || "").trim()
+  panel.setAttribute("data-onboarding-theme", theme)
+  overlay.setAttribute("data-onboarding-theme", theme)
+
+  if (step === 1) {
+    panel.innerHTML = `
+      <div class="builderWizardHeader mjSandboxOnboardingHeader">
+        <div>
+          <div class="builderWizardEyebrow">TUTORIEL MJ · ETAPE 1</div>
+          <div class="builderWizardTitle">Comment s'appelle ta partie ?</div>
+          <div class="builderWizardLead">Commence simplement par le nom. Il servira de base a ton bac a sable et on pourra ensuite t'accompagner etape par etape.</div>
+        </div>
+        <button type="button" class="builderWizardClose" onclick="closeMJSandboxOnboarding()">Plus tard</button>
+      </div>
+      <div class="builderWizardSteps">
+        <div class="builderWizardStep active">1. Nom</div>
+        <div class="builderWizardStep">2. Style</div>
+        <div class="builderWizardStep">3. Joueurs</div>
+        <div class="builderWizardStep">4. Map</div>
+      </div>
+      <div class="builderWizardBody mjSandboxOnboardingBody">
+        <label class="mjSandboxOnboardingField">
+          <span>Nom de la partie</span>
+          <input id="mjSandboxOnboardingName" type="text" value="${String(state.title || "").replace(/"/g, "&quot;")}" placeholder="Ex. Les Brumes d'Arkenfall">
+        </label>
+        <div class="mjSandboxOnboardingHint">Tu pourras le modifier a tout moment dans le studio MJ.</div>
+      </div>
+      <div class="mjSandboxOnboardingActions">
+        <button type="button" class="builderWizardGhost" onclick="closeMJSandboxOnboarding()">Passer</button>
+        <button type="button" class="builderWizardPrimary" onclick="submitMJSandboxOnboardingName()">Continuer</button>
+      </div>
+    `
+    var nameInput = panel.querySelector("#mjSandboxOnboardingName")
+    if (nameInput) {
+      setTimeout(function() {
+        try { nameInput.focus(); nameInput.select() } catch (e) {}
+      }, 40)
+      nameInput.addEventListener("keydown", function(event) {
+        if (event.key === "Enter") {
+          event.preventDefault()
+          submitMJSandboxOnboardingName()
+        }
+        event.stopPropagation()
+      })
+    }
+    return
+  }
+
+  var themeOptions = typeof getProjectThemeOptions === "function"
+    ? getProjectThemeOptions()
+    : [
+        { value: "medieval_fantasy", label: "Medieval fantasy", description: "Royaumes, magie, quetes et monstres." },
+        { value: "science_fiction", label: "Science-fiction", description: "Technologie, futur et exploration." },
+        { value: "pirate", label: "Pirate", description: "Iles, tresors, tempetes et aventures maritimes." },
+        { value: "contemporain", label: "Contemporaine", description: "Ville actuelle, enquete et mystere." }
+      ]
+
+  if (step === 2) {
+    panel.innerHTML = `
+      <div class="builderWizardHeader mjSandboxOnboardingHeader">
+        <div>
+          <div class="builderWizardEyebrow">TUTORIEL MJ · ETAPE 2</div>
+          <div class="builderWizardTitle">Quel style de base veux-tu ?</div>
+          <div class="builderWizardLead">Choisis une ambiance de depart. On appliquera le style general du bac a sable, des menus et des fiches.</div>
+        </div>
+        <button type="button" class="builderWizardClose" onclick="closeMJSandboxOnboarding()">Fermer</button>
+      </div>
+      <div class="builderWizardSteps">
+        <div class="builderWizardStep">1. Nom</div>
+        <div class="builderWizardStep active">2. Style</div>
+        <div class="builderWizardStep">3. Joueurs</div>
+        <div class="builderWizardStep">4. Map</div>
+      </div>
+      <div class="builderWizardBody">
+        <div class="builderThemeChoices mjSandboxOnboardingThemeChoices">
+          ${themeOptions.map(function(option) {
+            var activeClass = option.value === theme ? " active" : ""
+            return `<button type="button" class="builderChoiceCard${activeClass}" data-mj-onboarding-theme="${option.value}">
+              <div class="builderChoiceCardTitle">${String(option.label || "").replace(/</g, "&lt;")}</div>
+              <div class="builderChoiceCardDesc">${String(option.description || "").replace(/</g, "&lt;")}</div>
+            </button>`
+          }).join("")}
+        </div>
+        <div class="mjSandboxOnboardingHint">Tu pourras toujours le changer plus tard, mais c'est une bonne base pour demarrer.</div>
+      </div>
+      <div class="mjSandboxOnboardingActions">
+        <button type="button" class="builderWizardGhost" onclick="goToMJSandboxOnboardingStep(1)">Retour</button>
+        <button type="button" class="builderWizardPrimary" onclick="goToMJSandboxOnboardingStep(3)">Continuer</button>
+      </div>
+    `
+
+    panel.querySelectorAll("[data-mj-onboarding-theme]").forEach(function(button) {
+      button.addEventListener("click", function() {
+        state.theme = button.getAttribute("data-mj-onboarding-theme") || "medieval_fantasy"
+        saveMJSandboxOnboardingState(state)
+        if (typeof applyProjectThemeToDocument === "function") applyProjectThemeToDocument(state.theme)
+        renderMJSandboxOnboardingStep(state)
+      })
+    })
+    return
+  }
+
+  panel.innerHTML = `
+    <div class="builderWizardHeader mjSandboxOnboardingHeader">
+      <div>
+        <div class="builderWizardEyebrow">TUTORIEL MJ · ETAPE 3</div>
+        <div class="builderWizardTitle">Combien de joueurs veux-tu afficher ?</div>
+        <div class="builderWizardLead">Choisis le nombre de slots visibles sur le board. Tu pourras toujours l'ajuster plus tard dans le studio MJ.</div>
+      </div>
+      <button type="button" class="builderWizardClose" onclick="closeMJSandboxOnboarding()">Fermer</button>
+    </div>
+    <div class="builderWizardSteps">
+      <div class="builderWizardStep">1. Nom</div>
+      <div class="builderWizardStep">2. Style</div>
+      <div class="builderWizardStep active">3. Joueurs</div>
+      <div class="builderWizardStep">4. Map</div>
+    </div>
+    <div class="builderWizardBody">
+      <div class="builderThemeChoices mjSandboxOnboardingThemeChoices">
+        ${[1, 2, 3, 4, 6, 8].map(function(count) {
+          var activeClass = count === playerCount ? " active" : ""
+          return `<button type="button" class="builderChoiceCard${activeClass}" data-mj-onboarding-player-count="${count}">
+            <div class="builderChoiceCardTitle">${count} joueur${count > 1 ? "s" : ""}</div>
+            <div class="builderChoiceCardDesc">${count <= 4 ? "Table classique" : "Grande table ou campagne chorale"}</div>
+          </button>`
+        }).join("")}
+      </div>
+      <label class="mjSandboxOnboardingField" style="margin-top:16px;">
+        <span>Nombre personnalise</span>
+        <input id="mjSandboxOnboardingPlayerCount" type="number" min="1" max="12" value="${playerCount}" placeholder="Ex. 5">
+      </label>
+      <div class="mjSandboxOnboardingHint">Le board affichera ce nombre de slots des l'ouverture du bac a sable.</div>
+    </div>
+    <div class="mjSandboxOnboardingActions">
+      <button type="button" class="builderWizardGhost" onclick="goToMJSandboxOnboardingStep(2)">Retour</button>
+      <button type="button" class="builderWizardPrimary" onclick="goToMJSandboxOnboardingStep(4)">Continuer</button>
+    </div>
+  `
+
+  panel.querySelectorAll("[data-mj-onboarding-player-count]").forEach(function(button) {
+    button.addEventListener("click", function() {
+      state.playerCount = Math.max(1, Math.min(12, parseInt(button.getAttribute("data-mj-onboarding-player-count"), 10) || 4))
+      state.playerCount = applyMJSandboxOnboardingPlayerCount(state.playerCount)
+      overlay.__wizardState = saveMJSandboxOnboardingState(state)
+      renderMJSandboxOnboardingStep(overlay.__wizardState)
+    })
+  })
+  var playerCountInput = panel.querySelector("#mjSandboxOnboardingPlayerCount")
+  if (playerCountInput) {
+    playerCountInput.addEventListener("input", function() {
+      state.playerCount = Math.max(1, Math.min(12, parseInt(playerCountInput.value, 10) || 1))
+      state.playerCount = applyMJSandboxOnboardingPlayerCount(state.playerCount)
+      overlay.__wizardState = saveMJSandboxOnboardingState(state)
+    })
+    playerCountInput.addEventListener("keydown", function(event) {
+      event.stopPropagation()
+      if (event.key === "Enter") {
+        event.preventDefault()
+        finishMJSandboxOnboarding()
+      }
+    })
+  }
+  if (step !== 4) return
+
+  panel.innerHTML = `
+    <div class="builderWizardHeader mjSandboxOnboardingHeader">
+      <div>
+        <div class="builderWizardEyebrow">TUTORIEL MJ · ETAPE 4</div>
+        <div class="builderWizardTitle">Veux-tu poser une premiere map ?</div>
+        <div class="builderWizardLead">Cette map servira de point de depart a ton histoire. Tu peux commencer avec un board vide, importer une image tout de suite, ou choisir plus tard dans le menu Maps.</div>
+      </div>
+      <button type="button" class="builderWizardClose" onclick="closeMJSandboxOnboarding()">Fermer</button>
+    </div>
+    <div class="builderWizardSteps">
+      <div class="builderWizardStep">1. Nom</div>
+      <div class="builderWizardStep">2. Style</div>
+      <div class="builderWizardStep">3. Joueurs</div>
+      <div class="builderWizardStep active">4. Map</div>
+    </div>
+    <div class="builderWizardBody">
+      <label class="mjSandboxOnboardingField" style="margin-bottom:16px;">
+        <span>Nom de la map de depart</span>
+        <input id="mjSandboxOnboardingMapLabel" type="text" value="${String(mapLabel || "").replace(/"/g, "&quot;")}" placeholder="Ex. Village embrume">
+      </label>
+      <div class="builderThemeChoices mjSandboxOnboardingThemeChoices">
+        <button type="button" class="builderChoiceCard${!mapAsset ? " active" : ""}" data-mj-onboarding-map-mode="empty">
+          <div class="builderChoiceCardTitle">Laisser vide</div>
+          <div class="builderChoiceCardDesc">Tu arrives sur un board neutre, pret a etre rempli plus tard.</div>
+        </button>
+        <button type="button" class="builderChoiceCard" data-mj-onboarding-map-mode="later">
+          <div class="builderChoiceCardTitle">Choisir plus tard</div>
+          <div class="builderChoiceCardDesc">Tu pourras passer par le menu Maps du MJ quand tu voudras.</div>
+        </button>
+        <div class="builderChoiceCard${mapAsset ? " active" : ""}" style="cursor:default;">
+          <div class="builderChoiceCardTitle">Importer une image</div>
+          <div class="builderChoiceCardDesc">${mapAsset ? "Image chargee pour cette partie." : "Ajoute tout de suite ta premiere map en local."}</div>
+          <input id="mjSandboxOnboardingMapUpload" type="file" accept="image/*" style="margin-top:10px;width:100%;font-size:12px;color:inherit;">
+        </div>
+      </div>
+      ${mapAsset ? `<div style="margin-top:14px;border:1px solid rgba(214,180,106,0.18);border-radius:14px;padding:10px;background:rgba(0,0,0,0.12);"><img src="${String(mapAsset).replace(/"/g, "&quot;")}" alt="" style="display:block;width:100%;max-height:180px;object-fit:cover;border-radius:10px;"></div>` : ""}
+      <div class="mjSandboxOnboardingHint">${mapAsset ? "Cette map est deja enregistree comme map de depart et visible dans le menu Maps du MJ." : "Tu pourras aussi utiliser le menu Maps pour choisir une scene plus tard."}</div>
+    </div>
+    <div class="mjSandboxOnboardingActions">
+      <button type="button" class="builderWizardGhost" onclick="goToMJSandboxOnboardingStep(3)">Retour</button>
+      <button type="button" id="mjSandboxOnboardingFinishBtn" class="builderWizardPrimary" onclick="finishMJSandboxOnboarding()">Terminer</button>
+    </div>
+  `
+
+  panel.querySelectorAll("[data-mj-onboarding-map-mode]").forEach(function(button) {
+    button.addEventListener("click", function() {
+      var mode = button.getAttribute("data-mj-onboarding-map-mode") || "later"
+      state.mapAsset = mode === "empty" ? "" : state.mapAsset
+      if (mode === "empty") applyMJSandboxOnboardingMapAsset("")
+      overlay.__wizardState = saveMJSandboxOnboardingState(state)
+      renderMJSandboxOnboardingStep(overlay.__wizardState)
+    })
+  })
+
+  var mapLabelInput = panel.querySelector("#mjSandboxOnboardingMapLabel")
+  if (mapLabelInput) {
+    mapLabelInput.addEventListener("input", function() {
+      state.mapLabel = String(mapLabelInput.value || "").trim()
+      overlay.__wizardState = saveMJSandboxOnboardingState(state)
+      if (state.mapAsset) applyMJSandboxOnboardingMapAsset(state.mapAsset)
+    })
+    mapLabelInput.addEventListener("keydown", function(event) {
+      event.stopPropagation()
+    })
+  }
+
+  var mapUpload = panel.querySelector("#mjSandboxOnboardingMapUpload")
+  if (mapUpload) {
+    mapUpload.addEventListener("change", function() {
+      var file = mapUpload.files && mapUpload.files[0]
+      if (!file) return
+      if (typeof showNotification === "function") showNotification("Import de la map...")
+      var reader = new FileReader()
+      reader.onload = function() {
+        state.mapAsset = String(reader.result || "")
+        state.mapId = getMJSandboxOnboardingStartMapId()
+        state.mapLabel = String((mapLabelInput && mapLabelInput.value) || state.mapLabel || "").trim() || "Map de depart"
+        applyMJSandboxOnboardingMapAsset(state.mapAsset)
+        overlay.__wizardState = saveMJSandboxOnboardingState(state)
+        if (typeof showNotification === "function") showNotification("Map de depart enregistree")
+        renderMJSandboxOnboardingStep(overlay.__wizardState)
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+  var finishButton = panel.querySelector("#mjSandboxOnboardingFinishBtn")
+  if (finishButton && !finishButton.dataset.boundFinish) {
+    finishButton.dataset.boundFinish = "true"
+    finishButton.addEventListener("click", function(event) {
+      event.preventDefault()
+      event.stopPropagation()
+      try { finishMJSandboxOnboarding() } catch (e) {
+        try { if (typeof showNotification === "function") showNotification("Impossible de terminer cette etape") } catch (_) {}
+      }
+      return false
+    })
+  }
+}
+
+function goToMJSandboxOnboardingStep(step) {
+  var overlay = document.getElementById("mjSandboxOnboardingOverlay")
+  if (!overlay) return
+  var state = overlay.__wizardState || { step: 1, title: "Nouvelle partie", theme: "medieval_fantasy" }
+  state.step = Math.max(1, Math.min(4, parseInt(step, 10) || 1))
+  overlay.__wizardState = state
+  renderMJSandboxOnboardingStep(state)
+}
+
+function submitMJSandboxOnboardingName() {
+  var overlay = document.getElementById("mjSandboxOnboardingOverlay")
+  var input = document.getElementById("mjSandboxOnboardingName")
+  if (!overlay || !input) return
+  var state = overlay.__wizardState || { step: 1, title: "Nouvelle partie", theme: "medieval_fantasy", playerCount: 4, mapAsset: "", mapLabel: "" }
+  state.title = String(input.value || "").trim() || "Nouvelle partie"
+  state.step = 2
+  overlay.__wizardState = saveMJSandboxOnboardingState(state)
+  if (typeof showNotification === "function") showNotification("Nom de la partie enregistre")
+  renderMJSandboxOnboardingStep(overlay.__wizardState)
+}
+
+function finishMJSandboxOnboarding() {
+  var overlay = document.getElementById("mjSandboxOnboardingOverlay")
+  if (!overlay) return
+  var state = overlay.__wizardState || { step: 4, title: "Nouvelle partie", theme: "medieval_fantasy", playerCount: 4, mapAsset: "", mapLabel: "" }
+  var countInput = document.getElementById("mjSandboxOnboardingPlayerCount")
+  if (countInput) state.playerCount = Math.max(1, Math.min(12, parseInt(countInput.value, 10) || 4))
+  var mapLabelInput = document.getElementById("mjSandboxOnboardingMapLabel")
+  if (mapLabelInput) state.mapLabel = String(mapLabelInput.value || "").trim() || "Map de depart"
+  state.mapId = state.mapId || getMJSandboxOnboardingStartMapId()
+  setRuntimeOnboardingStartMapState(state.mapId, state.mapAsset, state.mapLabel)
+  saveMJSandboxOnboardingState(state)
+  if (typeof applyProjectThemeToDocument === "function") applyProjectThemeToDocument(state.theme)
+  state.playerCount = applyMJSandboxOnboardingPlayerCount(state.playerCount)
+  applyMJSandboxOnboardingMapAsset(state.mapAsset)
+  if (typeof showNotification === "function") showNotification("Bac a sable configure : " + state.playerCount + " joueur" + (state.playerCount > 1 ? "s" : ""))
+  closeMJSandboxOnboarding()
+  setTimeout(function() {
+    try { openSandboxBoardHints() } catch (e) {}
+  }, 180)
+}
+
+function openMJSandboxOnboarding() {
+  closeMJSandboxOnboarding()
+  var theme = "medieval_fantasy"
+  var projectTitle = "Nouvelle partie"
+  var playerCount = 4
+  var mapAsset = ""
+  var mapId = ""
+  var mapLabel = ""
+  try {
+    theme = String(window.__currentProjectTheme || document.body.getAttribute("data-project-theme") || "medieval_fantasy").trim() || "medieval_fantasy"
+    if (typeof getCustomization === "function") {
+      var current = getCustomization()
+      if (current && current.project) {
+        if (current.project.theme) theme = String(current.project.theme || theme)
+        if (current.project.title) projectTitle = String(current.project.title || projectTitle).trim() || projectTitle
+        if (current.project.playerCount) playerCount = Math.max(1, Math.min(12, parseInt(current.project.playerCount, 10) || 4))
+        if (current.project.startMapAsset) mapAsset = String(current.project.startMapAsset || "")
+        if (current.project.startMapId) mapId = String(current.project.startMapId || "")
+        if (current.project.startMapLabel) mapLabel = String(current.project.startMapLabel || "")
+      }
+    }
+  } catch (e) {}
+  setRuntimeOnboardingStartMapState(mapId || getMJSandboxOnboardingStartMapId(), mapAsset, mapLabel)
+  try {
+    var startMapBar = document.getElementById("sandboxStartMapBar")
+    if (startMapBar) startMapBar.style.display = mapAsset ? "block" : "none"
+  } catch (e) {}
+
+  var overlay = document.createElement("div")
+  overlay.id = "mjSandboxOnboardingOverlay"
+  overlay.className = "mjSandboxOnboardingOverlay"
+  overlay.setAttribute("data-onboarding-theme", theme)
+  overlay.__wizardState = { step: 1, title: projectTitle, theme: theme, playerCount: playerCount, mapAsset: mapAsset, mapId: mapId, mapLabel: mapLabel }
+  overlay.addEventListener("mousedown", function(event) {
+    if (event.target === overlay) closeMJSandboxOnboarding()
+  })
+
+  var panel = document.createElement("div")
+  panel.className = "builderWizardPanel mjSandboxOnboardingPanel"
+  panel.setAttribute("data-onboarding-theme", theme)
+  overlay.appendChild(panel)
+  document.body.appendChild(overlay)
+  renderMJSandboxOnboardingStep(overlay.__wizardState)
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+  var startMapButton = document.getElementById("sandboxStartMapBtn")
+  if (startMapButton && !startMapButton.dataset.boundLaunch) {
+    startMapButton.dataset.boundLaunch = "true"
+    startMapButton.addEventListener("click", function(event) {
+      event.preventDefault()
+      event.stopPropagation()
+      try { launchOnboardingStartMap() } catch (e) {}
+      return false
+    })
+  }
+})
 
 function openProjectCreationWizard() {
   closeProjectCreationWizard()
@@ -3331,9 +4126,11 @@ function forceShowIntroHub() {
       handler()
     })
   }
-  bindClick("entryNewProjectBtn", forceOpenSandboxFromClick)
+  bindClick("entryNewProjectBtn", function() {
+    if (typeof forceOpenSandboxFromClick === "function") forceOpenSandboxFromClick(true)
+  })
   bindClick("entryLoadProjectBtn", function() {
-    if (typeof forceOpenSandboxFromClick === "function") forceOpenSandboxFromClick()
+    if (typeof forceOpenSandboxFromClick === "function") forceOpenSandboxFromClick(false)
   })
   bindClick("entryPlayerOpenBtn", function() {
     if (typeof openPlayerStudio === "function") openPlayerStudio()

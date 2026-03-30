@@ -2347,7 +2347,9 @@ function updateTokenFromDB(snapshot) {
 
 function updateTokenStats(id) {
   const stats = document.getElementById("stats_" + id)
-  if (!stats) return
+  const bar = document.getElementById("hp_" + id)
+  const barLabel = document.getElementById("hp_label_" + id)
+  if (!stats && !bar && !barLabel) return
   db.ref("characters/" + id).once("value", snapshot => {
     const data = snapshot.val(); if (!data) return
     const hp         = data.hp || 0
@@ -2368,22 +2370,24 @@ function updateTokenStats(id) {
       else                        { token.classList.remove("cursed"); stopBloodEffect(token)  }
     }
 
-    const maxHP   = getMaxHP(id, lvl)
+    const maxHP   = Math.max(1, parseInt(data.hpMax, 10) || getMaxHP(id, lvl))
     const hpColor = hp > maxHP * 0.6 ? "#3cff6b" : hp > maxHP * 0.3 ? "#ffb347" : "#ff4040"
     let curseIcons = "", powerIcon = ""
     for (let i = 0; i < curse; i++) curseIcons += "?"
     powerIcon = corruption >= 10 ? "?" : ""
 
-    stats.innerHTML = `
-      <div class="powerText">? Niv ${lvl}</div>
-      <div class="hpText" style="color:${hpColor}">? ${hp}/${maxHP}</div>
-      ${weight > 0 ? `<div class="weightText">?? ${weight}</div>` : ""}
-      ${curseIcons ? `<div class="curseText">${curseIcons}</div>` : ""}
-      ${powerIcon  ? `<div class="powerText">${powerIcon}</div>` : ""}
-    `
+    if (stats) {
+      stats.innerHTML = `
+        <div class="powerText">? Niv ${lvl}</div>
+        <div class="hpText" style="color:${hpColor}">? ${hp}/${maxHP}</div>
+        ${weight > 0 ? `<div class="weightText">?? ${weight}</div>` : ""}
+        ${curseIcons ? `<div class="curseText">${curseIcons}</div>` : ""}
+        ${powerIcon  ? `<div class="powerText">${powerIcon}</div>` : ""}
+      `
+    }
 
-    const bar = document.getElementById("hp_" + id)
     if (bar) bar.style.width = Math.max(0, Math.min(100, (hp / maxHP) * 100)) + "%"
+    if (barLabel) barLabel.textContent = hp + "/" + maxHP
     updateTokenGlow(id, hp)
   })
 }
@@ -2424,9 +2428,11 @@ function watchCharacter(snapshot) {
   const hp         = parseInt(data.hp)         || 0
   const corruption = parseInt(data.corruption) || 0
 
-  const maxHP = 100 + (lvl - 1) * 8
+  const maxHP = Math.max(1, parseInt(data.hpMax, 10) || (100 + (lvl - 1) * 8))
   const bar   = document.getElementById("hp_" + playerID)
   if (bar) bar.style.width = Math.max(0, Math.min(100, (hp / maxHP) * 100)) + "%"
+  const barLabel = document.getElementById("hp_label_" + playerID)
+  if (barLabel) barLabel.textContent = hp + "/" + maxHP
   updateTokenGlow(playerID, hp)
 
   const token = document.getElementById(playerID)
@@ -2633,6 +2639,25 @@ function changeMap(mapName, customAudio) {
   } else {
     _state._pendingMapAudio = false
   }
+  try {
+    const customization = typeof getCustomization === "function" ? getCustomization() : null
+    const startMapId = customization && customization.project ? String(customization.project.startMapId || "") : ""
+    const startMapAsset = customization && customization.project ? String(customization.project.startMapAsset || "") : ""
+    const startMapLabel = customization && customization.project ? String(customization.project.startMapLabel || "") : ""
+    if (startMapId && String(mapName || "") === startMapId && startMapAsset) {
+      const map = document.getElementById("map")
+      if (map) {
+        map.style.setProperty("background", "url('" + String(startMapAsset).replace(/'/g, "\\'") + "') center / cover no-repeat", "important")
+      }
+      currentMap = startMapId
+      window.__latestMapValue = startMapId
+      if (startMapLabel && typeof showLocation === "function") {
+        setTimeout(() => {
+          try { showLocation(startMapLabel) } catch (_) {}
+        }, 120)
+      }
+    }
+  } catch (_) {}
   document.querySelectorAll(".gmSection").forEach(sec => { sec.style.display = "none" })
 }
 
@@ -2811,6 +2836,12 @@ function openSandboxAfterProjectCreation(message) {
         try { openCustomizationPanel() } catch (e) {}
       }, 120)
     }
+    if (window.__showNewMJSandboxTutorial && typeof openMJSandboxOnboarding === "function") {
+      window.__showNewMJSandboxTutorial = false
+      setTimeout(() => {
+        try { openMJSandboxOnboarding() } catch (e) {}
+      }, 180)
+    }
     if (typeof showNotification === "function") showNotification(message || "Bac a sable MJ pret")
   } catch (error) {
     console.error("openSandboxAfterProjectCreation failed:", error)
@@ -2834,6 +2865,12 @@ function openSandboxAfterProjectCreation(message) {
       if (diceBar) diceBar.style.display = "flex"
       if (diceLog) diceLog.style.display = "block"
       activateGM(true)
+      if (window.__showNewMJSandboxTutorial && typeof openMJSandboxOnboarding === "function") {
+        window.__showNewMJSandboxTutorial = false
+        setTimeout(() => {
+          try { openMJSandboxOnboarding() } catch (e) {}
+        }, 180)
+      }
       if (typeof showNotification === "function") showNotification((message || "Bac a sable MJ pret") + " (mode secours)")
     } catch (fallbackError) {
       console.error("openSandboxAfterProjectCreation fallback failed:", fallbackError)
@@ -3009,6 +3046,12 @@ function newGame() {
         finalizeNewGameLocally()
         if (window.__startInSandboxMode) {
           openSandboxAfterProjectCreation("Mode local actif : bac a sable MJ pret")
+          if (window.__showNewMJSandboxTutorial && typeof openMJSandboxOnboarding === "function") {
+            window.__showNewMJSandboxTutorial = false
+            setTimeout(() => {
+              try { openMJSandboxOnboarding() } catch (e) {}
+            }, 320)
+          }
         } else {
           showNotification("Mode local actif : bac a sable cree sans synchronisation Firebase")
           setGameState("MENU")
@@ -3023,6 +3066,12 @@ function newGame() {
           finalizeNewGameLocally()
           if (window.__startInSandboxMode) {
             openSandboxAfterProjectCreation("Mode local actif : verification ignoree, bac a sable MJ pret")
+            if (window.__showNewMJSandboxTutorial && typeof openMJSandboxOnboarding === "function") {
+              window.__showNewMJSandboxTutorial = false
+              setTimeout(() => {
+                try { openMJSandboxOnboarding() } catch (e) {}
+              }, 320)
+            }
           } else {
             showNotification("Mode local actif : verification Firebase ignoree")
             setGameState("MENU")
@@ -3072,6 +3121,12 @@ function newGame() {
         addMJLog("Nouveau bac a sable initialise")
         if (window.__startInSandboxMode) {
           openSandboxAfterProjectCreation("Nouveau bac a sable vide")
+          if (window.__showNewMJSandboxTutorial && typeof openMJSandboxOnboarding === "function") {
+            window.__showNewMJSandboxTutorial = false
+            setTimeout(() => {
+              try { openMJSandboxOnboarding() } catch (e) {}
+            }, 320)
+          }
         } else {
           showNotification("Nouveau bac a sable vide")
           setGameState("MENU")
@@ -3321,6 +3376,12 @@ function findCustomMapEntry(mapName) {
 }
 
 function getMapDisplayLabel(mapName) {
+  try {
+    const customization = typeof getCustomization === "function" ? getCustomization() : null
+    const startMapId = customization && customization.project ? String(customization.project.startMapId || "") : ""
+    const startMapLabel = customization && customization.project ? String(customization.project.startMapLabel || "") : ""
+    if (startMapId && String(mapName || "") === startMapId && startMapLabel) return startMapLabel
+  } catch (_) {}
   const customEntry = findCustomMapEntry(mapName)
   if (customEntry && customEntry.label) return String(customEntry.label)
   if (typeof mapNames === "object" && mapNames && mapNames[mapName]) return mapNames[mapName]
@@ -4262,6 +4323,15 @@ document.addEventListener("contextmenu", e => { if (isGM) e.preventDefault() })
 document.addEventListener("keydown", e => {
   const key    = e.key.toLowerCase()
   const active = document.activeElement
+  const simpleSheetOverlay = document.getElementById("simpleSheetTestOverlay")
+  const simpleSheetActive = !!(simpleSheetOverlay && (
+    simpleSheetOverlay.contains(active) ||
+    (e.target && simpleSheetOverlay.contains(e.target))
+  ))
+  if (simpleSheetActive) {
+    if (key === "escape") return
+    return
+  }
   if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) {
     if (key !== "j" && key !== "b" && key !== "escape") return
     active.blur(); document.body.focus()
