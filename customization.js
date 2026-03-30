@@ -227,7 +227,11 @@
     const customization = getExtendedCustomization()
     if (typeof getProjectThemePresentation !== "function") return
     const presentation = getProjectThemePresentation(customization.project.theme)
-    document.body.setAttribute("data-project-theme", presentation.theme)
+    if (typeof applyProjectThemeToDocument === "function") {
+      applyProjectThemeToDocument(presentation.theme)
+    } else {
+      document.body.setAttribute("data-project-theme", presentation.theme)
+    }
 
     const eyebrow = byId("entryHubEyebrow")
     if (eyebrow) eyebrow.innerText = presentation.eyebrow

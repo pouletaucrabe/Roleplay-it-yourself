@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English&family=Cormorant+SC:wght@500;700&family=Marcellus&family=Orbitron:wght@500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <title>Roleplay It Yourself</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='48'%3E%F0%9F%8E%B2%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?v=103">
+<link rel="stylesheet" href="style.css?v=133">
   <style>
     #playerCodeBtn, #playerCodeBtn * {
       color: #ffd700 !important;
@@ -1070,11 +1070,11 @@
 <script src="state.js?v=2"></script>
 <!-- 3. Utilitaires (pas de dÃ©pendances Firebase) -->
 <script src="utils.js?v=14"></script>
-<script src="customization.js?v=45"></script>
+<script src="customization.js?v=46"></script>
 <!-- 4. Logique principale + Firebase listeners -->
-<script src="game.js?v=73"></script>
+<script src="game.js?v=74"></script>
 <!-- 5. Interface utilisateur -->
-<script src="ui.js?v=6"></script>
+<script src="ui.js?v=8"></script>
 <!-- 6. Combat -->
 <script src="combat.js?v=3"></script>
 <script>
@@ -1639,8 +1639,7 @@ function applySandboxPlayersImmediate(count) {
 }
 
 function applySandboxStyleTheme(themeValue) {
-  var nextTheme = String(themeValue || "medieval_fantasy")
-  document.body.setAttribute("data-project-theme", nextTheme)
+  var nextTheme = applyProjectThemeToDocument(themeValue)
   try {
     if (typeof getCustomization === "function" && typeof saveCustomization === "function") {
       var next = getCustomization()
@@ -1662,6 +1661,19 @@ function applySandboxStyleTheme(themeValue) {
   }
   var menu = document.getElementById("sandboxStyleMenu")
   if (menu) menu.open = false
+}
+
+function applyProjectThemeToDocument(themeValue) {
+  var nextTheme = String(themeValue || "medieval_fantasy").trim() || "medieval_fantasy"
+  try { document.body.setAttribute("data-project-theme", nextTheme) } catch (e) {}
+  try { document.documentElement.setAttribute("data-project-theme", nextTheme) } catch (e) {}
+  try {
+    var overlay = document.getElementById("simpleSheetTestOverlay")
+    if (overlay) overlay.setAttribute("data-sheet-theme", nextTheme)
+    var panel = overlay ? overlay.querySelector(".simpleSheetPanel") : null
+    if (panel) panel.setAttribute("data-sheet-theme", nextTheme)
+  } catch (e) {}
+  return nextTheme
 }
 
 function openCharacterSheetFallback(playerId) {
@@ -1770,30 +1782,48 @@ function openGMCharacterPickerInline(event) {
   if (event) {
     try { event.preventDefault() } catch (e) {}
     try { event.stopPropagation() } catch (e) {}
+    try { event.stopImmediatePropagation() } catch (e) {}
   }
   var existing = document.getElementById("gmCharacterPickerInline")
   if (existing) existing.remove()
+  var legacy = document.getElementById("gmCharacterPickerOverlay")
+  if (legacy) legacy.remove()
+  var gmCharacters = document.getElementById("gmCharacters")
+  if (gmCharacters) gmCharacters.style.display = "none"
 
   var overlay = document.createElement("div")
   overlay.id = "gmCharacterPickerInline"
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;z-index:2147483602;padding:20px;"
+  overlay.className = "gmCharacterPickerOverlay"
   overlay.onclick = function(e) { if (e.target === overlay) overlay.remove() }
 
+  var pickerTheme = "medieval_fantasy"
+  try {
+    pickerTheme = document.body.getAttribute("data-project-theme") || pickerTheme
+    if (typeof getCustomization === "function") {
+      var pickerCustomization = getCustomization()
+      if (pickerCustomization && pickerCustomization.project && pickerCustomization.project.theme) {
+        pickerTheme = pickerCustomization.project.theme
+      }
+    }
+  } catch (e) {}
+  overlay.setAttribute("data-picker-theme", pickerTheme)
+
   var panel = document.createElement("div")
-  panel.style.cssText = "width:min(560px,92vw);display:grid;gap:14px;padding:22px 22px 18px;border-radius:18px;border:1px solid rgba(214,180,106,0.38);background:linear-gradient(180deg,rgba(28,22,17,0.98),rgba(16,13,10,0.98));box-shadow:0 28px 90px rgba(0,0,0,0.55);"
+  panel.className = "gmCharacterPickerPanel"
+  panel.setAttribute("data-picker-theme", pickerTheme)
 
   var title = document.createElement("div")
   title.textContent = "Fiches personnages"
-  title.style.cssText = "font-family:Cinzel,serif;font-size:24px;letter-spacing:2px;color:#f3dfb1;text-align:center;"
+  title.className = "gmCharacterPickerTitle"
   panel.appendChild(title)
 
   var subtitle = document.createElement("div")
   subtitle.textContent = "Choisis la fiche a ouvrir."
-  subtitle.style.cssText = "font-size:13px;line-height:1.6;color:#cdbb96;text-align:center;"
+  subtitle.className = "gmCharacterPickerSubtitle"
   panel.appendChild(subtitle)
 
   var grid = document.createElement("div")
-  grid.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;"
+  grid.className = "gmCharacterPickerGrid"
 
   var count = 4
   try {
@@ -1814,7 +1844,7 @@ function openGMCharacterPickerInline(event) {
       } catch (e) {}
       button.type = "button"
       button.textContent = label
-      button.style.cssText = "padding:14px 16px;border-radius:12px;border:1px solid rgba(214,180,106,0.32);background:linear-gradient(180deg,rgba(122,85,51,0.96),rgba(75,50,28,0.96));color:#f5e6c8;font-family:Cinzel,serif;font-size:15px;cursor:pointer;"
+      button.className = "gmCharacterPickerButton"
       button.onclick = function(btnEvent) {
         overlay.remove()
         return openCharacterSheetFromMenuWithFallback(slotId, btnEvent)
@@ -1828,7 +1858,7 @@ function openGMCharacterPickerInline(event) {
   var closeBtn = document.createElement("button")
   closeBtn.type = "button"
   closeBtn.textContent = "Fermer"
-  closeBtn.style.cssText = "justify-self:center;padding:10px 16px;border-radius:10px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;"
+  closeBtn.className = "gmCharacterPickerClose"
   closeBtn.onclick = function() { overlay.remove() }
   panel.appendChild(closeBtn)
 
@@ -1847,6 +1877,7 @@ function buildSimpleCharacterSheetDefaults(playerId) {
     characterClass: "",
     origin: "",
     background: "",
+    profileImage: "",
     lvl: 1,
     xp: 0,
     hp: 24,
@@ -1862,21 +1893,127 @@ function buildSimpleCharacterSheetDefaults(playerId) {
     defense: 0,
     initiative: 0,
     weaponMain: "",
+    weaponOff: "",
     armorName: "",
+    signatureItem: "",
+    allies: "",
+    quests: "",
+    traits: "",
     inventaire: "",
-    notes: ""
+    notes: "",
+    customBlocks: [],
+    baseBlocks: [
+      { id: "identity", title: "Identite", region: "sidebar", visible: true },
+      { id: "resources", title: "Ressources", region: "sidebar", visible: true },
+      { id: "stats", title: "Caracteristiques", region: "main", visible: true },
+      { id: "equipment", title: "Equipement", region: "main", visible: true },
+      { id: "relations", title: "Relations et objectifs", region: "main", visible: true },
+      { id: "personality", title: "Personnalite et notes", region: "main", visible: true },
+      { id: "custom", title: "Blocs personnalises", region: "main", visible: true }
+    ]
   }
 }
 
-function saveSimpleCharacterSheet(playerId, root) {
-  if (!playerId || !root || typeof db === "undefined" || !db || typeof db.ref !== "function") return
+function getSimpleSheetStorageKey(playerId) {
+  return "rpg_simple_sheet_" + String(playerId || "unknown")
+}
+
+function collectSimpleSheetData(root) {
   var data = {}
+  if (!root) return data
   root.querySelectorAll("[data-simple-sheet-field]").forEach(function(field) {
     var key = field.getAttribute("data-simple-sheet-field")
     if (!key) return
     data[key] = field.value
   })
-  db.ref("characters/" + playerId).update(data)
+  var profileImageInput = root.querySelector("[data-simple-profile-image]")
+  if (profileImageInput) data.profileImage = profileImageInput.value || ""
+  data.customBlocks = []
+  root.querySelectorAll("[data-simple-custom-block]").forEach(function(block) {
+    var typeField = block.querySelector("[data-block-type]")
+    var titleField = block.querySelector("[data-block-title]")
+    var entry = {
+      type: typeField ? typeField.value : "note",
+      title: titleField ? titleField.value : ""
+    }
+    if (entry.type === "gauge") {
+      var valueField = block.querySelector("[data-block-value]")
+      var maxField = block.querySelector("[data-block-max]")
+      var colorField = block.querySelector("[data-block-color]")
+      entry.value = valueField ? valueField.value : "0"
+      entry.max = maxField ? maxField.value : "100"
+      entry.color = colorField ? colorField.value : "#db2b2b"
+    } else if (entry.type === "stat") {
+      var statValueField = block.querySelector("[data-block-value]")
+      entry.value = statValueField ? statValueField.value : ""
+    } else if (entry.type === "counter") {
+      var counterValueField = block.querySelector("[data-block-value]")
+      entry.value = counterValueField ? counterValueField.value : "0"
+    } else if (entry.type === "check") {
+      var checkLabelField = block.querySelector("[data-block-label]")
+      var checkedField = block.querySelector("[data-block-checked]")
+      entry.label = checkLabelField ? checkLabelField.value : ""
+      entry.checked = !!(checkedField && checkedField.checked)
+    } else if (entry.type === "list") {
+      var listTextField = block.querySelector("[data-block-text]")
+      entry.text = listTextField ? listTextField.value : ""
+    } else {
+      var textField = block.querySelector("[data-block-text]")
+      entry.text = textField ? textField.value : ""
+    }
+    data.customBlocks.push(entry)
+  })
+  data.baseBlocks = []
+  root.querySelectorAll("[data-base-block]").forEach(function(block) {
+    var titleInput = block.querySelector("[data-base-block-title]")
+    var titleLabel = block.querySelector("[data-base-block-title-label]")
+    data.baseBlocks.push({
+      id: block.getAttribute("data-base-block-id") || "",
+      region: block.getAttribute("data-base-region") || "main",
+      title: titleInput ? titleInput.value : (titleLabel ? titleLabel.textContent : ""),
+      visible: block.getAttribute("data-base-visible") !== "false"
+    })
+  })
+  return data
+}
+
+function saveSimpleSheetLocal(playerId, data) {
+  try {
+    localStorage.setItem(getSimpleSheetStorageKey(playerId), JSON.stringify(data || {}))
+  } catch (e) {}
+}
+
+function loadSimpleSheetLocal(playerId) {
+  try {
+    var raw = localStorage.getItem(getSimpleSheetStorageKey(playerId))
+    return raw ? JSON.parse(raw) : {}
+  } catch (e) {
+    return {}
+  }
+}
+
+function readSimpleSheetFileAsDataURL(file) {
+  return new Promise(function(resolve, reject) {
+    try {
+      var reader = new FileReader()
+      reader.onload = function() { resolve(String(reader.result || "")) }
+      reader.onerror = function() { reject(reader.error || new Error("simple_sheet_read_error")) }
+      reader.readAsDataURL(file)
+    } catch (e) {
+      reject(e)
+    }
+  })
+}
+
+function saveSimpleCharacterSheet(playerId, root) {
+  if (!playerId || !root) return
+  var data = collectSimpleSheetData(root)
+  saveSimpleSheetLocal(playerId, data)
+  try {
+    if (typeof db !== "undefined" && db && typeof db.ref === "function") {
+      db.ref("characters/" + playerId).update(data).catch(function() {})
+    }
+  } catch (e) {}
   if (typeof showNotification === "function") showNotification("Fiche sauvegardee")
 }
 
@@ -1890,7 +2027,7 @@ function openSimpleCharacterSheet(playerId, event) {
 
   var overlay = document.createElement("div")
   overlay.id = "simpleSheetTestOverlay"
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.78);display:flex;align-items:center;justify-content:center;z-index:2147483603;padding:20px;"
+  overlay.className = "simpleSheetOverlay"
   overlay.onclick = function(e) { if (e.target === overlay) overlay.remove() }
 
   var autoSaveTimer = null
@@ -1900,14 +2037,14 @@ function openSimpleCharacterSheet(playerId, event) {
       autoSaveTimer = null
     }
     if (!panel) return
-    if (!playerId || typeof db === "undefined" || !db || typeof db.ref !== "function") return
-    var data = {}
-    panel.querySelectorAll("[data-simple-sheet-field]").forEach(function(field) {
-      var key = field.getAttribute("data-simple-sheet-field")
-      if (!key) return
-      data[key] = field.value
-    })
-    db.ref("characters/" + playerId).update(data)
+    if (!playerId) return
+    var data = collectSimpleSheetData(panel)
+    saveSimpleSheetLocal(playerId, data)
+    try {
+      if (typeof db !== "undefined" && db && typeof db.ref === "function") {
+        db.ref("characters/" + playerId).update(data).catch(function() {})
+      }
+    } catch (e) {}
     if (showToast && typeof showNotification === "function") showNotification("Fiche sauvegardee")
   }
 
@@ -1943,50 +2080,449 @@ function openSimpleCharacterSheet(playerId, event) {
   } catch (e) {}
 
   var panel = document.createElement("div")
-  panel.style.cssText = "width:min(980px,94vw);max-height:92vh;overflow:auto;padding:24px;border-radius:20px;background:linear-gradient(180deg,rgba(31,24,18,0.99),rgba(17,14,11,0.99));border:1px solid rgba(214,180,106,0.38);box-shadow:0 30px 90px rgba(0,0,0,0.6);display:grid;gap:18px;"
+  panel.className = "simpleSheetPanel"
+  var canCustomizeSheet = false
+  try {
+    canCustomizeSheet = !!isGM || document.body.classList.contains("sandbox-studio-mode")
+  } catch (e) {}
+
+  var sheetTheme = ""
+  try {
+    sheetTheme = String(document.body.getAttribute("data-project-theme") || "").trim()
+    if (!sheetTheme && typeof getCustomization === "function") {
+      var currentCustomization = getCustomization()
+      if (currentCustomization && currentCustomization.project && currentCustomization.project.theme) {
+        sheetTheme = String(currentCustomization.project.theme || "").trim()
+      }
+    }
+  } catch (e) {}
+  if (!sheetTheme) sheetTheme = "medieval_fantasy"
+  try { document.body.setAttribute("data-project-theme", sheetTheme) } catch (e) {}
+  overlay.setAttribute("data-sheet-theme", sheetTheme)
+  panel.setAttribute("data-sheet-theme", sheetTheme)
+
+  function renderBaseSectionHeader(fallbackTitle) {
+    if (canCustomizeSheet) {
+      return `
+        <div class="simpleSheetSectionHeader">
+          <div class="simpleSheetSectionDragHandle" title="Glisser-deposer">::</div>
+          <input class="simpleSheetSectionTitleInput" data-base-block-title type="text" value="${String(fallbackTitle || "").replace(/"/g, "&quot;")}">
+          <button type="button" class="simpleSheetBlockClose" data-base-block-remove title="Masquer le bloc">×</button>
+        </div>
+      `
+    }
+    return `<div class="simpleSheetSectionTitle" data-base-block-title-label>${String(fallbackTitle || "").replace(/</g, "&lt;")}</div>`
+  }
 
   function field(label, key, value, type) {
-    return `<label style="display:grid;gap:6px;color:#d8c49c;font-size:12px;"><span>${label}</span><input data-simple-sheet-field="${key}" type="${type || "text"}" value="${String(value == null ? "" : value).replace(/"/g, "&quot;")}" style="padding:10px 12px;border-radius:10px;border:1px solid rgba(214,180,106,0.22);background:rgba(0,0,0,0.24);color:#f5e6c8;"></label>`
+    return `<label class="simpleSheetFieldGroup"><span>${label}</span><input class="simpleSheetField" data-simple-sheet-field="${key}" type="${type || "text"}" value="${String(value == null ? "" : value).replace(/"/g, "&quot;")}"></label>`
+  }
+
+  function textarea(label, key, value, large, wide) {
+    return `<label class="simpleSheetFieldGroup${wide ? " wide" : ""}"><span>${label}</span><textarea class="simpleSheetTextarea${large ? " large" : ""}" data-simple-sheet-field="${key}">${String(value == null ? "" : value).replace(/</g, "&lt;")}</textarea></label>`
+  }
+
+  function resourceGauge(label, currentKey, currentValue, maxKey, maxValue, tone) {
+    return `
+      <div class="simpleSheetResourceCard">
+        <div class="simpleSheetResourceHead">
+          <div class="simpleSheetResourceLabel">${label}</div>
+          <div class="simpleSheetResourceValues">
+            <input class="simpleSheetResourceInput" data-simple-sheet-field="${currentKey}" data-simple-gauge-current="${tone}" type="number" value="${String(currentValue == null ? 0 : currentValue).replace(/"/g, "&quot;")}">
+            <span>/</span>
+            <input class="simpleSheetResourceInput" data-simple-sheet-field="${maxKey}" data-simple-gauge-max="${tone}" type="number" value="${String(maxValue == null ? 0 : maxValue).replace(/"/g, "&quot;")}">
+          </div>
+        </div>
+        <div class="simpleSheetGauge">
+          <div class="simpleSheetGaugeFill ${tone}" data-simple-gauge-fill="${tone}"></div>
+        </div>
+      </div>
+    `
+  }
+
+  function createCustomBlockMarkup(block, index) {
+    var safe = block || {}
+    var type = safe.type || "note"
+    var title = String(safe.title || "")
+    var inner = ""
+    if (type === "gauge") {
+      inner = `
+        <div class="simpleSheetFields two">
+          ${field("Valeur", "__block_value_" + index, safe.value != null ? safe.value : "0", "number").replace('data-simple-sheet-field="__block_value_' + index + '"', 'data-block-value')}
+          ${field("Max", "__block_max_" + index, safe.max != null ? safe.max : "100", "number").replace('data-simple-sheet-field="__block_max_' + index + '"', 'data-block-max')}
+        </div>
+        <label class="simpleSheetFieldGroup"><span>Couleur</span><input class="simpleSheetColorField" data-block-color type="color" value="${String(safe.color || "#db2b2b").replace(/"/g, "&quot;")}"></label>
+        <div class="simpleSheetGauge"><div class="simpleSheetGaugeFill hp" data-block-gauge-fill></div></div>
+      `
+    } else if (type === "stat") {
+      inner = field("Valeur", "__block_value_" + index, safe.value != null ? safe.value : "", "text").replace('data-simple-sheet-field="__block_value_' + index + '"', 'data-block-value')
+    } else if (type === "counter") {
+      inner = field("Valeur", "__block_value_" + index, safe.value != null ? safe.value : "0", "number").replace('data-simple-sheet-field="__block_value_' + index + '"', 'data-block-value')
+    } else if (type === "check") {
+      inner = `
+        <label class="simpleSheetCheckboxRow">
+          <input type="checkbox" data-block-checked${safe.checked ? " checked" : ""}>
+          <input class="simpleSheetField" data-block-label type="text" value="${String(safe.label || "").replace(/"/g, "&quot;")}" placeholder="Libelle de la case">
+        </label>
+      `
+    } else if (type === "list") {
+      inner = `<label class="simpleSheetFieldGroup"><span>Elements</span><textarea class="simpleSheetTextarea" data-block-text placeholder="Un element par ligne">${String(safe.text || "").replace(/</g, "&lt;")}</textarea></label>`
+    } else {
+      inner = `<label class="simpleSheetFieldGroup"><span>Contenu</span><textarea class="simpleSheetTextarea" data-block-text>${String(safe.text || "").replace(/</g, "&lt;")}</textarea></label>`
+    }
+    return `
+      <div class="simpleSheetCustomBlock" data-simple-custom-block draggable="true">
+        <div class="simpleSheetCustomHeader">
+          <div class="simpleSheetSectionDragHandle" title="Glisser-deposer">::</div>
+          <select class="simpleSheetCustomType" data-block-type>
+            <option value="gauge"${type === "gauge" ? " selected" : ""}>Jauge</option>
+            <option value="stat"${type === "stat" ? " selected" : ""}>Stat</option>
+            <option value="counter"${type === "counter" ? " selected" : ""}>Compteur</option>
+            <option value="check"${type === "check" ? " selected" : ""}>Case a cocher</option>
+            <option value="list"${type === "list" ? " selected" : ""}>Liste</option>
+            <option value="note"${type === "note" ? " selected" : ""}>Note</option>
+          </select>
+          <div class="simpleSheetCustomActions">
+            <button type="button" class="simpleSheetBlockClose" data-block-remove title="Supprimer le bloc">×</button>
+          </div>
+        </div>
+        <label class="simpleSheetFieldGroup"><span>Titre</span><input class="simpleSheetField" data-block-title type="text" value="${title.replace(/"/g, "&quot;")}"></label>
+        <div data-block-body>${inner}</div>
+      </div>
+    `
+  }
+
+  function refreshCustomBlockGauge(block) {
+    if (!block) return
+    var fill = block.querySelector("[data-block-gauge-fill]")
+    var valueField = block.querySelector("[data-block-value]")
+    var maxField = block.querySelector("[data-block-max]")
+    var colorField = block.querySelector("[data-block-color]")
+    if (!fill || !valueField || !maxField) return
+    var value = parseInt(valueField.value, 10) || 0
+    var max = Math.max(1, parseInt(maxField.value, 10) || 1)
+    fill.style.width = Math.max(0, Math.min(100, (value / max) * 100)) + "%"
+    if (colorField && colorField.value) fill.style.background = colorField.value
+  }
+
+  function refreshSimpleSheetGauges() {
+    ;["hp", "mana", "stamina"].forEach(function(tone) {
+      var currentInput = panel.querySelector('[data-simple-gauge-current="' + tone + '"]')
+      var maxInput = panel.querySelector('[data-simple-gauge-max="' + tone + '"]')
+      var fill = panel.querySelector('[data-simple-gauge-fill="' + tone + '"]')
+      if (!currentInput || !maxInput || !fill) return
+      var current = parseInt(currentInput.value, 10) || 0
+      var max = Math.max(1, parseInt(maxInput.value, 10) || 1)
+      var percent = Math.max(0, Math.min(100, (current / max) * 100))
+      fill.style.width = percent + "%"
+    })
+  }
+
+  function updateSimplePortrait(src) {
+    var portraitImage = panel.querySelector(".simpleSheetPortrait img")
+    if (!portraitImage) return
+    portraitImage.src = src || portrait
+  }
+
+  function getDefaultCustomBlock(type) {
+    if (type === "gauge") return { type: "gauge", title: "Nouvelle jauge", value: "0", max: "100", color: "#db2b2b" }
+    if (type === "stat") return { type: "stat", title: "Nouvelle stat", value: "" }
+    if (type === "counter") return { type: "counter", title: "Nouveau compteur", value: "0" }
+    if (type === "check") return { type: "check", title: "Nouvelle case", label: "", checked: false }
+    if (type === "list") return { type: "list", title: "Nouvelle liste", text: "" }
+    return { type: "note", title: "Nouvelle note", text: "" }
+  }
+
+  function refreshAllCustomBlockGauges() {
+    panel.querySelectorAll("[data-simple-custom-block]").forEach(refreshCustomBlockGauge)
+  }
+
+  function renderSimpleCustomBlocks(blocks) {
+    var container = panel.querySelector("[data-simple-custom-blocks]")
+    if (!container) return
+    var source = Array.isArray(blocks) && blocks.length ? blocks : []
+    container.innerHTML = source.map(function(block, index) {
+      return createCustomBlockMarkup(block, index)
+    }).join("")
+    refreshAllCustomBlockGauges()
+  }
+
+  function refreshHiddenBaseBlockOptions() {
+    var select = panel.querySelector("[data-restore-base-block]")
+    if (!select) return
+    var hiddenBlocks = collectSimpleSheetData(panel).baseBlocks.filter(function(block) {
+      return block.visible === false
+    })
+    select.innerHTML = ['<option value="">Reafficher un bloc masque</option>'].concat(hiddenBlocks.map(function(block) {
+      return '<option value="' + String(block.id).replace(/"/g, "&quot;") + '">' + String(block.title || block.id || "Bloc").replace(/</g, "&lt;") + '</option>'
+    })).join("")
+    select.disabled = hiddenBlocks.length === 0
+  }
+
+  function bindSimpleCustomBlocks() {
+    var container = panel.querySelector("[data-simple-custom-blocks]")
+    if (!container || container.dataset.bound === "true") return
+    container.dataset.bound = "true"
+    var draggedCustomBlock = null
+    var customBlockPlaceholder = null
+
+    container.addEventListener("click", function(blockEvent) {
+      var removeButton = blockEvent.target && blockEvent.target.closest ? blockEvent.target.closest("[data-block-remove]") : null
+      if (!removeButton) return
+      var block = removeButton.closest("[data-simple-custom-block]")
+      if (!block) return
+      block.remove()
+      renderSimpleCustomBlocks(collectSimpleSheetData(panel).customBlocks)
+      queueAutoSave()
+    })
+
+    container.addEventListener("change", function(blockEvent) {
+      var typeSelect = blockEvent.target && blockEvent.target.matches ? (blockEvent.target.matches("[data-block-type]") ? blockEvent.target : null) : null
+      if (!typeSelect) return
+      var block = typeSelect.closest("[data-simple-custom-block]")
+      if (!block) return
+      var current = collectSimpleSheetData(panel).customBlocks
+      renderSimpleCustomBlocks(current)
+      queueAutoSave()
+    })
+
+    container.addEventListener("input", function(blockEvent) {
+      var block = blockEvent.target && blockEvent.target.closest ? blockEvent.target.closest("[data-simple-custom-block]") : null
+      if (!block) return
+      refreshCustomBlockGauge(block)
+      queueAutoSave()
+    })
+
+    container.addEventListener("dragstart", function(blockEvent) {
+      var block = blockEvent.target && blockEvent.target.closest ? blockEvent.target.closest("[data-simple-custom-block]") : null
+      if (!block) return
+      draggedCustomBlock = block
+      block.classList.add("is-dragging")
+      customBlockPlaceholder = document.createElement("div")
+      customBlockPlaceholder.className = "simpleSheetCustomBlock simpleSheetSectionPlaceholder"
+      customBlockPlaceholder.style.height = block.offsetHeight + "px"
+      block.parentElement.insertBefore(customBlockPlaceholder, block.nextElementSibling)
+      try {
+        if (blockEvent.dataTransfer) {
+          blockEvent.dataTransfer.effectAllowed = "move"
+          blockEvent.dataTransfer.setData("text/plain", "custom-block")
+        }
+      } catch (e) {}
+    })
+
+    container.addEventListener("dragover", function(blockEvent) {
+      if (!draggedCustomBlock) return
+      blockEvent.preventDefault()
+      var overBlock = blockEvent.target && blockEvent.target.closest ? blockEvent.target.closest("[data-simple-custom-block]") : null
+      if (!overBlock || overBlock === draggedCustomBlock) {
+        if (!overBlock && customBlockPlaceholder && container.lastElementChild !== customBlockPlaceholder) {
+          container.appendChild(customBlockPlaceholder)
+        }
+        return
+      }
+      var rect = overBlock.getBoundingClientRect()
+      var placeAfter = blockEvent.clientY > rect.top + rect.height / 2
+      if (placeAfter) {
+        container.insertBefore(customBlockPlaceholder, overBlock.nextElementSibling)
+      } else {
+        container.insertBefore(customBlockPlaceholder, overBlock)
+      }
+    })
+
+    container.addEventListener("drop", function(blockEvent) {
+      if (!draggedCustomBlock || !customBlockPlaceholder) return
+      blockEvent.preventDefault()
+      container.insertBefore(draggedCustomBlock, customBlockPlaceholder)
+      draggedCustomBlock.classList.remove("is-dragging")
+      customBlockPlaceholder.remove()
+      customBlockPlaceholder = null
+      draggedCustomBlock = null
+      queueAutoSave()
+    })
+
+    container.addEventListener("dragend", function() {
+      if (draggedCustomBlock) draggedCustomBlock.classList.remove("is-dragging")
+      if (customBlockPlaceholder) {
+        customBlockPlaceholder.remove()
+        customBlockPlaceholder = null
+      }
+      draggedCustomBlock = null
+    })
+  }
+
+  function applyBaseBlocksState(baseBlocks) {
+    var sidebar = panel.querySelector(".simpleSheetSidebar")
+    var main = panel.querySelector(".simpleSheetMain")
+    var blockMap = {}
+    panel.querySelectorAll("[data-base-block]").forEach(function(block) {
+      blockMap[block.getAttribute("data-base-block-id")] = block
+    })
+    ;(baseBlocks || []).forEach(function(config) {
+      var block = blockMap[config.id]
+      var target = config.region === "sidebar" ? sidebar : main
+      if (!block || !target) return
+      var titleInput = block.querySelector("[data-base-block-title]")
+      var titleLabel = block.querySelector("[data-base-block-title-label]")
+      if (titleInput && config.title != null) titleInput.value = config.title
+      if (titleLabel && config.title != null) titleLabel.textContent = config.title
+      block.setAttribute("data-base-visible", config.visible === false ? "false" : "true")
+      block.classList.toggle("is-hidden", config.visible === false)
+      target.appendChild(block)
+    })
+  }
+
+  function bindBaseBlocks() {
+    panel.addEventListener("click", function(baseEvent) {
+      var removeButton = baseEvent.target && baseEvent.target.closest ? baseEvent.target.closest("[data-base-block-remove]") : null
+      if (!removeButton) return
+      var block = removeButton.closest("[data-base-block]")
+      if (!block) return
+      block.setAttribute("data-base-visible", "false")
+      block.classList.add("is-hidden")
+      refreshHiddenBaseBlockOptions()
+      queueAutoSave()
+    })
+
+    panel.querySelectorAll("[data-base-block-title]").forEach(function(input) {
+      input.addEventListener("input", queueAutoSave)
+      input.addEventListener("change", queueAutoSave)
+    })
+
+    if (!canCustomizeSheet) return
+
+    var draggedBaseBlock = null
+    var baseBlockPlaceholder = null
+
+    panel.querySelectorAll("[data-base-block]").forEach(function(block) {
+      block.addEventListener("dragstart", function(dragEvent) {
+        draggedBaseBlock = block
+        block.classList.add("is-dragging")
+        baseBlockPlaceholder = document.createElement("div")
+        baseBlockPlaceholder.className = "simpleSheetSection simpleSheetSectionPlaceholder"
+        baseBlockPlaceholder.style.height = block.offsetHeight + "px"
+        block.parentElement.insertBefore(baseBlockPlaceholder, block.nextElementSibling)
+        try {
+          if (dragEvent.dataTransfer) {
+            dragEvent.dataTransfer.effectAllowed = "move"
+            dragEvent.dataTransfer.setData("text/plain", block.getAttribute("data-base-block-id") || "")
+          }
+        } catch (e) {}
+      })
+
+      block.addEventListener("dragend", function() {
+        block.classList.remove("is-dragging")
+        panel.querySelectorAll("[data-base-block].is-drop-target").forEach(function(target) {
+          target.classList.remove("is-drop-target")
+        })
+        if (baseBlockPlaceholder) {
+          baseBlockPlaceholder.remove()
+          baseBlockPlaceholder = null
+        }
+        draggedBaseBlock = null
+        queueAutoSave()
+      })
+
+      block.addEventListener("dragover", function(dragEvent) {
+        if (!draggedBaseBlock || draggedBaseBlock === block) return
+        dragEvent.preventDefault()
+        panel.querySelectorAll("[data-base-block].is-drop-target").forEach(function(target) {
+          if (target !== block) target.classList.remove("is-drop-target")
+        })
+        block.classList.add("is-drop-target")
+      })
+
+      block.addEventListener("dragleave", function() {
+        block.classList.remove("is-drop-target")
+      })
+
+      block.addEventListener("drop", function(dropEvent) {
+        if (!draggedBaseBlock || draggedBaseBlock === block) return
+        dropEvent.preventDefault()
+        block.classList.remove("is-drop-target")
+        var rect = block.getBoundingClientRect()
+        var placeAfter = dropEvent.clientY > rect.top + rect.height / 2
+        var parent = block.parentElement
+        if (!parent) return
+        if (placeAfter) {
+          parent.insertBefore(baseBlockPlaceholder, block.nextElementSibling)
+        } else {
+          parent.insertBefore(baseBlockPlaceholder, block)
+        }
+      })
+    })
+
+    ;[".simpleSheetSidebar", ".simpleSheetMain"].forEach(function(selector) {
+      var container = panel.querySelector(selector)
+      if (!container) return
+      container.addEventListener("dragover", function(dragEvent) {
+        if (!draggedBaseBlock) return
+        dragEvent.preventDefault()
+      })
+      container.addEventListener("drop", function(dropEvent) {
+        if (!draggedBaseBlock) return
+        dropEvent.preventDefault()
+        if (dropEvent.target && dropEvent.target.closest && dropEvent.target.closest("[data-base-block]")) return
+        if (baseBlockPlaceholder) container.appendChild(baseBlockPlaceholder)
+      })
+      container.addEventListener("dragend", function() {
+        if (!draggedBaseBlock || !baseBlockPlaceholder || !baseBlockPlaceholder.parentElement) return
+        baseBlockPlaceholder.parentElement.insertBefore(draggedBaseBlock, baseBlockPlaceholder)
+        draggedBaseBlock.setAttribute("data-base-region", baseBlockPlaceholder.parentElement.classList.contains("simpleSheetSidebar") ? "sidebar" : "main")
+      })
+    })
   }
 
   panel.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;">
+    <div class="simpleSheetHeader">
       <div>
-        <div style="font-family:Cinzel,serif;font-size:12px;letter-spacing:3px;color:#d8c49c;">FICHE RPG</div>
-        <div style="font-family:Cinzel,serif;font-size:34px;color:#f4e2bb;">${String(defaults.characterName).replace(/</g,"&lt;")}</div>
+        <div class="simpleSheetEyebrow">FICHE RPG</div>
+        <div class="simpleSheetTitle">${String(defaults.characterName).replace(/</g,"&lt;")}</div>
       </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <button type="button" data-simple-sheet-save style="padding:10px 16px;border-radius:10px;border:1px solid rgba(214,180,106,0.28);background:linear-gradient(180deg,rgba(122,85,51,0.96),rgba(75,50,28,0.96));color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;">Sauvegarder</button>
-        <button type="button" data-simple-sheet-close style="padding:10px 16px;border-radius:10px;border:1px solid rgba(214,180,106,0.28);background:rgba(255,255,255,0.05);color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;">Fermer</button>
+      <div class="simpleSheetActions">
+        <button type="button" class="simpleSheetButton" data-simple-sheet-save>Sauvegarder</button>
+        <button type="button" class="simpleSheetButton secondary" data-simple-sheet-close>Fermer</button>
       </div>
     </div>
-    <div style="display:grid;grid-template-columns:280px minmax(0,1fr);gap:18px;">
-      <div style="display:grid;gap:14px;">
-        <div style="padding:14px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid rgba(214,180,106,0.18);display:grid;gap:12px;">
-          <div style="width:100%;aspect-ratio:1/1;border-radius:16px;overflow:hidden;background:linear-gradient(180deg,#f3ead5,#d8c6a0);display:flex;align-items:center;justify-content:center;">
-            <img src="${String(portrait).replace(/"/g,"&quot;")}" alt="Portrait" style="width:100%;height:100%;object-fit:cover;display:block;">
+    <div class="simpleSheetGrid">
+      <div class="simpleSheetSidebar">
+        <div class="simpleSheetSection" data-base-block data-base-block-id="identity" data-base-region="sidebar"${canCustomizeSheet ? ' draggable="true"' : ""}>
+          ${renderBaseSectionHeader("Identite")}
+          <div class="simpleSheetPortrait">
+            <img src="${String(portrait).replace(/"/g, "&quot;")}" alt="Portrait">
           </div>
+          ${canCustomizeSheet ? `
+            <div class="simpleSheetPortraitTools">
+              <label class="simpleSheetFieldGroup">
+                <span>Image de profil</span>
+                <input class="simpleSheetField" data-simple-profile-image type="text" value="${String(defaults.profileImage || "").replace(/"/g, "&quot;")}" placeholder="URL ou data:image/...">
+              </label>
+              <label class="simpleSheetUploadButton">
+                Importer une image
+                <input type="file" accept="image/*" data-simple-profile-upload>
+              </label>
+            </div>
+          ` : ""}
           ${field("Nom", "characterName", defaults.characterName)}
           ${field("Classe", "characterClass", defaults.characterClass)}
           ${field("Origine", "origin", defaults.origin)}
-          ${field("Background", "background", defaults.background)}
         </div>
-        <div style="padding:14px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid rgba(214,180,106,0.18);display:grid;gap:10px;">
-          <div style="font-family:Cinzel,serif;font-size:18px;color:#f0d087;">Ressources</div>
-          ${field("Niveau", "lvl", defaults.lvl, "number")}
-          ${field("XP", "xp", defaults.xp, "number")}
-          ${field("HP", "hp", defaults.hp, "number")}
-          ${field("HP max", "hpMax", defaults.hpMax, "number")}
-          ${field("Mana", "mana", defaults.mana, "number")}
-          ${field("Mana max", "manaMax", defaults.manaMax, "number")}
-          ${field("Endurance", "stamina", defaults.stamina, "number")}
-          ${field("Endurance max", "staminaMax", defaults.staminaMax, "number")}
+        <div class="simpleSheetSection" data-base-block data-base-block-id="resources" data-base-region="sidebar"${canCustomizeSheet ? ' draggable="true"' : ""}>
+          ${renderBaseSectionHeader("Ressources")}
+          <div class="simpleSheetFields two">
+            ${field("Niveau", "lvl", defaults.lvl, "number")}
+            ${field("XP", "xp", defaults.xp, "number")}
+          </div>
+          <div class="simpleSheetResourceStack">
+            ${resourceGauge("HP", "hp", defaults.hp, "hpMax", defaults.hpMax, "hp")}
+            ${resourceGauge("Mana", "mana", defaults.mana, "manaMax", defaults.manaMax, "mana")}
+            ${resourceGauge("Endurance", "stamina", defaults.stamina, "staminaMax", defaults.staminaMax, "stamina")}
+          </div>
         </div>
       </div>
-      <div style="display:grid;gap:18px;">
-        <div style="padding:16px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid rgba(214,180,106,0.18);display:grid;gap:12px;">
-          <div style="font-family:Cinzel,serif;font-size:18px;color:#f0d087;">Caracteristiques</div>
-          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;">
+      <div class="simpleSheetMain">
+        <div class="simpleSheetSection" data-base-block data-base-block-id="stats" data-base-region="main"${canCustomizeSheet ? ' draggable="true"' : ""}>
+          ${renderBaseSectionHeader("Caracteristiques")}
+          <div class="simpleSheetFields three">
             ${field("Force", "force", defaults.force, "number")}
             ${field("Charme", "charme", defaults.charme, "number")}
             ${field("Defense", "defense", defaults.defense, "number")}
@@ -1995,23 +2531,53 @@ function openSimpleCharacterSheet(playerId, event) {
             ${field("Initiative", "initiative", defaults.initiative, "number")}
           </div>
         </div>
-        <div style="padding:16px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid rgba(214,180,106,0.18);display:grid;gap:12px;">
-          <div style="font-family:Cinzel,serif;font-size:18px;color:#f0d087;">Equipement</div>
-          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+        <div class="simpleSheetSection" data-base-block data-base-block-id="equipment" data-base-region="main"${canCustomizeSheet ? ' draggable="true"' : ""}>
+          ${renderBaseSectionHeader("Equipement")}
+          <div class="simpleSheetFields two">
             ${field("Arme principale", "weaponMain", defaults.weaponMain)}
+            ${field("Arme secondaire", "weaponOff", defaults.weaponOff)}
             ${field("Armure", "armorName", defaults.armorName)}
+            ${field("Objet signature", "signatureItem", defaults.signatureItem)}
           </div>
-          <label style="display:grid;gap:6px;color:#d8c49c;font-size:12px;">
-            <span>Inventaire</span>
-            <textarea data-simple-sheet-field="inventaire" style="min-height:120px;padding:12px;border-radius:12px;border:1px solid rgba(214,180,106,0.22);background:rgba(0,0,0,0.24);color:#f5e6c8;resize:vertical;">${String(defaults.inventaire).replace(/</g,"&lt;")}</textarea>
-          </label>
+          ${textarea("Inventaire", "inventaire", defaults.inventaire, false)}
         </div>
-        <div style="padding:16px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid rgba(214,180,106,0.18);display:grid;gap:12px;">
-          <div style="font-family:Cinzel,serif;font-size:18px;color:#f0d087;">Histoire / Notes</div>
-          <label style="display:grid;gap:6px;color:#d8c49c;font-size:12px;">
-            <span>Notes</span>
-            <textarea data-simple-sheet-field="notes" style="min-height:180px;padding:12px;border-radius:12px;border:1px solid rgba(214,180,106,0.22);background:rgba(0,0,0,0.24);color:#f5e6c8;resize:vertical;">${String(defaults.notes).replace(/</g,"&lt;")}</textarea>
-          </label>
+        <div class="simpleSheetSection" data-base-block data-base-block-id="relations" data-base-region="main"${canCustomizeSheet ? ' draggable="true"' : ""}>
+          ${renderBaseSectionHeader("Relations et objectifs")}
+          <div class="simpleSheetFields">
+            ${textarea("Background", "background", defaults.background, true, true)}
+          </div>
+          <div class="simpleSheetFields two">
+            ${textarea("Allies / contacts", "allies", defaults.allies, false)}
+            ${textarea("Quetes / objectifs", "quests", defaults.quests, false)}
+          </div>
+        </div>
+        <div class="simpleSheetSection" data-base-block data-base-block-id="personality" data-base-region="main"${canCustomizeSheet ? ' draggable="true"' : ""}>
+          ${renderBaseSectionHeader("Personnalite et notes")}
+          <div class="simpleSheetFields two">
+            ${textarea("Traits / defauts", "traits", defaults.traits, false)}
+            ${textarea("Notes", "notes", defaults.notes, true)}
+          </div>
+        </div>
+        <div class="simpleSheetSection" data-base-block data-base-block-id="custom" data-base-region="main"${canCustomizeSheet ? ' draggable="true"' : ""}>
+          ${renderBaseSectionHeader("Blocs personnalises")}
+          ${canCustomizeSheet ? `
+            <div class="simpleSheetCustomToolbar">
+              <select class="simpleSheetCustomType" data-new-custom-block-type>
+                <option value="note">Note</option>
+                <option value="gauge">Jauge</option>
+                <option value="stat">Stat</option>
+                <option value="counter">Compteur</option>
+                <option value="check">Case a cocher</option>
+                <option value="list">Liste</option>
+              </select>
+              <button type="button" class="simpleSheetCustomAdd" data-add-custom-block>Ajouter</button>
+              <select class="simpleSheetCustomType" data-restore-base-block>
+                <option value="">Reafficher un bloc masque</option>
+              </select>
+              <button type="button" class="simpleSheetCustomAdd" data-restore-base-block-button>Reafficher</button>
+            </div>
+          ` : ""}
+          <div class="simpleSheetCustomBlocks" data-simple-custom-blocks></div>
         </div>
       </div>
     </div>
@@ -2019,8 +2585,63 @@ function openSimpleCharacterSheet(playerId, event) {
 
   panel.querySelector("[data-simple-sheet-close]").onclick = function() { closeSimpleSheet() }
   panel.querySelector("[data-simple-sheet-save]").onclick = function() { saveSimpleCharacterSheet(playerId, panel) }
+  panel.querySelectorAll("[data-add-custom-block]").forEach(function(button) {
+    button.addEventListener("click", function() {
+      var typeSelect = panel.querySelector("[data-new-custom-block-type]")
+      var blockType = typeSelect ? typeSelect.value : "note"
+      var blocks = collectSimpleSheetData(panel).customBlocks
+      blocks.push(getDefaultCustomBlock(blockType))
+      renderSimpleCustomBlocks(blocks)
+      queueAutoSave()
+    })
+  })
+
+  var restoreBaseBlockButton = panel.querySelector("[data-restore-base-block-button]")
+  if (restoreBaseBlockButton) {
+    restoreBaseBlockButton.addEventListener("click", function() {
+      var restoreSelect = panel.querySelector("[data-restore-base-block]")
+      var blockId = restoreSelect ? restoreSelect.value : ""
+      if (!blockId) return
+      var block = panel.querySelector('[data-base-block-id="' + blockId + '"]')
+      if (!block) return
+      block.setAttribute("data-base-visible", "true")
+      block.classList.remove("is-hidden")
+      refreshHiddenBaseBlockOptions()
+      queueAutoSave()
+    })
+  }
+
+  var profileImageInput = panel.querySelector("[data-simple-profile-image]")
+  var profileUploadInput = panel.querySelector("[data-simple-profile-upload]")
+  if (profileImageInput) {
+    profileImageInput.addEventListener("input", function() {
+      updateSimplePortrait(profileImageInput.value)
+      queueAutoSave()
+    })
+    profileImageInput.addEventListener("change", function() {
+      updateSimplePortrait(profileImageInput.value)
+      queueAutoSave()
+    })
+  }
+  if (profileUploadInput) {
+    profileUploadInput.addEventListener("change", function(uploadEvent) {
+      var file = uploadEvent.target && uploadEvent.target.files ? uploadEvent.target.files[0] : null
+      if (!file) return
+      readSimpleSheetFileAsDataURL(file).then(function(dataUrl) {
+        if (profileImageInput) profileImageInput.value = dataUrl
+        updateSimplePortrait(dataUrl)
+        queueAutoSave()
+      }).catch(function() {
+        if (typeof showNotification === "function") showNotification("Import image impossible")
+      })
+    })
+  }
+
   panel.querySelectorAll("[data-simple-sheet-field]").forEach(function(field) {
-    field.addEventListener("input", queueAutoSave)
+    field.addEventListener("input", function() {
+      queueAutoSave()
+      refreshSimpleSheetGauges()
+    })
     field.addEventListener("change", queueAutoSave)
   })
 
@@ -2029,18 +2650,30 @@ function openSimpleCharacterSheet(playerId, event) {
       var field = panel.querySelector('[data-simple-sheet-field="' + key + '"]')
       if (field) field.value = data[key]
     })
+    if (profileImageInput) profileImageInput.value = (data && data.profileImage) || ""
+    updateSimplePortrait((data && data.profileImage) || "")
+    renderSimpleCustomBlocks((data && data.customBlocks) || [])
+    applyBaseBlocksState((data && data.baseBlocks) || defaults.baseBlocks || [])
+    refreshHiddenBaseBlockOptions()
   }
+
+  bindSimpleCustomBlocks()
+  bindBaseBlocks()
+  applyData(loadSimpleSheetLocal(playerId))
 
   try {
     if (typeof db !== "undefined" && db && typeof db.ref === "function") {
       db.ref("characters/" + playerId).once("value", function(snapshot) {
         applyData(snapshot && snapshot.val ? (snapshot.val() || {}) : {})
+        refreshSimpleSheetGauges()
       })
     }
   } catch (e) {}
 
   overlay.appendChild(panel)
   document.body.appendChild(overlay)
+  refreshSimpleSheetGauges()
+  refreshAllCustomBlockGauges()
   document.addEventListener("keydown", onSheetKeydown, true)
   return false
 }

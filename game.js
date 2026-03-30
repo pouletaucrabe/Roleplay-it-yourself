@@ -3843,6 +3843,9 @@ function activateGM(fromFirebaseRole = false) {
 }
 
 function openGMCharacterPicker() {
+  if (typeof window !== "undefined" && typeof window.openGMCharacterPickerInline === "function") {
+    return window.openGMCharacterPickerInline()
+  }
   const existing = document.getElementById("gmCharacterPickerOverlay")
   if (existing) existing.remove()
 
@@ -3909,6 +3912,7 @@ function openGMCharacterPicker() {
 document.addEventListener("DOMContentLoaded", () => {
   const btn = document.getElementById("gmCharactersBtn")
   if (!btn || btn.dataset.sheetPickerBound === "true") return
+  if (btn.hasAttribute("onclick")) return
   btn.dataset.sheetPickerBound = "true"
   btn.addEventListener("click", event => {
     event.preventDefault()
