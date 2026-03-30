@@ -29,7 +29,7 @@
       <p class="builderShellLead">Une base propre pour ouvrir un bac a sable, construire ton board dans le studio MJ, puis lancer la partie.</p>
     </div>
     <div class="builderShellActions">
-      <button type="button" class="builderShellPrimary" onclick="openProjectCreationWizard()">Nouveau bac a sable</button>
+      <button type="button" class="builderShellPrimary" onclick="forceOpenSandboxFromClick()">Nouveau bac a sable</button>
       <button type="button" class="builderShellSecondary" onclick="openPlayerStudio()">Rejoindre une partie</button>
     </div>
   </div>
@@ -54,8 +54,8 @@
               <h2 id="entryMjTitle">Espace creation</h2>
               <p id="entryMjDescription">Configure le bac a sable, ajoute tes maps, PNJ, mobs, documents et images, puis ouvre les outils MJ.</p>
               <div class="entryCardActions">
-                <button type="button" id="entryNewProjectBtn" class="hubButton" onclick="openProjectCreationWizard()"><span class="btn-inner">NOUVEAU BAC A SABLE</span></button>
-                <button type="button" id="entryLoadProjectBtn" class="hubButton" onclick="openProjectCreationWizard()"><span class="btn-inner">OUVRIR LE BAC A SABLE</span></button>
+                <button type="button" id="entryNewProjectBtn" class="hubButton" onclick="forceOpenSandboxFromClick()"><span class="btn-inner">NOUVEAU BAC A SABLE</span></button>
+                <button type="button" id="entryLoadProjectBtn" class="hubButton" onclick="forceOpenSandboxFromClick()"><span class="btn-inner">OUVRIR LE BAC A SABLE</span></button>
               </div>
             </div>
           </section>
@@ -865,10 +865,10 @@
 <!-- 2. Variables d'Ã©tat -->
 <script src="state.js?v=1"></script>
 <!-- 3. Utilitaires (pas de dÃ©pendances Firebase) -->
-<script src="utils.js?v=9"></script>
-<script src="customization.js?v=10"></script>
+<script src="utils.js?v=11"></script>
+<script src="customization.js?v=15"></script>
 <!-- 4. Logique principale + Firebase listeners -->
-<script src="game.js?v=35"></script>
+<script src="game.js?v=42"></script>
 <!-- 5. Interface utilisateur -->
 <script src="ui.js?v=4"></script>
 <!-- 6. Combat -->
@@ -940,6 +940,9 @@ function setBuilderShellVisible(visible) {
   var shell = document.getElementById("builderAppShell")
   if (!shell) return
   shell.style.display = visible ? "flex" : "none"
+  shell.style.visibility = visible ? "visible" : "hidden"
+  shell.style.opacity = visible ? "1" : "0"
+  shell.style.pointerEvents = visible ? "auto" : "none"
 }
 
 function getBuilderThemeMeta() {
@@ -1190,39 +1193,37 @@ async function confirmNativeStudioDraft() {
   var dialog = document.getElementById("nativeStudioDraftDialog")
   if (!draft || !draft.file || !draft.type || !dialog) return
   try {
-      var type = String(draft.type || "")
-      var file = draft.file
-      try {
-        var label = String(document.getElementById("nativeStudioDraftLabel").value || "").trim()
-        var category = String(document.getElementById("nativeStudioDraftCategory").value || "").trim() || "Local"
-        var audio = type === "map" ? String(document.getElementById("nativeStudioDraftAudio").value || "").trim() : ""
-        if (!label) {
-          if (typeof showNotification === "function") showNotification("Nom obligatoire")
-          return
-        }
-        var asset = await readNativeStudioFileAsDataURL(file)
-        var next = getCustomization()
-        next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
-        if (type === "map") next.content.maps.push({ label: label, category: category, map: asset || "background.jpg", section: "lieux", audio: audio })
-        if (type === "pnj") next.content.pnjs.push({ label: label, category: category, image: asset || "" })
-        if (type === "mob") {
-          var mobId = String(label).toLowerCase().replace(/[^a-z0-9]+/g, "_")
-          next.content.mobs.push({ label: label, category: category, id: mobId, tier: "weak", action: "diff", baseHP: 30, combatOnly: false })
-          next.assets = next.assets || {}
-          next.assets[mobId + ".png"] = asset
-        }
-        if (type === "document") next.content.documents.push({ label: label, category: category, image: asset || "", title: label })
-        saveCustomization(next)
-        if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
-        if (typeof sanitizeLegacySandboxUI === "function") sanitizeLegacySandboxUI()
-        if (typeof renderNativeStudioContentList === "function") renderNativeStudioContentList()
-        if (typeof showNotification === "function") showNotification("Element ajoute au bac a sable")
-        dialog.close()
-        window.__nativeStudioDraft = null
-      } catch (e) {
-        console.warn("nativeStudioDraftSave failed:", e)
-        if (typeof showNotification === "function") showNotification("Ajout local impossible")
-      }
+    var type = String(draft.type || "")
+    var file = draft.file
+    var label = String(document.getElementById("nativeStudioDraftLabel").value || "").trim()
+    var category = String(document.getElementById("nativeStudioDraftCategory").value || "").trim() || "Local"
+    var audio = type === "map" ? String(document.getElementById("nativeStudioDraftAudio").value || "").trim() : ""
+    if (!label) {
+      if (typeof showNotification === "function") showNotification("Nom obligatoire")
+      return
+    }
+    var asset = await readNativeStudioFileAsDataURL(file)
+    var next = getCustomization()
+    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+    if (type === "map") next.content.maps.push({ label: label, category: category, map: asset || "background.jpg", section: "lieux", audio: audio })
+    if (type === "pnj") next.content.pnjs.push({ label: label, category: category, image: asset || "" })
+    if (type === "mob") {
+      var mobId = String(label).toLowerCase().replace(/[^a-z0-9]+/g, "_")
+      next.content.mobs.push({ label: label, category: category, id: mobId, tier: "weak", action: "diff", baseHP: 30, combatOnly: false })
+      next.assets = next.assets || {}
+      next.assets[mobId + ".png"] = asset
+    }
+    if (type === "document") next.content.documents.push({ label: label, category: category, image: asset || "", title: label })
+    saveCustomization(next)
+    if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
+    if (typeof sanitizeLegacySandboxUI === "function") sanitizeLegacySandboxUI()
+    if (typeof renderNativeStudioContentList === "function") renderNativeStudioContentList()
+    if (typeof showNotification === "function") showNotification("Element ajoute au bac a sable")
+    dialog.close()
+    window.__nativeStudioDraft = null
+  } catch (e) {
+    console.warn("nativeStudioDraftSave failed:", e)
+    if (typeof showNotification === "function") showNotification("Ajout local impossible")
   }
 }
 
@@ -1311,6 +1312,180 @@ function closeProjectCreationWizard() {
 
 function openCreationStudioDirect() {
   openProjectCreationWizard()
+}
+
+function forceOpenSandboxFromClick() {
+  try {
+    window.__skipIntroHub = true
+    var shell = document.getElementById("builderAppShell")
+    var start = document.getElementById("startScreen")
+    var intro = document.getElementById("intro")
+    var camera = document.getElementById("camera")
+    var map = document.getElementById("map")
+    var diceBar = document.getElementById("diceBar")
+    var diceLog = document.getElementById("diceLog")
+
+    if (shell) {
+      shell.style.display = "none"
+      shell.style.visibility = "hidden"
+      shell.style.opacity = "0"
+      shell.style.pointerEvents = "none"
+    }
+    if (start) {
+      start.style.display = "none"
+      start.style.visibility = "hidden"
+      start.style.pointerEvents = "none"
+    }
+    if (intro) {
+      intro.style.display = "none"
+      intro.style.visibility = "hidden"
+      intro.style.pointerEvents = "none"
+      intro.style.zIndex = "-1"
+    }
+    if (camera) camera.style.display = "block"
+    if (map) {
+      map.style.display = "block"
+      if (!map.style.backgroundImage) {
+        map.style.backgroundImage = "url('images/background.jpg')"
+        map.style.backgroundSize = "cover"
+        map.style.backgroundPosition = "center"
+      }
+    }
+    if (diceBar) diceBar.style.display = "flex"
+    if (diceLog) diceLog.style.display = "block"
+  } catch (uiError) {
+    console.error("forceOpenSandboxFromClick ui failed:", uiError)
+  }
+
+  try {
+    if (typeof launchBlankSandboxFromEntry === "function") {
+      launchBlankSandboxFromEntry()
+      return
+    }
+  } catch (error) {
+    console.error("forceOpenSandboxFromClick launch failed:", error)
+  }
+
+  try {
+    if (typeof activateGM === "function") activateGM(true)
+    if (typeof openCustomizationPanel === "function") {
+      setTimeout(function() {
+        try { openCustomizationPanel() } catch (e) {}
+      }, 120)
+    }
+  } catch (fallbackError) {
+    console.error("forceOpenSandboxFromClick fallback failed:", fallbackError)
+  }
+}
+
+function launchBlankSandboxFromEntry() {
+  try {
+    window.__skipIntroHub = true
+    var base = typeof getCustomization === "function"
+      ? getCustomization()
+      : (typeof getDefaultCustomization === "function" ? getDefaultCustomization() : null)
+
+    if (!base && typeof getDefaultCustomization === "function") base = getDefaultCustomization()
+    if (!base) {
+      if (typeof showNotification === "function") showNotification("Creation du bac a sable indisponible")
+      return
+    }
+
+    if (!base.project || typeof base.project !== "object") base.project = {}
+    if (!base.project.title) base.project.title = "Roleplay It Yourself"
+    if (!base.project.theme) base.project.theme = "medieval_fantasy"
+    if (!base.project.playerCount) base.project.playerCount = 4
+    base.project.starterMode = "empty"
+
+    if (typeof saveCustomization === "function") saveCustomization(base)
+    window.__pendingProjectSeed = {
+      title: base.project.title,
+      theme: base.project.theme,
+      playerCount: base.project.playerCount,
+      tone: String(base.project.tone || ""),
+      starterMode: "empty"
+    }
+    window.__projectWizardCommitted = true
+    window.__startInSandboxMode = true
+
+    if (typeof setBuilderShellVisible === "function") setBuilderShellVisible(false)
+    try {
+      var start = document.getElementById("startScreen")
+      var intro = document.getElementById("intro")
+      var camera = document.getElementById("camera")
+      var map = document.getElementById("map")
+      var diceBar = document.getElementById("diceBar")
+      var diceLog = document.getElementById("diceLog")
+      if (start) {
+        start.style.display = "none"
+        start.style.visibility = "hidden"
+        start.style.pointerEvents = "none"
+      }
+      if (intro) {
+        intro.style.display = "none"
+        intro.style.visibility = "hidden"
+        intro.style.pointerEvents = "none"
+      }
+      if (camera) camera.style.display = "block"
+      if (map && !map.style.backgroundImage) {
+        map.style.backgroundImage = "url('images/background.jpg')"
+        map.style.backgroundSize = "cover"
+        map.style.backgroundPosition = "center"
+      }
+      if (diceBar) diceBar.style.display = "flex"
+      if (diceLog) diceLog.style.display = "block"
+      if (typeof activateGM === "function") {
+        try { activateGM(true) } catch (e) {}
+      }
+      if (typeof openCustomizationPanel === "function") {
+        setTimeout(function() {
+          try { openCustomizationPanel() } catch (e) {}
+        }, 140)
+      }
+    } catch (uiError) {
+      console.error("launchBlankSandboxFromEntry ui bootstrap failed:", uiError)
+    }
+
+    if (typeof openSandboxAfterProjectCreation === "function") {
+      setTimeout(function() {
+        try { openSandboxAfterProjectCreation("Bac a sable MJ pret") } catch (e) {}
+      }, 80)
+    }
+
+    if (window.__sandboxLaunchWatchdog) clearTimeout(window.__sandboxLaunchWatchdog)
+    window.__sandboxLaunchWatchdog = setTimeout(function() {
+      if (window.__startInSandboxMode && typeof openSandboxAfterProjectCreation === "function") {
+        openSandboxAfterProjectCreation("Bac a sable MJ pret")
+      }
+    }, 1800)
+
+    if (typeof applyCustomizationToUI === "function") {
+      try { applyCustomizationToUI() } catch (e) {}
+    }
+
+    if (typeof newGame === "function") {
+      newGame()
+      return
+    }
+
+    if (typeof openSandboxAfterProjectCreation === "function") {
+      openSandboxAfterProjectCreation("Bac a sable MJ pret")
+      return
+    }
+
+    if (typeof showNotification === "function") showNotification("Creation du bac a sable indisponible")
+  } catch (error) {
+    console.error("launchBlankSandboxFromEntry failed:", error)
+    if (typeof openSandboxAfterProjectCreation === "function") {
+      try {
+        openSandboxAfterProjectCreation("Bac a sable MJ pret")
+        return
+      } catch (fallbackError) {
+        console.error("launchBlankSandboxFromEntry fallback failed:", fallbackError)
+      }
+    }
+    if (typeof showNotification === "function") showNotification("Impossible d'ouvrir le bac a sable")
+  }
 }
 
 function openProjectCreationWizard() {
@@ -1701,6 +1876,7 @@ function openCreatorStudioEntry() {
 }
 
 function safeStartIntro(event) {
+  if (window.__skipIntroHub) return
   if (event) {
     event.preventDefault()
     event.stopPropagation()
@@ -1730,6 +1906,7 @@ function safeStartIntro(event) {
 }
 
 function forceShowIntroHub() {
+  if (window.__skipIntroHub) return
   const start = document.getElementById("startScreen")
   const intro = document.getElementById("intro")
   if (start) {
@@ -1763,9 +1940,9 @@ document.addEventListener("DOMContentLoaded", () => {
       handler()
     })
   }
-  bindClick("entryNewProjectBtn", openProjectCreationWizard)
+  bindClick("entryNewProjectBtn", forceOpenSandboxFromClick)
   bindClick("entryLoadProjectBtn", function() {
-    if (typeof openCreationStudioDirect === "function") openCreationStudioDirect()
+    if (typeof forceOpenSandboxFromClick === "function") forceOpenSandboxFromClick()
   })
   bindClick("entryPlayerOpenBtn", function() {
     if (typeof openPlayerStudio === "function") openPlayerStudio()
@@ -1781,8 +1958,11 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("visibilitychange", function() {
     if (document.visibilityState === "visible") playMenuMusicIfPossible()
   }, true)
-  setTimeout(() => safeStartIntro(), 60)
   setTimeout(() => {
+    if (!window.__skipIntroHub) safeStartIntro()
+  }, 60)
+  setTimeout(() => {
+    if (window.__skipIntroHub) return
     const intro = document.getElementById("intro")
     const start = document.getElementById("startScreen")
     const introHidden = !intro || intro.style.display === "none" || intro.style.visibility === "hidden"

@@ -20,6 +20,11 @@ const db = firebase.database()
 const auth = null
 const SESSION_REF_PATH = "game/session"
 
+if (typeof window.startMenuSparks !== "function") window.startMenuSparks = function () {}
+if (typeof window.stopMenuSparks !== "function") window.stopMenuSparks = function () {}
+if (typeof window.stopAllMusic !== "function") window.stopAllMusic = function () {}
+if (typeof window.preloadAssets !== "function") window.preloadAssets = function () {}
+
 function closeGMAuthModal() {}
 function closePlayerAuthModal() {}
 function tryAutoSelectAuthenticatedPlayer() { return false }
@@ -2753,13 +2758,50 @@ function openSandboxAfterProjectCreation(message) {
     window.__sandboxLaunchWatchdog = null
   }
   window.__startInSandboxMode = false
-  if (typeof setBuilderShellVisible === "function") setBuilderShellVisible(false)
-  if (!gameStarted) gameStarted = true
-  hideIntroLayers()
-  sanitizeLegacySandboxUI()
-  showTavern()
-  activateGM(true)
-  if (typeof showNotification === "function") showNotification(message || "Bac a sable MJ pret")
+  try {
+    if (typeof setBuilderShellVisible === "function") setBuilderShellVisible(false)
+    if (!gameStarted) gameStarted = true
+    hideIntroLayers()
+    sanitizeLegacySandboxUI()
+    const camera = document.getElementById("camera")
+    const map = document.getElementById("map")
+    const diceBar = document.getElementById("diceBar")
+    const diceLog = document.getElementById("diceLog")
+    if (camera) camera.style.display = "block"
+    if (map && !map.style.backgroundImage) {
+      map.style.backgroundImage = "url('" + resolveImagePath("background.jpg") + "')"
+      map.style.backgroundSize = "cover"
+      map.style.backgroundPosition = "center"
+    }
+    if (diceBar) diceBar.style.display = "flex"
+    if (diceLog) diceLog.style.display = "block"
+    showTavern()
+    activateGM(true)
+    if (typeof openCustomizationPanel === "function") {
+      setTimeout(() => {
+        try { openCustomizationPanel() } catch (e) {}
+      }, 120)
+    }
+    if (typeof showNotification === "function") showNotification(message || "Bac a sable MJ pret")
+  } catch (error) {
+    console.error("openSandboxAfterProjectCreation failed:", error)
+    try {
+      if (typeof setBuilderShellVisible === "function") setBuilderShellVisible(false)
+      hideIntroLayers()
+      setGameState("GAME")
+      const camera = document.getElementById("camera")
+      const diceBar = document.getElementById("diceBar")
+      const diceLog = document.getElementById("diceLog")
+      if (camera) camera.style.display = "block"
+      if (diceBar) diceBar.style.display = "flex"
+      if (diceLog) diceLog.style.display = "block"
+      activateGM(true)
+      if (typeof showNotification === "function") showNotification((message || "Bac a sable MJ pret") + " (mode secours)")
+    } catch (fallbackError) {
+      console.error("openSandboxAfterProjectCreation fallback failed:", fallbackError)
+      if (typeof showNotification === "function") showNotification("Impossible d'ouvrir le bac a sable")
+    }
+  }
 }
 
 function newGame() {
@@ -3583,7 +3625,7 @@ function startGame() {
     updateMadnessVisibility()
     const playerThuumBtn = document.getElementById("playerThuumBtn")
     if (playerThuumBtn) playerThuumBtn.style.display = "none"
-  stopMenuSparks()
+  if (typeof stopMenuSparks === "function") stopMenuSparks()
   const titleEl = document.getElementById("gameTitle")
   if (titleEl) { titleEl.classList.remove("visible"); titleEl.innerText = "" }
   document.body.focus()
@@ -3654,9 +3696,13 @@ function showTavern() {
 }
 
 function startIntro() {
-  startMenuSparks()
-  stopAllMusic()
-  preloadAssets()
+  if (window.__skipIntroHub) {
+    hideIntroLayers()
+    return
+  }
+  if (typeof startMenuSparks === "function") startMenuSparks()
+  if (typeof stopAllMusic === "function") stopAllMusic()
+  if (typeof preloadAssets === "function") preloadAssets()
   setGameState("INTRO")
   setTimeout(animateGameTitle, 300)
   const start = document.getElementById("startScreen")
