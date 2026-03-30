@@ -136,6 +136,36 @@
     return Math.max(1, Math.min(SANDBOX_MAX_PLAYERS, parseInt(rawCount, 10) || 4))
   }
 
+  function getSandboxPlayerKey(index) {
+    return index >= 1 && index <= PLAYER_IDS.length ? PLAYER_IDS[index - 1] : "slot_" + index
+  }
+
+  function getSandboxPlayerConfig(index) {
+    return getPlayerCustomization(getSandboxPlayerKey(index))
+  }
+
+  function getSandboxPlayerName(index) {
+    return getPlayerDisplayName(getSandboxPlayerKey(index))
+  }
+
+  function getSandboxPlayerImage(index) {
+    const playerKey = getSandboxPlayerKey(index)
+    const player = getPlayerCustomization(playerKey)
+    return player.image || getDefaultPlayerSlotImage(playerKey)
+  }
+
+  function buildSandboxCharacterButtonsMarkup(count) {
+    const visibleCount = getSandboxVisiblePlayerCount(count)
+    let markup = ""
+    for (let slotIndex = 1; slotIndex <= visibleCount; slotIndex += 1) {
+      const playerKey = getSandboxPlayerKey(slotIndex)
+      const player = getPlayerCustomization(playerKey)
+      if (player.enabled === false) continue
+      markup += `<button class="gmCharacterSlotButton" onclick="openCharacterSheet('${esc(playerKey)}')">${esc(getSandboxPlayerName(slotIndex))}</button>`
+    }
+    return markup
+  }
+
   function getSandboxExtraSlotImage(index) {
     const safeIndex = Math.max(5, Math.min(SANDBOX_MAX_PLAYERS, parseInt(index, 10) || 5))
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160"><defs><linearGradient id="gx${safeIndex}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f5ecd6"/><stop offset="100%" stop-color="#d9c39a"/></linearGradient></defs><circle cx="80" cy="80" r="76" fill="url(#gx${safeIndex})" stroke="#9d8357" stroke-width="8"/><circle cx="80" cy="62" r="24" fill="#8f7a56"/><path d="M42 126c7-24 26-36 38-36s31 12 38 36" fill="#8f7a56"/><text x="80" y="150" text-anchor="middle" font-family="Cinzel, serif" font-size="24" fill="#5b482c">${safeIndex}</text></svg>`
@@ -176,9 +206,9 @@
         token.style.top = pos.top + "px"
       }
       const img = token.querySelector("img")
-      if (img) img.src = getSandboxExtraSlotImage(slotIndex)
+      if (img) img.src = getSandboxPlayerImage(slotIndex) || getSandboxExtraSlotImage(slotIndex)
       const tag = token.querySelector(".nameTag")
-      if (tag) tag.textContent = "Joueur " + slotIndex
+      if (tag) tag.textContent = getSandboxPlayerName(slotIndex)
     }
   }
 
@@ -236,18 +266,19 @@
     })
     document.querySelectorAll(".sandboxExtraToken").forEach(token => {
       const slotIndex = parseInt(token.dataset.slotIndex, 10) || 0
-      const isVisible = slotIndex > 4 && slotIndex <= visibleCount
+      const isVisible = slotIndex > 4 && slotIndex <= visibleCount && getSandboxPlayerConfig(slotIndex).enabled !== false
       token.hidden = !isVisible
       token.style.setProperty("display", isVisible ? "flex" : "none", "important")
       token.style.setProperty("visibility", isVisible ? "visible" : "hidden", "important")
       token.style.setProperty("pointer-events", isVisible ? "auto" : "none", "important")
+      const img = token.querySelector("img")
+      if (img) img.src = getSandboxPlayerImage(slotIndex)
+      const tag = token.querySelector(".nameTag")
+      if (tag) tag.textContent = getSandboxPlayerName(slotIndex)
     })
     const gmCharacters = byId("gmCharacters")
     if (gmCharacters) {
-      gmCharacters.innerHTML = PLAYER_IDS
-        .filter(playerId => PLAYER_IDS.indexOf(playerId) < visibleCount && getPlayerCustomization(playerId).enabled !== false)
-        .map(playerId => `<button onclick="openCharacterSheet('${playerId}')">${esc(getPlayerDisplayName(playerId))}</button>`)
-        .join("")
+      gmCharacters.innerHTML = buildSandboxCharacterButtonsMarkup(visibleCount)
     }
   }
 
@@ -417,13 +448,17 @@
   function getStudioSummary() {
     const customization = getExtendedCustomization()
     const catalog = getCatalog()
+    const visibleCount = getSandboxVisiblePlayerCount(customization.project.playerCount)
     return {
       title: String(customization.project.title || "Roleplay It Yourself").trim() || "Roleplay It Yourself",
       themeLabel: typeof getProjectThemeLabel === "function"
         ? getProjectThemeLabel(customization.project.theme)
         : String(customization.project.theme || "Medieval fantasy"),
-      playerCount: Math.max(1, Math.min(12, parseInt(customization.project.playerCount, 10) || 4)),
-      players: PLAYER_IDS.map(id => ({ id, name: getPlayerDisplayName(id) })),
+      playerCount: visibleCount,
+      players: Array.from({ length: visibleCount }, (_, index) => {
+        const slotIndex = index + 1
+        return { id: getSandboxPlayerKey(slotIndex), name: getSandboxPlayerName(slotIndex) }
+      }),
       customCounts: {
         maps: customization.content.maps.length,
         pnjs: customization.content.pnjs.length + customization.content.highPnjs.length,
@@ -450,6 +485,17 @@
   function closeStudioOverlay() {
     const existing = byId("creatorStudioOverlay")
     if (existing) existing.remove()
+  }
+
+  function buildPlayerEditorCards(customization) {
+    const visibleCount = getSandboxVisiblePlayerCount(customization.project.playerCount)
+    let markup = ""
+    for (let slotIndex = 1; slotIndex <= visibleCount; slotIndex += 1) {
+      const playerKey = getSandboxPlayerKey(slotIndex)
+      const player = customization.players[playerKey] || getPlayerCustomization(playerKey)
+      markup += `<div style="padding:12px;border:1px solid rgba(160,130,80,0.22);border-radius:10px;background:rgba(0,0,0,0.18);"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;"><div style="font-size:11px;color:#d7c39c;letter-spacing:2px;">SLOT ${slotIndex}</div><label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e8d8b6;"><input data-custom-enabled="${esc(playerKey)}" type="checkbox" ${player.enabled !== false ? "checked" : ""}> Actif</label></div><label style="display:grid;gap:6px;margin-bottom:10px;"><span style="font-size:12px;color:#bfae8b;">Nom affiche</span><input data-custom-name="${esc(playerKey)}" type="text" value="${esc(player.name || getDefaultPlayerSlotLabel(playerKey))}" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;margin-bottom:10px;"><span style="font-size:12px;color:#bfae8b;">URL image</span><input data-custom-image="${esc(playerKey)}" type="text" value="${esc(player.image || "")}" placeholder="https://... ou data:image/..." style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Uploader une image</span><input data-custom-upload="${esc(playerKey)}" type="file" accept="image/*" style="font-size:12px;color:#e8d6b3;"></label></div>`
+    }
+    return markup
   }
 
   function openStudioGameMenu(menuId) {
@@ -601,6 +647,8 @@
     const existing = byId("customizationOverlay")
     if (existing) existing.remove()
     const customization = getExtendedCustomization()
+    const visiblePlayerCount = getSandboxVisiblePlayerCount(customization.project.playerCount)
+    const playerEditorCardsMarkup = buildPlayerEditorCards(customization)
     const themeOptionsMarkup = getProjectThemeOptions().map(option => `<option value="${esc(option.value)}"${option.value === customization.project.theme ? " selected" : ""}>${esc(option.label)}</option>`).join("")
     const focusType = options && typeof options === "object" ? String(options.focusType || "") : ""
     const preferredTab = options && typeof options === "object" ? String(options.tab || "") : ""
@@ -620,8 +668,8 @@
         <button type="button" data-custom-tab-btn="assets" style="padding:10px 14px;background:rgba(255,255,255,0.06);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:999px;cursor:pointer;font-family:Cinzel,serif;">Assets</button>
       </div>
       <div style="display:grid;gap:18px;">
-        <section data-custom-tab="project" style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);display:grid;gap:14px;"><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Titre</div><input id="customProjectTitle" type="text" value="${esc(customization.project.title)}" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"></div><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Ambiance</div><select id="customProjectTheme" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;">${themeOptionsMarkup}</select></div><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Nombre de slots joueurs</div><input id="customProjectPlayerCount" type="number" min="1" max="4" value="${Math.max(1, Math.min(4, parseInt(customization.project.playerCount, 10) || 4))}" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"></div><div style="display:flex;flex-wrap:wrap;gap:8px;">${[1,2,3,4].map(count => `<button type="button" data-player-count-choice="${count}" style="padding:10px 14px;border-radius:999px;border:1px solid ${count === Math.max(1, Math.min(4, parseInt(customization.project.playerCount, 10) || 4)) ? "#caa46b" : "rgba(214,180,106,0.24)"};background:${count === Math.max(1, Math.min(4, parseInt(customization.project.playerCount, 10) || 4)) ? "linear-gradient(#7a5533,#4b321c)" : "rgba(255,255,255,0.06)"};color:#f5e6c8;cursor:pointer;font-family:Cinzel,serif;">${count}</button>`).join("")}</div><div style="font-size:12px;line-height:1.6;color:#bfae8b;">Choisis ici combien de slots joueurs doivent etre visibles sur le board.</div></section>
-        <section data-custom-tab="players" style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);display:grid;gap:14px;"><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Nombre de slots joueurs visibles</div><div style="display:flex;flex-wrap:wrap;gap:8px;">${[1,2,3,4].map(count => `<button type="button" data-player-count-choice="${count}" style="padding:10px 14px;border-radius:999px;border:1px solid ${count === Math.max(1, Math.min(4, parseInt(customization.project.playerCount, 10) || 4)) ? "#caa46b" : "rgba(214,180,106,0.24)"};background:${count === Math.max(1, Math.min(4, parseInt(customization.project.playerCount, 10) || 4)) ? "linear-gradient(#7a5533,#4b321c)" : "rgba(255,255,255,0.06)"};color:#f5e6c8;cursor:pointer;font-family:Cinzel,serif;">${count}</button>`).join("")}</div><div style="margin-top:8px;font-size:12px;line-height:1.6;color:#bfae8b;">Choisis rapidement combien de slots tu veux afficher sur le board.</div></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">${PLAYER_IDS.map(playerId => { const player = customization.players[playerId]; return `<div style="padding:12px;border:1px solid rgba(160,130,80,0.22);border-radius:10px;background:rgba(0,0,0,0.18);"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;"><div style="font-size:11px;color:#d7c39c;letter-spacing:2px;">${playerId.toUpperCase()}</div><label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e8d8b6;"><input data-custom-enabled="${playerId}" type="checkbox" ${player.enabled !== false ? "checked" : ""}> Actif</label></div><label style="display:grid;gap:6px;margin-bottom:10px;"><span style="font-size:12px;color:#bfae8b;">Nom affiche</span><input data-custom-name="${playerId}" type="text" value="${esc(player.name)}" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;margin-bottom:10px;"><span style="font-size:12px;color:#bfae8b;">URL image</span><input data-custom-image="${playerId}" type="text" value="${esc(player.image)}" placeholder="https://... ou data:image/..." style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Uploader une image</span><input data-custom-upload="${playerId}" type="file" accept="image/*" style="font-size:12px;color:#e8d6b3;"></label></div>` }).join("")}</div></section>
+        <section data-custom-tab="project" style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);display:grid;gap:14px;"><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Titre</div><input id="customProjectTitle" type="text" value="${esc(customization.project.title)}" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"></div><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Ambiance</div><select id="customProjectTheme" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;">${themeOptionsMarkup}</select></div><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Nombre de slots joueurs</div><input id="customProjectPlayerCount" type="number" min="1" max="12" value="${visiblePlayerCount}" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"></div><div style="display:flex;flex-wrap:wrap;gap:8px;">${[1,2,3,4,6,8,12].map(count => `<button type="button" data-player-count-choice="${count}" style="padding:10px 14px;border-radius:999px;border:1px solid ${count === visiblePlayerCount ? "#caa46b" : "rgba(214,180,106,0.24)"};background:${count === visiblePlayerCount ? "linear-gradient(#7a5533,#4b321c)" : "rgba(255,255,255,0.06)"};color:#f5e6c8;cursor:pointer;font-family:Cinzel,serif;">${count}</button>`).join("")}</div><div style="font-size:12px;line-height:1.6;color:#bfae8b;">Choisis ici combien de slots joueurs doivent etre visibles sur le board.</div></section>
+        <section data-custom-tab="players" style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);display:grid;gap:14px;"><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Nombre de slots joueurs visibles</div><div style="display:flex;flex-wrap:wrap;gap:8px;">${[1,2,3,4,6,8,12].map(count => `<button type="button" data-player-count-choice="${count}" style="padding:10px 14px;border-radius:999px;border:1px solid ${count === visiblePlayerCount ? "#caa46b" : "rgba(214,180,106,0.24)"};background:${count === visiblePlayerCount ? "linear-gradient(#7a5533,#4b321c)" : "rgba(255,255,255,0.06)"};color:#f5e6c8;cursor:pointer;font-family:Cinzel,serif;">${count}</button>`).join("")}</div><div style="margin-top:8px;font-size:12px;line-height:1.6;color:#bfae8b;">Les slots visibles jusqu'au nombre choisi peuvent etre renommes, actives ou personnalises ici.</div></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">${playerEditorCardsMarkup}</div></section>
         <section data-custom-tab="content" style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);"><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Ajouter du contenu custom</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:end;"><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Type</span><select id="customItemType" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"><option value="map">Map</option><option value="pnj">PNJ</option><option value="highPnj">High PNJ</option><option value="mob">Mob</option><option value="document">Document</option></select></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Categorie</span><input id="customItemCategory" type="text" placeholder="Ex : Mon univers" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Titre</span><input id="customItemLabel" type="text" placeholder="Ex : Temple du feu" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Image / nom de map / id</span><input id="customItemAsset" type="text" placeholder="Ex : temple.jpg" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Upload image</span><input id="customItemUpload" type="file" accept="image/*" style="font-size:12px;color:#e8d6b3;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Section map</span><select id="customItemSection" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"><option value="villes">Villes</option><option value="landscape">Landscape</option><option value="lieux">Lieux</option><option value="monde">Mapmonde</option></select></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Audio map / tier mob</span><input id="customItemExtra" type="text" placeholder="Ex : maMusique ou weak" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><button id="addCustomItem" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ajouter</button></div><div id="customContentList" style="display:grid;gap:8px;margin-top:14px;"></div></section>
         <section data-custom-tab="assets" style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);"><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Override d'image cible</div><div style="display:grid;grid-template-columns:1.4fr 1fr auto;gap:10px;align-items:end;"><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Nom du fichier existant</span><input id="assetOverrideKey" type="text" placeholder="Ex : taverne.jpg" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Image de remplacement</span><input id="assetOverrideFile" type="file" accept="image/*" style="font-size:12px;color:#e8d6b3;"></label><button id="assetOverrideSave" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ajouter</button></div><div id="assetOverrideList" style="display:grid;gap:8px;margin-top:14px;"></div></section>
         <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;"><button id="customizationLaunch" style="padding:10px 16px;background:rgba(15,40,56,0.72);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Lancer la partie</button><button id="customizationExport" style="padding:10px 16px;background:rgba(69,52,23,0.78);color:#f0d8ab;border:1px solid rgba(202,164,107,0.4);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Exporter une version jouable</button><button id="customizationReset" style="padding:10px 14px;background:#3a0000;color:#ffd1d1;border:1px solid #6e2e2e;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Reinitialiser le bac a sable</button><button id="customizationSave" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Sauvegarder le bac a sable</button></div>
@@ -700,12 +748,17 @@
       const next = getExtendedCustomization()
       next.project.title = String(byId("customProjectTitle").value || "").trim() || "Roleplay It Yourself"
       next.project.theme = String(byId("customProjectTheme").value || "").trim() || getDefaultCustomization().project.theme
-      next.project.playerCount = Math.max(1, Math.min(4, parseInt(byId("customProjectPlayerCount").value, 10) || 4))
-      PLAYER_IDS.forEach(playerId => {
-        next.players[playerId].name = String(panel.querySelector(`[data-custom-name="${playerId}"]`).value || "").trim() || getDefaultCustomization().players[playerId].name
-        next.players[playerId].image = String(panel.querySelector(`[data-custom-image="${playerId}"]`).value || "").trim()
-        next.players[playerId].enabled = !!panel.querySelector(`[data-custom-enabled="${playerId}"]`).checked
-      })
+      next.project.playerCount = getSandboxVisiblePlayerCount(byId("customProjectPlayerCount").value)
+      for (let slotIndex = 1; slotIndex <= next.project.playerCount; slotIndex += 1) {
+        const playerKey = getSandboxPlayerKey(slotIndex)
+        next.players[playerKey] = next.players[playerKey] || { name: getDefaultPlayerSlotLabel(playerKey), image: "", enabled: true }
+        const nameField = panel.querySelector(`[data-custom-name="${playerKey}"]`)
+        const imageField = panel.querySelector(`[data-custom-image="${playerKey}"]`)
+        const enabledField = panel.querySelector(`[data-custom-enabled="${playerKey}"]`)
+        next.players[playerKey].name = String(nameField && nameField.value || "").trim() || getDefaultPlayerSlotLabel(playerKey)
+        next.players[playerKey].image = String(imageField && imageField.value || "").trim()
+        next.players[playerKey].enabled = !!(enabledField && enabledField.checked)
+      }
       return next
     }
 
@@ -922,10 +975,7 @@
     })
     const gmCharacters = byId("gmCharacters")
     if (gmCharacters) {
-      gmCharacters.innerHTML = PLAYER_IDS
-        .slice(0, safeCount)
-        .map((playerId, index) => `<button onclick="openCharacterSheet('${playerId}')">Joueur ${index + 1}</button>`)
-        .join("")
+      gmCharacters.innerHTML = buildSandboxCharacterButtonsMarkup(safeCount)
     }
     syncSandboxPlayerCountControls(safeCount)
   }

@@ -21,6 +21,7 @@ function getObjectValueLoose(obj, wantedKey) {
 
 const CUSTOMIZATION_STORAGE_KEY = "rpg_customization_v1"
 const SANDBOX_EXPORTS_STORAGE_KEY = "rpg_sandbox_exports_v1"
+const BASE_PLAYER_IDS = ["greg", "ju", "elo", "bibi"]
 const DEFAULT_PLAYER_SLOT_META = {
   greg: { label: "Joueur 1", index: 1 },
   ju:   { label: "Joueur 2", index: 2 },
@@ -28,13 +29,23 @@ const DEFAULT_PLAYER_SLOT_META = {
   bibi: { label: "Joueur 4", index: 4 }
 }
 
+function getDefaultPlayerSlotMeta(playerId) {
+  const key = String(playerId || "")
+  if (DEFAULT_PLAYER_SLOT_META[key]) return DEFAULT_PLAYER_SLOT_META[key]
+  const extraMatch = key.match(/^(?:slot_|sandbox_extra_)(\d+)$/)
+  if (extraMatch) {
+    const index = Math.max(1, parseInt(extraMatch[1], 10) || 1)
+    return { label: "Joueur " + index, index }
+  }
+  return { label: "Joueur", index: "?" }
+}
+
 function getDefaultPlayerSlotLabel(playerId) {
-  const meta = DEFAULT_PLAYER_SLOT_META[String(playerId || "")]
-  return meta ? meta.label : "Joueur"
+  return getDefaultPlayerSlotMeta(playerId).label
 }
 
 function getDefaultPlayerSlotImage(playerId) {
-  const meta = DEFAULT_PLAYER_SLOT_META[String(playerId || "")] || { index: "?" }
+  const meta = getDefaultPlayerSlotMeta(playerId)
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f5ecd6"/><stop offset="100%" stop-color="#d9c39a"/></linearGradient></defs><circle cx="80" cy="80" r="76" fill="url(#g)" stroke="#9d8357" stroke-width="8"/><circle cx="80" cy="62" r="24" fill="#8f7a56"/><path d="M42 126c7-24 26-36 38-36s31 12 38 36" fill="#8f7a56"/><text x="80" y="150" text-anchor="middle" font-family="Cinzel, serif" font-size="24" fill="#5b482c">${meta.index}</text></svg>`
   return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg)
 }
@@ -68,14 +79,24 @@ function getDefaultCustomization() {
 function normalizeCustomization(raw) {
   const base = getDefaultCustomization()
   if (!raw || typeof raw !== "object") return base
+  const mergedPlayers = {
+    greg: { ...base.players.greg, ...((raw.players || {}).greg || {}) },
+    ju:   { ...base.players.ju,   ...((raw.players || {}).ju || {}) },
+    elo:  { ...base.players.elo,  ...((raw.players || {}).elo || {}) },
+    bibi: { ...base.players.bibi, ...((raw.players || {}).bibi || {}) }
+  }
+  Object.keys(raw.players || {}).forEach(playerId => {
+    if (mergedPlayers[playerId]) return
+    mergedPlayers[playerId] = {
+      name: getDefaultPlayerSlotLabel(playerId),
+      image: "",
+      enabled: true,
+      ...((raw.players || {})[playerId] || {})
+    }
+  })
   return {
     project: { ...base.project, ...(raw.project || {}) },
-    players: {
-      greg: { ...base.players.greg, ...((raw.players || {}).greg || {}) },
-      ju:   { ...base.players.ju,   ...((raw.players || {}).ju || {}) },
-      elo:  { ...base.players.elo,  ...((raw.players || {}).elo || {}) },
-      bibi: { ...base.players.bibi, ...((raw.players || {}).bibi || {}) }
-    },
+    players: mergedPlayers,
     assets: raw.assets && typeof raw.assets === "object" ? { ...raw.assets } : {},
     content: raw.content && typeof raw.content === "object"
       ? {
@@ -233,7 +254,15 @@ function getLatestSandboxExport() {
 
 function getPlayerCustomization(playerId) {
   const customization = getCustomization()
-  return customization.players[playerId] || { name: getDefaultPlayerSlotLabel(playerId), image: "" }
+  const key = String(playerId || "")
+  if (customization.players[key]) return customization.players[key]
+  const extraMatch = key.match(/^sandbox_extra_(\d+)$/)
+  if (extraMatch) {
+    const extraKey = "slot_" + extraMatch[1]
+    if (customization.players[extraKey]) return customization.players[extraKey]
+    return { name: getDefaultPlayerSlotLabel(extraKey), image: "", enabled: true }
+  }
+  return { name: getDefaultPlayerSlotLabel(key), image: "", enabled: true }
 }
 
 function getPlayerDisplayName(playerId) {
@@ -260,7 +289,7 @@ function resolveImagePath(path) {
   const playerKey = src.replace(/\.(png|jpg|jpeg|webp|gif)$/i, "")
   const playerImage = getPlayerCustomization(playerKey).image
   if (playerImage) return playerImage
-  if (DEFAULT_PLAYER_SLOT_META[playerKey]) return getDefaultPlayerSlotImage(playerKey)
+  if (DEFAULT_PLAYER_SLOT_META[playerKey] || /^(?:slot_|sandbox_extra_)\d+$/.test(playerKey)) return getDefaultPlayerSlotImage(playerKey)
   return "images/" + src
 }
 

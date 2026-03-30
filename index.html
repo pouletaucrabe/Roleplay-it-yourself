@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English&family=Cormorant+SC:wght@500;700&family=Marcellus&family=Orbitron:wght@500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <title>Roleplay It Yourself</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='48'%3E%F0%9F%8E%B2%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css?v=59">
+  <link rel="stylesheet" href="style.css?v=82">
   <style>
     #playerCodeBtn, #playerCodeBtn * {
       color: #ffd700 !important;
@@ -296,6 +296,18 @@
         <input id="sandboxPlayersCustomInput" type="number" min="1" max="12" value="4">
         <button class="sandboxPlayersAction sandboxPlayersApply" type="button" onclick="event.preventDefault();event.stopPropagation();var input=document.getElementById('sandboxPlayersCustomInput');applySandboxPlayersImmediate(input?input.value:4);return false;">OK</button>
       </div>
+    </div>
+  </details>
+</div>
+
+<div id="sandboxStyleBar">
+  <details class="sandboxPlayersMenu sandboxStyleMenu" id="sandboxStyleMenu">
+    <summary id="sandboxStyleBtn">Style</summary>
+    <div id="sandboxStyleDropdown" class="sandboxPlayersDropdown sandboxStyleDropdown">
+      <button class="sandboxPlayersAction" type="button" onclick="event.preventDefault();event.stopPropagation();applySandboxStyleTheme('medieval_fantasy');return false;">Medieval / Fantasy</button>
+      <button class="sandboxPlayersAction" type="button" onclick="event.preventDefault();event.stopPropagation();applySandboxStyleTheme('pirate');return false;">Pirate</button>
+      <button class="sandboxPlayersAction" type="button" onclick="event.preventDefault();event.stopPropagation();applySandboxStyleTheme('science_fiction');return false;">Science-fiction</button>
+      <button class="sandboxPlayersAction" type="button" onclick="event.preventDefault();event.stopPropagation();applySandboxStyleTheme('contemporain');return false;">Moderne</button>
     </div>
   </details>
 </div>
@@ -886,10 +898,10 @@
 <!-- 2. Variables d'Ã©tat -->
 <script src="state.js?v=2"></script>
 <!-- 3. Utilitaires (pas de dÃ©pendances Firebase) -->
-<script src="utils.js?v=13"></script>
-<script src="customization.js?v=36"></script>
+<script src="utils.js?v=14"></script>
+<script src="customization.js?v=40"></script>
 <!-- 4. Logique principale + Firebase listeners -->
-<script src="game.js?v=57"></script>
+<script src="game.js?v=62"></script>
 <!-- 5. Interface utilisateur -->
 <script src="ui.js?v=4"></script>
 <!-- 6. Combat -->
@@ -1434,6 +1446,15 @@ function applySandboxPlayersImmediate(count) {
       if (tag) tag.textContent = "Joueur " + slotIndex
     }
   }
+  var gmCharacters = document.getElementById("gmCharacters")
+  if (gmCharacters) {
+    var buttons = ""
+    for (var i = 1; i <= safeCount; i += 1) {
+      var slotId = i <= 4 ? ids[i - 1] : ("slot_" + i)
+      buttons += "<button class=\"gmCharacterSlotButton\" onclick=\"openCharacterSheet('" + slotId + "')\">Joueur " + i + "</button>"
+    }
+    gmCharacters.innerHTML = buttons
+  }
   document.body.setAttribute("data-sandbox-player-count", String(safeCount))
   var summary = document.getElementById("sandboxPlayersBtn")
   if (summary) summary.textContent = safeCount > 1 ? "Joueurs (" + safeCount + ")" : "Joueurs (1)"
@@ -1444,6 +1465,32 @@ function applySandboxPlayersImmediate(count) {
   try {
     if (typeof setSandboxPlayerCount === "function") setSandboxPlayerCount(safeCount)
   } catch (e) {}
+}
+
+function applySandboxStyleTheme(themeValue) {
+  var nextTheme = String(themeValue || "medieval_fantasy")
+  document.body.setAttribute("data-project-theme", nextTheme)
+  try {
+    if (typeof getCustomization === "function" && typeof saveCustomization === "function") {
+      var next = getCustomization()
+      next.project = next.project || {}
+      next.project.theme = nextTheme
+      saveCustomization(next)
+    }
+    if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
+  } catch (e) {}
+  var button = document.getElementById("sandboxStyleBtn")
+  if (button) {
+    var labels = {
+      medieval_fantasy: "Style (Fantasy)",
+      pirate: "Style (Pirate)",
+      science_fiction: "Style (SF)",
+      contemporain: "Style (Moderne)"
+    }
+    button.textContent = labels[nextTheme] || "Style"
+  }
+  var menu = document.getElementById("sandboxStyleMenu")
+  if (menu) menu.open = false
 }
 
 function forceOpenSandboxFromClick() {

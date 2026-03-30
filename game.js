@@ -3475,10 +3475,10 @@ function sanitizeLegacySandboxUI() {
       setTimeout(applyCustomizationToUI, 20)
     } else {
       gmCharacters.innerHTML = `
-        <button onclick="openCharacterSheet('greg')">Joueur 1</button>
-        <button onclick="openCharacterSheet('ju')">Joueur 2</button>
-        <button onclick="openCharacterSheet('elo')">Joueur 3</button>
-        <button onclick="openCharacterSheet('bibi')">Joueur 4</button>
+        <button class="gmCharacterSlotButton" onclick="openCharacterSheet('greg')">Joueur 1</button>
+        <button class="gmCharacterSlotButton" onclick="openCharacterSheet('ju')">Joueur 2</button>
+        <button class="gmCharacterSlotButton" onclick="openCharacterSheet('elo')">Joueur 3</button>
+        <button class="gmCharacterSlotButton" onclick="openCharacterSheet('bibi')">Joueur 4</button>
       `
     }
   }

@@ -1732,7 +1732,15 @@ html, body {
   display: none;
   position: fixed;
   top: 18px;
-  left: 110px;
+  left: 170px;
+  z-index: 99999999;
+}
+
+#sandboxStyleBar {
+  display: none;
+  position: fixed;
+  top: 18px;
+  left: 370px;
   z-index: 99999999;
 }
 
@@ -1757,6 +1765,28 @@ html, body {
 }
 
 #sandboxPlayersBtn:hover {
+  background: linear-gradient(180deg, rgba(56,40,20,0.98), rgba(16,14,10,1));
+  transform: translateY(-1px);
+  color: #fff0c8;
+}
+
+#sandboxStyleBtn {
+  list-style: none;
+  font-family: var(--font-body); font-size: 13px; padding: 10px 18px;
+  background: linear-gradient(180deg, rgba(28,21,12,0.96), rgba(11,10,8,0.98));
+  color: #f4dfb0;
+  border: 1px solid rgba(214,180,106,0.42);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.34);
+  border-radius: 999px; cursor: pointer; transition: 0.2s;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+#sandboxStyleBtn::-webkit-details-marker {
+  display: none;
+}
+
+#sandboxStyleBtn:hover {
   background: linear-gradient(180deg, rgba(56,40,20,0.98), rgba(16,14,10,1));
   transform: translateY(-1px);
   color: #fff0c8;
@@ -3526,7 +3556,8 @@ body.sandbox-studio-mode #camera {
 
 body.sandbox-studio-mode #gmSaveBar,
 body.sandbox-studio-mode #customizationLauncher,
-body.sandbox-studio-mode #sandboxPlayerSlotsBar {
+body.sandbox-studio-mode #sandboxPlayerSlotsBar,
+body.sandbox-studio-mode #sandboxStyleBar {
   display: block !important;
 }
 
@@ -4529,4 +4560,390 @@ body[data-project-theme="contemporain"] .entryCardActions .hubButton .btn-inner 
   50% { transform: translateX(3px); }
   75% { transform: translateX(-2px); }
   100% { transform: translateX(2px); }
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #map {
+  background:
+    linear-gradient(rgba(32,18,10,0.22), rgba(32,18,10,0.22)),
+    url("images/bois.png") center/320px auto repeat !important;
+  background-color: #4c2f1d !important;
+  box-shadow:
+    inset 0 0 0 4px rgba(42,22,11,0.92),
+    inset 0 0 0 8px rgba(143,102,61,0.28),
+    inset 0 24px 60px rgba(0,0,0,0.18) !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #map::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(0deg, rgba(255,235,205,0.03), rgba(255,235,205,0.03)),
+    repeating-linear-gradient(0deg, rgba(28,16,10,0.18) 0 2px, transparent 2px 68px),
+    repeating-linear-gradient(90deg, rgba(20,10,6,0.12) 0 1px, transparent 1px 140px);
+  opacity: 0.65;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #grid {
+  background-image:
+    linear-gradient(rgba(231, 199, 140, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(231, 199, 140, 0.08) 1px, transparent 1px) !important;
+  opacity: 0.8 !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #gmSaveBtn,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #sandboxPlayersBtn,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #sandboxStyleBtn {
+  min-width: 138px !important;
+  height: 52px !important;
+  padding: 0 26px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: linear-gradient(180deg, rgba(137,96,54,0.98), rgba(74,46,27,0.98) 52%, rgba(49,28,16,0.98)) !important;
+  color: #f6e3b6 !important;
+  border: 1px solid rgba(194,154,94,0.82) !important;
+  border-radius: 16px !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(112,72,34,0.75),
+    inset 0 0 0 2px rgba(216,173,108,0.18),
+    inset 0 1px 0 rgba(255,234,193,0.36),
+    inset 0 -1px 0 rgba(44,23,12,0.6),
+    0 10px 20px rgba(23,12,7,0.28),
+    0 0 0 1px rgba(60,33,18,0.42),
+    0 0 0 2px rgba(228,185,112,0.12),
+    0 0 26px rgba(98, 164, 255, 0.18) !important;
+  text-shadow:
+    0 1px 0 rgba(54,28,14,0.9),
+    0 0 14px rgba(255,220,150,0.16) !important;
+  letter-spacing: 2.4px !important;
+  font-weight: 700 !important;
+  position: relative !important;
+  overflow: hidden !important;
+  clip-path: polygon(8% 0, 92% 0, 100% 24%, 100% 76%, 92% 100%, 8% 100%, 0 76%, 0 24%) !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #gmSaveBtn::before,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #sandboxPlayersBtn::before,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #sandboxStyleBtn::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 3px !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(244,214,162,0.22) !important;
+  background:
+    radial-gradient(circle at 18% 50%, rgba(255,216,146,0.16), transparent 10%),
+    radial-gradient(circle at 82% 50%, rgba(255,216,146,0.16), transparent 10%),
+    radial-gradient(circle at 50% 10%, rgba(255,243,210,0.18), transparent 28%),
+    linear-gradient(90deg, transparent 0, transparent 18%, rgba(255,222,166,0.08) 28%, rgba(255,222,166,0.08) 72%, transparent 82%, transparent 100%),
+    linear-gradient(180deg, rgba(255,241,214,0.1), transparent 38%, rgba(36,18,10,0.08) 100%) !important;
+  pointer-events: none !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #gmSaveBtn::after,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #sandboxPlayersBtn::after,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #sandboxStyleBtn::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 14px !important;
+  right: 14px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  pointer-events: none !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #gmSaveBtn span,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #sandboxPlayersBtn span,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #sandboxStyleBtn span {
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #gmSaveBtn:hover,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #sandboxPlayersBtn:hover,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #sandboxStyleBtn:hover {
+  transform: translateY(-1px) !important;
+  color: #fff1cb !important;
+  background: linear-gradient(180deg, rgba(156,111,64,0.99), rgba(86,53,31,0.99) 52%, rgba(55,31,18,0.99)) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(120,78,38,0.82),
+    inset 0 0 0 2px rgba(230,189,118,0.18),
+    inset 0 1px 0 rgba(255,236,198,0.36),
+    inset 0 -1px 0 rgba(44,23,12,0.64),
+    0 14px 24px rgba(23,12,7,0.32),
+    0 0 0 1px rgba(60,33,18,0.42),
+    0 0 28px rgba(126, 188, 255, 0.24) !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .studioSaveDropdown,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .sandboxPlayersDropdown,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .sandboxStyleDropdown {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(133, 181, 224, 0.16), transparent 36%),
+    linear-gradient(180deg, rgba(43,29,22,0.97), rgba(21,14,12,0.985) 62%, rgba(11,10,12,0.99)) !important;
+  border: 1px solid rgba(188,146,88,0.62) !important;
+  box-shadow:
+    0 18px 40px rgba(11,8,10,0.46),
+    inset 0 0 0 1px rgba(241,216,162,0.08),
+    inset 0 0 0 3px rgba(163,124,72,0.08),
+    0 0 24px rgba(104, 148, 210, 0.08) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .studioSaveDropdown::before,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .sandboxPlayersDropdown::before,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .sandboxStyleDropdown::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 8px !important;
+  border-radius: 14px !important;
+  border: 1px solid rgba(244,220,166,0.12) !important;
+  background:
+    linear-gradient(135deg, rgba(255,240,212,0.06), transparent 24%, transparent 74%, rgba(255,221,166,0.08)),
+    radial-gradient(circle at 50% -8%, rgba(116,177,255,0.14), transparent 32%) !important;
+  pointer-events: none !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .studioSaveDropdown::after,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .sandboxPlayersDropdown::after,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .sandboxStyleDropdown::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  background:
+    linear-gradient(115deg, transparent 0%, transparent 42%, rgba(255,236,194,0.09) 50%, transparent 58%, transparent 100%) !important;
+  transform: translateX(-120%) !important;
+  animation: medievalPanelShimmer 8.5s ease-in-out infinite !important;
+  pointer-events: none !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .studioSaveAction,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .sandboxPlayersAction {
+  background: linear-gradient(180deg, rgba(124,82,46,0.98), rgba(78,47,27,0.98)) !important;
+  border: 1px solid rgba(166,122,73,0.64) !important;
+  color: #f3e0b8 !important;
+  border-radius: 12px !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(108,68,32,0.6),
+    inset 0 0 0 2px rgba(216,173,108,0.08),
+    inset 0 1px 0 rgba(255,236,196,0.14),
+    0 6px 12px rgba(23,12,7,0.16) !important;
+  text-shadow: 0 1px 0 rgba(54,28,14,0.9) !important;
+  position: relative !important;
+  clip-path: polygon(7% 0, 93% 0, 100% 24%, 100% 76%, 93% 100%, 7% 100%, 0 76%, 0 24%) !important;
+  overflow: hidden !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .studioSaveAction:hover,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .sandboxPlayersAction:hover {
+  background: linear-gradient(180deg, rgba(144,98,57,0.99), rgba(90,56,33,0.99)) !important;
+  color: #fff0ca !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(112,70,33,0.72),
+    inset 0 0 0 2px rgba(238,192,116,0.14),
+    inset 0 1px 0 rgba(255,236,196,0.22),
+    0 10px 18px rgba(23,12,7,0.2),
+    0 0 18px rgba(111, 163, 235, 0.08) !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .studioSaveAction::before,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .sandboxPlayersAction::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 2px !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(245,214,158,0.14) !important;
+  background:
+    radial-gradient(circle at 18% 50%, rgba(255,224,170,0.08), transparent 10%),
+    radial-gradient(circle at 82% 50%, rgba(255,224,170,0.08), transparent 10%),
+    linear-gradient(90deg, transparent 0, transparent 14%, rgba(255,224,170,0.06) 24%, rgba(255,224,170,0.06) 76%, transparent 86%, transparent 100%) !important;
+  pointer-events: none !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .studioSaveAction::after,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .sandboxPlayersAction::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: -18% !important;
+  background:
+    linear-gradient(120deg, transparent 20%, rgba(255,238,202,0.12) 48%, transparent 56%) !important;
+  transform: translateX(-120%) rotate(8deg) !important;
+  animation: medievalButtonSweep 6.5s ease-in-out infinite !important;
+  pointer-events: none !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .gmSection::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 8px !important;
+  left: 18px !important;
+  right: 18px !important;
+  pointer-events: none !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #sandboxPlayersCustomInput {
+  background: rgba(31,22,18,0.92) !important;
+  color: #f3e0b8 !important;
+  border: 1px solid rgba(166,122,73,0.44) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(241,216,162,0.06),
+    0 0 14px rgba(104, 148, 210, 0.06) !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #gmBar {
+  padding: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .gmIcon {
+  background: url("images/boutonmjmed.png") center/100% 100% no-repeat !important;
+  border: none !important;
+  color: #f3ddb0 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,235,190,0.12),
+    0 8px 18px rgba(23,12,7,0.28),
+    0 0 26px rgba(103, 159, 235, 0.2) !important;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease !important;
+  filter: saturate(1.02) brightness(1.02) !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .gmIcon:hover {
+  transform: translateY(-3px) scale(1.04) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,235,190,0.2),
+    0 10px 22px rgba(23,12,7,0.34),
+    0 0 34px rgba(118, 176, 255, 0.28) !important;
+  filter: saturate(1.08) brightness(1.08) !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .gmSection {
+  background:
+    radial-gradient(circle at 50% -8%, rgba(153, 212, 255, 0.28), transparent 28%),
+    radial-gradient(circle at 50% 100%, rgba(235, 181, 98, 0.14), transparent 36%),
+    linear-gradient(180deg, rgba(52,35,27,0.985), rgba(26,18,16,0.988) 58%, rgba(10,10,12,0.995)) !important;
+  border: 1px solid rgba(214,170,104,0.82) !important;
+  box-shadow:
+    0 24px 44px rgba(10,8,10,0.34),
+    inset 0 0 0 1px rgba(255,246,222,0.24),
+    inset 0 0 0 4px rgba(122,86,47,0.12),
+    0 0 34px rgba(96, 142, 212, 0.16),
+    0 0 56px rgba(26, 52, 96, 0.16) !important;
+  color: #ead6ab !important;
+  overflow: hidden !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .gmSection::before {
+  background:
+    linear-gradient(90deg, rgba(214,170,104,0.42), transparent 12%, transparent 88%, rgba(214,170,104,0.42)),
+    linear-gradient(180deg, rgba(255,243,214,0.12), transparent 18%),
+    radial-gradient(circle at 50% 0%, rgba(149, 201, 255, 0.16), transparent 26%) !important;
+  opacity: 1 !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .gmSection > * {
+  max-width: 100% !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .gmSection button,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .gmButton,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .map-simple-btn,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .elem-doc-btn {
+  background:
+    linear-gradient(180deg, rgba(128,84,48,0.98), rgba(76,47,29,0.98) 52%, rgba(40,27,23,0.98)) !important;
+  border: 1px solid rgba(162,119,67,0.72) !important;
+  color: #f4e3bb !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(104,67,35,0.62),
+    inset 0 1px 0 rgba(255,228,180,0.12),
+    0 6px 12px rgba(12,8,10,0.22),
+    0 0 12px rgba(94, 142, 218, 0.04) !important;
+  text-shadow: 0 1px 0 rgba(30,18,12,0.92) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .gmSection button:hover,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .gmButton:hover,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .map-simple-btn:hover,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .elem-doc-btn:hover,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .mapCategoryButton:hover,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .pnjTab:hover {
+  transform: translateY(-1px) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(116,74,38,0.72),
+    inset 0 1px 0 rgba(255,228,180,0.18),
+    0 10px 18px rgba(12,8,10,0.24),
+    0 0 18px rgba(104, 162, 243, 0.08) !important;
+  filter: brightness(1.04) saturate(1.04) !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #gmCharacters .gmCharacterSlotButton {
+  min-width: 120px !important;
+  white-space: nowrap !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .mapCategoryButton,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .pnjTab {
+  background: linear-gradient(180deg, rgba(90,59,39,0.96), rgba(49,31,23,0.98)) !important;
+  border-color: rgba(171,129,78,0.56) !important;
+  color: #f0ddb3 !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(112,76,43,0.42),
+    0 0 18px rgba(90, 136, 210, 0.12) !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .token img {
+  background: linear-gradient(180deg, rgba(238,225,198,0.98), rgba(210,192,159,0.98)) !important;
+  box-shadow:
+    0 0 0 1px rgba(111, 76, 42, 0.35),
+    0 12px 22px rgba(49, 31, 18, 0.18),
+    inset 0 1px 0 rgba(255,250,233,0.85) !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .nameTag {
+  background: linear-gradient(180deg, rgba(240,228,201,0.98), rgba(219,201,167,0.98)) !important;
+  border: 1px solid rgba(118,88,50,0.28) !important;
+  color: #4c2f1c !important;
+  box-shadow: 0 8px 18px rgba(49, 31, 18, 0.12) !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #gmSaveBtn,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #sandboxPlayersBtn,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #sandboxStyleBtn {
+  box-shadow:
+    0 14px 26px rgba(0,0,0,0.26),
+    inset 0 1px 0 rgba(255,236,198,0.2),
+    inset 0 0 0 1px rgba(112,70,33,0.72),
+    inset 0 0 0 3px rgba(224,178,99,0.09),
+    0 0 28px rgba(97, 154, 236, 0.18) !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #gmSaveBtn:hover,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #sandboxPlayersBtn:hover,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #sandboxStyleBtn:hover {
+  box-shadow:
+    0 16px 30px rgba(0,0,0,0.3),
+    inset 0 1px 0 rgba(255,236,198,0.28),
+    inset 0 0 0 1px rgba(122,78,38,0.82),
+    inset 0 0 0 3px rgba(232,188,112,0.12),
+    0 0 36px rgba(113, 170, 249, 0.24) !important;
+}
+
+@keyframes medievalButtonSweep {
+  0%, 78%, 100% { transform: translateX(-120%) rotate(8deg); opacity: 0; }
+  12% { opacity: 0.4; }
+  36% { transform: translateX(120%) rotate(8deg); opacity: 0.22; }
+}
+
+@keyframes medievalPanelShimmer {
+  0%, 82%, 100% { transform: translateX(-120%); opacity: 0; }
+  14% { opacity: 0.22; }
+  42% { transform: translateX(120%); opacity: 0.12; }
 }
