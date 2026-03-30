@@ -3475,10 +3475,10 @@ function sanitizeLegacySandboxUI() {
       setTimeout(applyCustomizationToUI, 20)
     } else {
       gmCharacters.innerHTML = `
-        <button class="gmCharacterSlotButton" onclick="openCharacterSheet('greg')">Joueur 1</button>
-        <button class="gmCharacterSlotButton" onclick="openCharacterSheet('ju')">Joueur 2</button>
-        <button class="gmCharacterSlotButton" onclick="openCharacterSheet('elo')">Joueur 3</button>
-        <button class="gmCharacterSlotButton" onclick="openCharacterSheet('bibi')">Joueur 4</button>
+        <button class="gmCharacterSlotButton" onclick="return openCharacterSheetFromMenuWithFallback('greg', event)">Joueur 1</button>
+        <button class="gmCharacterSlotButton" onclick="return openCharacterSheetFromMenuWithFallback('ju', event)">Joueur 2</button>
+        <button class="gmCharacterSlotButton" onclick="return openCharacterSheetFromMenuWithFallback('elo', event)">Joueur 3</button>
+        <button class="gmCharacterSlotButton" onclick="return openCharacterSheetFromMenuWithFallback('bibi', event)">Joueur 4</button>
       `
     }
   }
@@ -3842,7 +3842,86 @@ function activateGM(fromFirebaseRole = false) {
   setTimeout(syncWantedStateFromDB, 60)
 }
 
+function openGMCharacterPicker() {
+  const existing = document.getElementById("gmCharacterPickerOverlay")
+  if (existing) existing.remove()
+
+  const overlay = document.createElement("div")
+  overlay.id = "gmCharacterPickerOverlay"
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;z-index:2147483601;padding:20px;"
+  overlay.addEventListener("click", event => {
+    if (event.target === overlay) overlay.remove()
+  })
+
+  const panel = document.createElement("div")
+  panel.style.cssText = "width:min(560px,92vw);display:grid;gap:14px;padding:22px 22px 18px;border-radius:18px;border:1px solid rgba(214,180,106,0.38);background:linear-gradient(180deg,rgba(28,22,17,0.98),rgba(16,13,10,0.98));box-shadow:0 28px 90px rgba(0,0,0,0.55);"
+
+  const title = document.createElement("div")
+  title.textContent = "Fiches personnages"
+  title.style.cssText = "font-family:Cinzel,serif;font-size:24px;letter-spacing:2px;color:#f3dfb1;text-align:center;"
+  panel.appendChild(title)
+
+  const subtitle = document.createElement("div")
+  subtitle.textContent = "Choisis la fiche a ouvrir."
+  subtitle.style.cssText = "font-size:13px;line-height:1.6;color:#cdbb96;text-align:center;"
+  panel.appendChild(subtitle)
+
+  const grid = document.createElement("div")
+  grid.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;"
+
+  let count = 4
+  try {
+    if (typeof getCustomization === "function") {
+      const data = getCustomization()
+      if (data && data.project && data.project.playerCount) count = Math.max(1, parseInt(data.project.playerCount, 10) || 4)
+    }
+  } catch (e) {}
+
+  const ids = ["greg", "ju", "elo", "bibi"]
+  for (let i = 1; i <= count; i += 1) {
+    const slotId = i <= 4 ? ids[i - 1] : ("slot_" + i)
+    const button = document.createElement("button")
+    let label = "Joueur " + i
+    try {
+      if (typeof getPlayerDisplayName === "function") label = getPlayerDisplayName(slotId) || label
+    } catch (e) {}
+    button.textContent = label
+    button.style.cssText = "padding:14px 16px;border-radius:12px;border:1px solid rgba(214,180,106,0.32);background:linear-gradient(180deg,rgba(122,85,51,0.96),rgba(75,50,28,0.96));color:#f5e6c8;font-family:Cinzel,serif;font-size:15px;cursor:pointer;"
+    button.addEventListener("click", event => {
+      overlay.remove()
+      if (typeof openCharacterSheetFromMenuWithFallback === "function") openCharacterSheetFromMenuWithFallback(slotId, event)
+    })
+    grid.appendChild(button)
+  }
+
+  panel.appendChild(grid)
+
+  const closeBtn = document.createElement("button")
+  closeBtn.textContent = "Fermer"
+  closeBtn.style.cssText = "justify-self:center;padding:10px 16px;border-radius:10px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;"
+  closeBtn.addEventListener("click", () => overlay.remove())
+  panel.appendChild(closeBtn)
+
+  overlay.appendChild(panel)
+  document.body.appendChild(overlay)
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("gmCharactersBtn")
+  if (!btn || btn.dataset.sheetPickerBound === "true") return
+  btn.dataset.sheetPickerBound = "true"
+  btn.addEventListener("click", event => {
+    event.preventDefault()
+    event.stopPropagation()
+    openGMCharacterPicker()
+  })
+})
+
 function toggleGMSection(id) {
+  if (id === "gmCharacters") {
+    openGMCharacterPicker()
+    return
+  }
   const section = document.getElementById(id); if (!section) return
   const isOpen = section.style.display === "block"
   document.querySelectorAll(".gmSection").forEach(sec => {

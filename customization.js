@@ -161,7 +161,7 @@
       const playerKey = getSandboxPlayerKey(slotIndex)
       const player = getPlayerCustomization(playerKey)
       if (player.enabled === false) continue
-      markup += `<button class="gmCharacterSlotButton" onclick="openCharacterSheet('${esc(playerKey)}')">${esc(getSandboxPlayerName(slotIndex))}</button>`
+      markup += `<button class="gmCharacterSlotButton" onclick="return openCharacterSheetFromMenuWithFallback('${esc(playerKey)}', event)">${esc(getSandboxPlayerName(slotIndex))}</button>`
     }
     return markup
   }
@@ -493,7 +493,9 @@
     for (let slotIndex = 1; slotIndex <= visibleCount; slotIndex += 1) {
       const playerKey = getSandboxPlayerKey(slotIndex)
       const player = customization.players[playerKey] || getPlayerCustomization(playerKey)
-      markup += `<div style="padding:12px;border:1px solid rgba(160,130,80,0.22);border-radius:10px;background:rgba(0,0,0,0.18);"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;"><div style="font-size:11px;color:#d7c39c;letter-spacing:2px;">SLOT ${slotIndex}</div><label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e8d8b6;"><input data-custom-enabled="${esc(playerKey)}" type="checkbox" ${player.enabled !== false ? "checked" : ""}> Actif</label></div><label style="display:grid;gap:6px;margin-bottom:10px;"><span style="font-size:12px;color:#bfae8b;">Nom affiche</span><input data-custom-name="${esc(playerKey)}" type="text" value="${esc(player.name || getDefaultPlayerSlotLabel(playerKey))}" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;margin-bottom:10px;"><span style="font-size:12px;color:#bfae8b;">URL image</span><input data-custom-image="${esc(playerKey)}" type="text" value="${esc(player.image || "")}" placeholder="https://... ou data:image/..." style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Uploader une image</span><input data-custom-upload="${esc(playerKey)}" type="file" accept="image/*" style="font-size:12px;color:#e8d6b3;"></label></div>`
+      const previewName = player.name || getDefaultPlayerSlotLabel(playerKey)
+      const previewImage = player.image || getDefaultPlayerSlotImage(playerKey)
+      markup += `<div style="padding:12px;border:1px solid rgba(160,130,80,0.22);border-radius:10px;background:rgba(0,0,0,0.18);display:grid;gap:12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><div style="font-size:11px;color:#d7c39c;letter-spacing:2px;">SLOT ${slotIndex}</div><label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e8d8b6;"><input data-custom-enabled="${esc(playerKey)}" type="checkbox" ${player.enabled !== false ? "checked" : ""}> Actif</label></div><div style="display:grid;grid-template-columns:72px 1fr;gap:12px;align-items:center;"><div style="width:72px;height:72px;border-radius:16px;overflow:hidden;border:1px solid rgba(214,180,106,0.32);background:linear-gradient(180deg,rgba(245,236,214,0.98),rgba(213,194,158,0.98));box-shadow:0 8px 18px rgba(0,0,0,0.22);"><img data-custom-preview="${esc(playerKey)}" src="${esc(previewImage)}" alt="${esc(previewName)}" style="width:100%;height:100%;object-fit:cover;display:block;"></div><div style="display:grid;gap:6px;"><div data-custom-preview-name="${esc(playerKey)}" style="font-size:14px;color:#f5e6c8;font-family:Cinzel,serif;">${esc(previewName)}</div><div style="font-size:11px;line-height:1.5;color:#bfae8b;">Nom et portrait affiches sur le token du board.</div></div></div><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Nom affiche</span><input data-custom-name="${esc(playerKey)}" type="text" value="${esc(previewName)}" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">URL image</span><input data-custom-image="${esc(playerKey)}" type="text" value="${esc(player.image || "")}" placeholder="https://... ou data:image/..." style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Uploader une image</span><input data-custom-upload="${esc(playerKey)}" type="file" accept="image/*" style="font-size:12px;color:#e8d6b3;"></label></div>`
     }
     return markup
   }
@@ -703,6 +705,9 @@
         const playerId = event.target.dataset.customUpload
         const target = panel.querySelector(`[data-custom-image="${playerId}"]`)
         if (target) target.value = dataUrl
+        const preview = panel.querySelector(`[data-custom-preview="${playerId}"]`)
+        if (preview) preview.src = dataUrl
+        liveApplyProjectSettings()
       })
     })
     byId("addCustomItem").onclick = async () => {
@@ -772,6 +777,29 @@
       const field = byId(id)
       if (!field) return
       field.addEventListener("input", liveApplyProjectSettings)
+      field.addEventListener("change", liveApplyProjectSettings)
+    })
+    panel.querySelectorAll("[data-custom-name]").forEach(field => {
+      const syncPreview = () => {
+        const playerId = field.dataset.customName
+        const previewName = panel.querySelector(`[data-custom-preview-name="${playerId}"]`)
+        if (previewName) previewName.textContent = String(field.value || "").trim() || getDefaultPlayerSlotLabel(playerId)
+        liveApplyProjectSettings()
+      }
+      field.addEventListener("input", syncPreview)
+      field.addEventListener("change", syncPreview)
+    })
+    panel.querySelectorAll("[data-custom-image]").forEach(field => {
+      const syncPreview = () => {
+        const playerId = field.dataset.customImage
+        const preview = panel.querySelector(`[data-custom-preview="${playerId}"]`)
+        if (preview) preview.src = String(field.value || "").trim() || getDefaultPlayerSlotImage(playerId)
+        liveApplyProjectSettings()
+      }
+      field.addEventListener("input", syncPreview)
+      field.addEventListener("change", syncPreview)
+    })
+    panel.querySelectorAll("[data-custom-enabled]").forEach(field => {
       field.addEventListener("change", liveApplyProjectSettings)
     })
     panel.querySelectorAll("[data-player-count-choice]").forEach(button => {

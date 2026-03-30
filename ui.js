@@ -5,6 +5,16 @@
 /* ========================= */
 
 function openCharacterSheet(id = null) {
+  if (typeof openSimpleCharacterSheet === "function") {
+    let playerID
+    if (isGM) { if (!id) return; playerID = id }
+    else {
+      if (!myToken) { showNotification("Choisissez un personnage"); return }
+      playerID = id === "bibi" ? "bibi" : myToken.id
+    }
+    currentSheetPlayer = playerID
+    return openSimpleCharacterSheet(playerID)
+  }
   let playerID
   if (isGM) { if (!id) return; playerID = id }
   else {
@@ -12,35 +22,76 @@ function openCharacterSheet(id = null) {
     playerID = id === "bibi" ? "bibi" : myToken.id
   }
   currentSheetPlayer = playerID
-  // Marquer la fiche avec l'ID du joueur pour Ã©viter les sauvegardes croisÃ©es
+  // Marquer la fiche avec l'ID du joueur pour eviter les sauvegardes croisees
   const sheet = document.getElementById("characterSheet")
   if (sheet) sheet.dataset.playerId = playerID
   const inv = document.getElementById("inventaire")
   if (playerID === "bibi" && myToken && myToken.id !== "greg") inv.setAttribute("readonly", true)
   else inv.removeAttribute("readonly")
   const portraits = { greg:"gregsheet.jpg", ju:"yusheet.jpg", elo:"elosheet.jpg", bibi:"bibisheet.jpg" }
-  document.getElementById("sheetImage").src = "images/" + (portraits[playerID] || "elosheet.jpg")
+  let portraitSrc = "images/" + (portraits[playerID] || "elosheet.jpg")
+  try {
+    if (typeof getPlayerCustomization === "function") {
+      const customization = getPlayerCustomization(playerID)
+      if (customization && customization.image) portraitSrc = customization.image
+    }
+  } catch (e) {}
+  document.getElementById("sheetImage").src = portraitSrc
   document.getElementById("sheetTitle").innerText = getPlayerDisplayName(playerID)
   document.querySelectorAll(".playerOnly").forEach(f => { f.style.display = playerID === "bibi" ? "none" : "block" })
   db.ref("characters/" + playerID).once("value", snapshot => {
-    const data = snapshot.val(); if (!data) return
-    ;["lvl","xp","force","charme","perspi","chance","defense","hp"].forEach(k => { const el = document.getElementById(k); if (el) el.value = data[k] || 0 })
+    const data = snapshot.val() || {}
+    const defaults = {
+      characterName: getPlayerDisplayName(playerID),
+      characterClass: "",
+      origin: "",
+      background: "",
+      lvl: 1,
+      xp: 0,
+      initiative: 0,
+      armor: 0,
+      speed: "",
+      passive: 10,
+      hp: 100,
+      hpMax: 100,
+      mana: 0,
+      manaMax: 0,
+      stamina: 0,
+      staminaMax: 0,
+      force: 0,
+      charme: 0,
+      perspi: 0,
+      chance: 0,
+      defense: 0,
+      customStat: 0,
+      weaponMain: "",
+      weaponOff: "",
+      armorName: "",
+      signatureItem: "",
+      inventaire: "",
+      allies: "",
+      quests: "",
+      traits: "",
+      backstory: "",
+      notes: ""
+    }
+    document.querySelectorAll("#characterSheet .sheetField").forEach(el => {
+      if (!el || !el.id || el.id === "weight" || el.id === "maxWeight") return
+      const fallback = Object.prototype.hasOwnProperty.call(defaults, el.id) ? defaults[el.id] : ""
+      el.value = data[el.id] != null ? data[el.id] : fallback
+    })
     if (!window._playerMaxPoids) window._playerMaxPoids = {}
-    window._playerMaxPoids[playerID] = data.poids || 100
-    const mw = document.getElementById("maxWeight"); if (mw) mw.value = data.poids || 100
-    const invField = document.getElementById("inventaire")
-    const notesField = document.getElementById("notes")
-    if (invField) invField.value = data.inventaire || ""
-    if (notesField) notesField.value = data.notes || ""
+    window._playerMaxPoids[playerID] = data.poids || data.maxWeight || 100
+    const mw = document.getElementById("maxWeight"); if (mw) mw.value = window._playerMaxPoids[playerID]
     curseLevel = data.curse || 0
     document.querySelectorAll(".curseGem").forEach((g, i) => g.classList.toggle("active", i < curseLevel))
     corruptionLevel = data.corruption || 0
     document.querySelectorAll(".corruptionPoint").forEach((b, i) => b.classList.toggle("active", i < corruptionLevel))
-    updateHPBar(); updateWeightBar()
+    updateHPBar(); updateManaBar(); updateStaminaBar(); updateWeightBar()
   })
   document.getElementById("characterSheet").style.display = "block"
   loadGold(playerID)
-  // VÃ©rifier si des points libres sont disponibles
+  // Verifier si des points libres sont disponibles
   if (!isGM || playerID === myToken?.id) setTimeout(() => checkFreePoints(playerID), 300)
 }
 
@@ -73,6 +124,10 @@ function saveCharacter() {
   document.querySelectorAll("#characterSheet .sheetField").forEach(f => {
     if (f.offsetParent !== null && f.id !== "weight" && f.id !== "maxWeight") data[f.id] = f.value
   })
+  const maxWeightField = document.getElementById("maxWeight")
+  data.poids = parseInt(maxWeightField && maxWeightField.value, 10) || 100
+  if (!window._playerMaxPoids) window._playerMaxPoids = {}
+  window._playerMaxPoids[id] = data.poids
   db.ref("characters/" + id).update(data).catch(console.error)
   showNotification("Fiche sauvegardee")
 }
@@ -81,7 +136,7 @@ function autoSaveCharacter() {
   if (!myToken && !isGM) return
   const id = currentSheetPlayer; if (!id) return
 
-  // SÃ©curitÃ© â€” vÃ©rifier que l'ID de la fiche ouverte correspond bien
+  // Securite - verifier que l'ID de la fiche ouverte correspond bien
   const sheet = document.getElementById("characterSheet")
   const sheetId = sheet?.dataset.playerId
   if (sheetId && sheetId !== id) return
@@ -93,12 +148,29 @@ function autoSaveCharacter() {
       const v = f.value.trim(); if (v !== "") data[f.id] = isNaN(v) ? v : parseInt(v)
     }
   })
+  const maxWeightField = document.getElementById("maxWeight")
+  data.poids = parseInt(maxWeightField && maxWeightField.value, 10) || 100
+  if (!window._playerMaxPoids) window._playerMaxPoids = {}
+  window._playerMaxPoids[id] = data.poids
   if (Object.keys(data).length > 0) db.ref("characters/" + id).update(data).then(() => ["greg","ju","elo","bibi"].forEach(p => updateTokenStats(p)))
 }
 
 function updateHPBar() {
-  const hp = parseInt(document.getElementById("hp").value) || 0
-  document.getElementById("hpBar").style.width = Math.max(0, Math.min(100, hp)) + "%"
+  const hp = parseInt(document.getElementById("hp").value, 10) || 0
+  const hpMax = Math.max(1, parseInt(document.getElementById("hpMax").value, 10) || 100)
+  document.getElementById("hpBar").style.width = Math.max(0, Math.min(100, (hp / hpMax) * 100)) + "%"
+}
+
+function updateManaBar() {
+  const mana = parseInt(document.getElementById("mana").value, 10) || 0
+  const manaMax = Math.max(1, parseInt(document.getElementById("manaMax").value, 10) || 1)
+  document.getElementById("manaBar").style.width = Math.max(0, Math.min(100, (mana / manaMax) * 100)) + "%"
+}
+
+function updateStaminaBar() {
+  const stamina = parseInt(document.getElementById("stamina").value, 10) || 0
+  const staminaMax = Math.max(1, parseInt(document.getElementById("staminaMax").value, 10) || 1)
+  document.getElementById("staminaBar").style.width = Math.max(0, Math.min(100, (stamina / staminaMax) * 100)) + "%"
 }
 
 function _parseInventoryWeight(text) {
@@ -139,6 +211,15 @@ function updateWeightBar() {
     })
   }
 }
+
+document.addEventListener("input", event => {
+  const target = event.target
+  if (!target || !target.id) return
+  if (target.id === "hp" || target.id === "hpMax") updateHPBar()
+  if (target.id === "mana" || target.id === "manaMax") updateManaBar()
+  if (target.id === "stamina" || target.id === "staminaMax") updateStaminaBar()
+  if (target.id === "inventaire" || target.id === "maxWeight") updateWeightBar()
+})
 
 /* ========================= */
 /* COMBAT UI                 */

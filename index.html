@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English&family=Cormorant+SC:wght@500;700&family=Marcellus&family=Orbitron:wght@500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <title>Roleplay It Yourself</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='48'%3E%F0%9F%8E%B2%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css?v=82">
+<link rel="stylesheet" href="style.css?v=103">
   <style>
     #playerCodeBtn, #playerCodeBtn * {
       color: #ffd700 !important;
@@ -175,61 +175,228 @@
 
 <!-- FICHE PERSONNAGE -->
 <div id="characterSheet">
-  <h2 id="sheetTitle" style="text-align:center;font-family:'Cinzel';margin-bottom:10px;">Personnage</h2>
-  <div id="sheetContainer">
-    <img id="sheetImage" src="images/elosheet.jpg">
-    <input id="lvl"     class="sheetField" style="top:270px;left:420px;width:120px;height:60px;font-size:32px;font-weight:bold;text-align:center;border:2px solid black;background:white;">
-    <input id="xp"      class="sheetField" style="top:400px;left:420px;width:140px;">
-    <input id="force"   class="sheetField playerOnly" onclick="rollStat('force')"   style="top:520px;left:480px;width:280px;">
-    <input id="charme"  class="sheetField playerOnly" onclick="rollStat('charme')"  style="top:570px;left:480px;width:280px;">
-    <input id="perspi"  class="sheetField playerOnly" onclick="rollStat('perspi')"  style="top:620px;left:480px;width:280px;">
-    <input id="chance"  class="sheetField playerOnly" onclick="rollStat('chance')"  style="top:670px;left:480px;width:280px;">
-    <input id="defense" class="sheetField playerOnly" onclick="rollStat('defense')" style="top:720px;left:480px;width:280px;">
-    <textarea id="notes" class="sheetField playerOnly" style="top:880px;left:420px;width:380px;height:140px;"></textarea>
-    <div id="weightContainer" style="position:absolute;top:300px;left:60px;width:300px;">
-      <input id="weight"    class="sheetField" placeholder="Poids" style="top:0;left:0;width:80px;position:relative;">
-      <span style="margin-left:10px;">/</span>
-      <input id="maxWeight" class="sheetField" placeholder="Max"   style="top:0;left:0;width:80px;position:relative;margin-left:10px;">
-      <div id="weightBarContainer" style="margin-top:6px;width:220px;height:14px;background:#222;border-radius:6px;overflow:hidden;">
-        <div id="weightBar" style="height:100%;width:0%;background:lime;"></div>
-      </div>
+  <div class="sheetHeader">
+    <div>
+      <div class="sheetEyebrow">FICHE RPG</div>
+      <h2 id="sheetTitle">Personnage</h2>
     </div>
-    <textarea id="inventaire" class="sheetField" spellcheck="false" style="top:340px;left:60px;width:300px;height:620px;"></textarea>
-    <div id="curseBar" class="playerOnly" style="position:absolute;top:255px;right:60px;">
-      <span class="curseGem" onclick="toggleCurse(1)"></span>
-      <span class="curseGem" onclick="toggleCurse(2)"></span>
-      <span class="curseGem" onclick="toggleCurse(3)"></span>
-      <span class="curseGem" onclick="toggleCurse(4)"></span>
-      <span class="curseGem" onclick="toggleCurse(5)"></span>
-      <span class="curseGem" onclick="toggleCurse(6)"></span>
-      <span class="curseGem" onclick="toggleCurse(7)"></span>
-      <span class="curseGem" onclick="toggleCurse(8)"></span>
-    </div>
-    <input id="hp" class="sheetField" style="top:315px;right:60px;width:90px;font-size:20px;border:2px solid black;background:white;text-align:center;">
-    <div id="hpBarContainer" style="position:absolute;top:285px;right:60px;width:200px;height:18px;background:#222;border:2px solid #555;border-radius:6px;">
-      <div id="hpBar" style="height:100%;width:100%;background:linear-gradient(90deg,#ff5050,#b00000,#600000);border-radius:4px;box-shadow:0 0 8px red;"></div>
-    </div>
-    <div id="corruptionBar" class="playerOnly" style="position:absolute;top:370px;right:60px;">
-      <span class="corruptionPoint" onclick="setCorruption(1)"></span>
-      <span class="corruptionPoint" onclick="setCorruption(2)"></span>
-      <span class="corruptionPoint" onclick="setCorruption(3)"></span>
-      <span class="corruptionPoint" onclick="setCorruption(4)"></span>
-      <span class="corruptionPoint" onclick="setCorruption(5)"></span>
-      <span class="corruptionPoint" onclick="setCorruption(6)"></span>
-      <span class="corruptionPoint" onclick="setCorruption(7)"></span>
-      <span class="corruptionPoint" onclick="setCorruption(8)"></span>
-      <span class="corruptionPoint" onclick="setCorruption(9)"></span>
-      <span class="corruptionPoint" onclick="setCorruption(10)"></span>
+    <div class="sheetHeaderActions">
+      <button type="button" class="sheetActionButton" onclick="saveCharacter()">Sauvegarder</button>
+      <button type="button" class="sheetActionButton secondary" onclick="closeCharacterSheet()">Fermer</button>
     </div>
   </div>
 
-  <div id="goldZone" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-    <img src="images/bourse.png" id="goldBtn" onclick="toggleGoldInput()" style="width:48px;height:48px;object-fit:contain;cursor:pointer;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.8));transition:transform 0.15s;" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">
-    <div id="goldDisplay" style="font-family:Cinzel,serif;font-size:16px;color:#d4a835;text-shadow:0 0 8px gold;display:none;min-width:60px;"></div>
-    <input id="goldInput" type="number" placeholder="Or" onmousedown="event.stopPropagation()" style="display:none;width:90px;padding:5px 8px;font-family:Cinzel,serif;font-size:15px;background:rgba(8,20,24,0.95);color:#d4a835;border:1px solid #8a6520;border-radius:3px;text-align:center;" onchange="saveGold()" onkeydown="if(event.key==='Enter')saveGold()">
+  <div id="sheetContainer" class="sheetLayout">
+    <aside class="sheetSidebar">
+      <div class="sheetPortraitCard">
+        <img id="sheetImage" src="images/elosheet.jpg" alt="Portrait du personnage">
+        <div class="sheetPortraitMeta">
+          <label class="sheetFieldGroup">
+            <span>Nom du personnage</span>
+            <input id="characterName" class="sheetField" type="text" placeholder="Nom du heros">
+          </label>
+          <label class="sheetFieldGroup">
+            <span>Classe / role</span>
+            <input id="characterClass" class="sheetField" type="text" placeholder="Ex : Guerrier, Voleur, Mage">
+          </label>
+          <label class="sheetFieldGroup">
+            <span>Peuple / origine</span>
+            <input id="origin" class="sheetField" type="text" placeholder="Ex : Humain, Elfe, Cyborg">
+          </label>
+          <label class="sheetFieldGroup">
+            <span>Background</span>
+            <input id="background" class="sheetField" type="text" placeholder="Ex : Noble dechue, Mercenaire">
+          </label>
+        </div>
+      </div>
+
+      <section class="sheetSection">
+        <div class="sheetSectionTitle">Progression</div>
+        <div class="sheetGrid two">
+          <label class="sheetFieldGroup">
+            <span>Niveau</span>
+            <input id="lvl" class="sheetField" type="number" min="0">
+          </label>
+          <label class="sheetFieldGroup">
+            <span>XP</span>
+            <input id="xp" class="sheetField" type="number" min="0">
+          </label>
+          <label class="sheetFieldGroup">
+            <span>Initiative</span>
+            <input id="initiative" class="sheetField" type="number">
+          </label>
+          <label class="sheetFieldGroup">
+            <span>Armure</span>
+            <input id="armor" class="sheetField" type="number" min="0">
+          </label>
+          <label class="sheetFieldGroup">
+            <span>Vitesse</span>
+            <input id="speed" class="sheetField" type="text" placeholder="9m">
+          </label>
+          <label class="sheetFieldGroup">
+            <span>Passif</span>
+            <input id="passive" class="sheetField" type="number" min="0">
+          </label>
+        </div>
+      </section>
+
+      <section class="sheetSection">
+        <div class="sheetSectionTitle">Ressources</div>
+        <div class="sheetResourceStack">
+          <div class="sheetResource">
+            <div class="sheetResourceHeader"><span>HP</span><span><input id="hp" class="sheetField resourceMini" type="number" min="0"> / <input id="hpMax" class="sheetField resourceMini" type="number" min="0"></span></div>
+            <div id="hpBarContainer" class="sheetBar"><div id="hpBar"></div></div>
+          </div>
+          <div class="sheetResource">
+            <div class="sheetResourceHeader"><span>Mana / Energie</span><span><input id="mana" class="sheetField resourceMini" type="number" min="0"> / <input id="manaMax" class="sheetField resourceMini" type="number" min="0"></span></div>
+            <div id="manaBarContainer" class="sheetBar mana"><div id="manaBar"></div></div>
+          </div>
+          <div class="sheetResource">
+            <div class="sheetResourceHeader"><span>Endurance</span><span><input id="stamina" class="sheetField resourceMini" type="number" min="0"> / <input id="staminaMax" class="sheetField resourceMini" type="number" min="0"></span></div>
+            <div id="staminaBarContainer" class="sheetBar stamina"><div id="staminaBar"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="sheetSection">
+        <div class="sheetSectionTitle">Etat special</div>
+        <div class="sheetSubTitle">Malediction</div>
+        <div id="curseBar" class="sheetPointRow playerOnly">
+          <span class="curseGem" onclick="toggleCurse(1)"></span>
+          <span class="curseGem" onclick="toggleCurse(2)"></span>
+          <span class="curseGem" onclick="toggleCurse(3)"></span>
+          <span class="curseGem" onclick="toggleCurse(4)"></span>
+          <span class="curseGem" onclick="toggleCurse(5)"></span>
+          <span class="curseGem" onclick="toggleCurse(6)"></span>
+          <span class="curseGem" onclick="toggleCurse(7)"></span>
+          <span class="curseGem" onclick="toggleCurse(8)"></span>
+        </div>
+        <div class="sheetSubTitle">Corruption / pouvoir</div>
+        <div id="corruptionBar" class="sheetPointRow playerOnly">
+          <span class="corruptionPoint" onclick="setCorruption(1)"></span>
+          <span class="corruptionPoint" onclick="setCorruption(2)"></span>
+          <span class="corruptionPoint" onclick="setCorruption(3)"></span>
+          <span class="corruptionPoint" onclick="setCorruption(4)"></span>
+          <span class="corruptionPoint" onclick="setCorruption(5)"></span>
+          <span class="corruptionPoint" onclick="setCorruption(6)"></span>
+          <span class="corruptionPoint" onclick="setCorruption(7)"></span>
+          <span class="corruptionPoint" onclick="setCorruption(8)"></span>
+          <span class="corruptionPoint" onclick="setCorruption(9)"></span>
+          <span class="corruptionPoint" onclick="setCorruption(10)"></span>
+        </div>
+      </section>
+    </aside>
+
+    <main class="sheetMain">
+      <section class="sheetSection">
+        <div class="sheetSectionTitle">Caracteristiques</div>
+        <div class="sheetGrid two">
+          <label class="sheetFieldGroup">
+            <span>Force</span>
+            <input id="force" class="sheetField playerOnly" type="number" onclick="rollStat('force')">
+          </label>
+          <label class="sheetFieldGroup">
+            <span>Charme</span>
+            <input id="charme" class="sheetField playerOnly" type="number" onclick="rollStat('charme')">
+          </label>
+          <label class="sheetFieldGroup">
+            <span>Perspicacite</span>
+            <input id="perspi" class="sheetField playerOnly" type="number" onclick="rollStat('perspi')">
+          </label>
+          <label class="sheetFieldGroup">
+            <span>Chance</span>
+            <input id="chance" class="sheetField playerOnly" type="number" onclick="rollStat('chance')">
+          </label>
+          <label class="sheetFieldGroup">
+            <span>Defense</span>
+            <input id="defense" class="sheetField playerOnly" type="number" onclick="rollStat('defense')">
+          </label>
+          <label class="sheetFieldGroup">
+            <span>Competence libre</span>
+            <input id="customStat" class="sheetField" type="text" placeholder="Ex : Foi, Piratage, Sang-froid">
+          </label>
+        </div>
+      </section>
+
+      <section class="sheetSection">
+        <div class="sheetSectionTitle">Equipement et finances</div>
+        <div class="sheetGrid two">
+          <label class="sheetFieldGroup">
+            <span>Arme principale</span>
+            <input id="weaponMain" class="sheetField" type="text" placeholder="Nom de l'arme">
+          </label>
+          <label class="sheetFieldGroup">
+            <span>Arme secondaire</span>
+            <input id="weaponOff" class="sheetField" type="text" placeholder="Nom de l'arme">
+          </label>
+          <label class="sheetFieldGroup">
+            <span>Armure / tenue</span>
+            <input id="armorName" class="sheetField" type="text" placeholder="Ex : Cuir renforce">
+          </label>
+          <label class="sheetFieldGroup">
+            <span>Objet cle</span>
+            <input id="signatureItem" class="sheetField" type="text" placeholder="Ex : Amulette, blaster, carte">
+          </label>
+        </div>
+        <div id="goldZone" class="sheetGoldZone">
+          <img src="images/bourse.png" id="goldBtn" onclick="toggleGoldInput()">
+          <div id="goldDisplay"></div>
+          <input id="goldInput" type="number" placeholder="Or" onmousedown="event.stopPropagation()" onchange="saveGold()" onkeydown="if(event.key==='Enter')saveGold()">
+        </div>
+      </section>
+
+      <section class="sheetSection">
+        <div class="sheetSectionTitle">Inventaire et charge</div>
+        <div class="sheetWeightRow">
+          <label class="sheetFieldGroup compact">
+            <span>Charge actuelle</span>
+            <input id="weight" class="sheetField" placeholder="Poids" readonly>
+          </label>
+          <label class="sheetFieldGroup compact">
+            <span>Charge max</span>
+            <input id="maxWeight" class="sheetField" placeholder="Max">
+          </label>
+        </div>
+        <div id="weightBarContainer" class="sheetBar weight"><div id="weightBar"></div></div>
+        <label class="sheetFieldGroup">
+          <span>Inventaire</span>
+          <textarea id="inventaire" class="sheetField" spellcheck="false" placeholder="Une ligne par objet. Tu peux indiquer le poids entre parenthèses, ex : Epee longue (1.5kg) x1"></textarea>
+        </label>
+      </section>
+
+      <section class="sheetSection">
+        <div class="sheetSectionTitle">Relations et quetes</div>
+        <div class="sheetGrid two">
+          <label class="sheetFieldGroup">
+            <span>Allies / contacts</span>
+            <textarea id="allies" class="sheetField" placeholder="Contacts, factions amies, dettes positives"></textarea>
+          </label>
+          <label class="sheetFieldGroup">
+            <span>Quetes / objectifs</span>
+            <textarea id="quests" class="sheetField" placeholder="Objectifs, pistes, missions en cours"></textarea>
+          </label>
+        </div>
+      </section>
+
+      <section class="sheetSection">
+        <div class="sheetSectionTitle">Histoire et notes</div>
+        <div class="sheetGrid two">
+          <label class="sheetFieldGroup">
+            <span>Traits / personnalite</span>
+            <textarea id="traits" class="sheetField" placeholder="Qualites, defauts, manies, credo"></textarea>
+          </label>
+          <label class="sheetFieldGroup">
+            <span>Histoire / background</span>
+            <textarea id="backstory" class="sheetField" placeholder="Resume du passe du personnage"></textarea>
+          </label>
+        </div>
+        <label class="sheetFieldGroup">
+          <span>Notes libres</span>
+          <textarea id="notes" class="sheetField playerOnly" placeholder="Secrets, idees, progression, rappels"></textarea>
+        </label>
+      </section>
+    </main>
   </div>
-  <button onclick="saveCharacter()">ðŸ’¾ Sauvegarder</button>
-  <button onclick="closeCharacterSheet()">Fermer</button>
 </div>
 
 <!-- SONS -->
@@ -312,23 +479,27 @@
   </details>
 </div>
 
+<div id="sandboxSheetsTestBar">
+  <button id="sandboxSheetsTestBtn" type="button" onclick="return openSimpleSheetTest(event)">Fiche test</button>
+</div>
+
 <!-- BARRE MJ -->
 <div id="gmBar">
-  <button class="gmIcon" onclick="toggleGMSection('gmCharacters')" title="Personnages (P)">ðŸŽ­</button>
-  <button class="gmIcon" onclick="toggleGMSection('mapMenu')"      title="Maps (M)">ðŸ—º</button>
-  <button class="gmIcon" onclick="toggleGMSection('pnjMenu')"      title="PNJ (R)">ðŸ‘¤</button>
-  <button class="gmIcon" onclick="toggleGMSection('mobMenu2')"     title="Mobs (T)">ðŸ‘¹</button>
-  <button class="gmIcon" onclick="toggleGMSection('xpMenu')"       title="XP">â­</button>
-  <button class="gmIcon" onclick="toggleGMSection('elementsMenu')" title="Ã‰lÃ©ments (E)">ðŸ—</button>
+  <button class="gmIcon" id="gmCharactersBtn" type="button" onclick="return openGMCharacterPickerInline(event)" title="Personnages (P)">ðŸŽ­</button>
+  <button class="gmIcon" id="gmMapsBtn" onclick="toggleGMSection('mapMenu')"      title="Maps (M)">ðŸ—º</button>
+  <button class="gmIcon" id="gmPnjBtn" onclick="toggleGMSection('pnjMenu')"      title="PNJ (R)">ðŸ‘¤</button>
+  <button class="gmIcon" id="gmMobsBtn" onclick="toggleGMSection('mobMenu2')"     title="Mobs (T)">ðŸ‘¹</button>
+  <button class="gmIcon" id="gmXpBtn" onclick="toggleGMSection('xpMenu')"       title="XP">â­</button>
+  <button class="gmIcon" id="gmElementsBtn" onclick="toggleGMSection('elementsMenu')" title="Ã‰lÃ©ments (E)">ðŸ—</button>
   <button class="gmIcon" id="allyBtn" onclick="openAllyPNJPanel()" title="AlliÃ©s (A)" style="display:none;">âš”</button>
 </div>
 
 <!-- SECTIONS MJ -->
 <div id="gmCharacters" class="gmSection">
-  <button onclick="openCharacterSheet('greg')">Joueur 1</button>
-  <button onclick="openCharacterSheet('ju')">Joueur 2</button>
-  <button onclick="openCharacterSheet('elo')">Joueur 3</button>
-  <button onclick="openCharacterSheet('bibi')">Joueur 4</button>
+  <button data-sheet-player-id="greg">Joueur 1</button>
+  <button data-sheet-player-id="ju">Joueur 2</button>
+  <button data-sheet-player-id="elo">Joueur 3</button>
+  <button data-sheet-player-id="bibi">Joueur 4</button>
 </div>
 
 <div id="xpMenu" class="gmSection">
@@ -899,11 +1070,11 @@
 <script src="state.js?v=2"></script>
 <!-- 3. Utilitaires (pas de dÃ©pendances Firebase) -->
 <script src="utils.js?v=14"></script>
-<script src="customization.js?v=40"></script>
+<script src="customization.js?v=45"></script>
 <!-- 4. Logique principale + Firebase listeners -->
-<script src="game.js?v=62"></script>
+<script src="game.js?v=73"></script>
 <!-- 5. Interface utilisateur -->
-<script src="ui.js?v=4"></script>
+<script src="ui.js?v=6"></script>
 <!-- 6. Combat -->
 <script src="combat.js?v=3"></script>
 <script>
@@ -1451,7 +1622,7 @@ function applySandboxPlayersImmediate(count) {
     var buttons = ""
     for (var i = 1; i <= safeCount; i += 1) {
       var slotId = i <= 4 ? ids[i - 1] : ("slot_" + i)
-      buttons += "<button class=\"gmCharacterSlotButton\" onclick=\"openCharacterSheet('" + slotId + "')\">Joueur " + i + "</button>"
+      buttons += "<button class=\"gmCharacterSlotButton\" data-sheet-player-id=\"" + slotId + "\">Joueur " + i + "</button>"
     }
     gmCharacters.innerHTML = buttons
   }
@@ -1492,6 +1663,412 @@ function applySandboxStyleTheme(themeValue) {
   var menu = document.getElementById("sandboxStyleMenu")
   if (menu) menu.open = false
 }
+
+function openCharacterSheetFallback(playerId) {
+  var sheet = document.getElementById("characterSheet")
+  if (!sheet) return false
+  try { currentSheetPlayer = playerId } catch (e) {}
+  sheet.dataset.playerId = playerId
+  var title = document.getElementById("sheetTitle")
+  if (title) {
+    try {
+      title.innerText = typeof getPlayerDisplayName === "function" ? getPlayerDisplayName(playerId) : ("Joueur " + playerId)
+    } catch (e) {
+      title.innerText = "Joueur"
+    }
+  }
+  var img = document.getElementById("sheetImage")
+  if (img) {
+    var portraitMap = { greg:"images/gregsheet.jpg", ju:"images/yusheet.jpg", elo:"images/elosheet.jpg", bibi:"images/bibisheet.jpg" }
+    var fallbackPortrait = portraitMap[playerId] || "images/elosheet.jpg"
+    try {
+      if (typeof getPlayerCustomization === "function") {
+        var player = getPlayerCustomization(playerId)
+        if (player && player.image) fallbackPortrait = player.image
+      }
+    } catch (e) {}
+    img.src = fallbackPortrait
+  }
+  var defaults = {
+    characterName: title ? title.innerText : "Personnage",
+    characterClass: "",
+    origin: "",
+    background: "",
+    lvl: 1,
+    xp: 0,
+    initiative: 0,
+    armor: 0,
+    speed: "",
+    passive: 10,
+    hp: 100,
+    hpMax: 100,
+    mana: 0,
+    manaMax: 0,
+    stamina: 0,
+    staminaMax: 0,
+    force: 0,
+    charme: 0,
+    perspi: 0,
+    chance: 0,
+    defense: 0,
+    customStat: 0,
+    weaponMain: "",
+    weaponOff: "",
+    armorName: "",
+    signatureItem: "",
+    inventaire: "",
+    allies: "",
+    quests: "",
+    traits: "",
+    backstory: "",
+    notes: "",
+    maxWeight: 100
+  }
+  function applySheetData(data) {
+    document.querySelectorAll("#characterSheet .sheetField").forEach(function(el) {
+      if (!el || !el.id) return
+      var value = data && data[el.id] != null ? data[el.id] : defaults[el.id]
+      if (value == null) value = ""
+      el.value = value
+    })
+    if (!window._playerMaxPoids) window._playerMaxPoids = {}
+    window._playerMaxPoids[playerId] = data && (data.poids || data.maxWeight) ? (data.poids || data.maxWeight) : 100
+    var maxWeight = document.getElementById("maxWeight")
+    if (maxWeight) maxWeight.value = window._playerMaxPoids[playerId]
+    try { if (typeof updateHPBar === "function") updateHPBar() } catch (e) {}
+    try { if (typeof updateManaBar === "function") updateManaBar() } catch (e) {}
+    try { if (typeof updateStaminaBar === "function") updateStaminaBar() } catch (e) {}
+    try { if (typeof updateWeightBar === "function") updateWeightBar() } catch (e) {}
+    try { if (typeof loadGold === "function") loadGold(playerId) } catch (e) {}
+    sheet.style.display = "block"
+  }
+  try {
+    if (typeof db !== "undefined" && db && typeof db.ref === "function") {
+      db.ref("characters/" + playerId).once("value", function(snapshot) {
+        applySheetData(snapshot && snapshot.val ? (snapshot.val() || {}) : {})
+      })
+    } else {
+      applySheetData({})
+    }
+  } catch (e) {
+    applySheetData({})
+  }
+  return true
+}
+
+function openCharacterSheetFromMenuWithFallback(playerId, event) {
+  try {
+    if (typeof activateGM === "function") activateGM(true)
+    isGM = true
+  } catch (e) {}
+  var gmCharacters = document.getElementById("gmCharacters")
+  if (gmCharacters) gmCharacters.style.display = "none"
+  return openSimpleCharacterSheet(playerId, event)
+}
+
+function openGMCharacterPickerInline(event) {
+  if (event) {
+    try { event.preventDefault() } catch (e) {}
+    try { event.stopPropagation() } catch (e) {}
+  }
+  var existing = document.getElementById("gmCharacterPickerInline")
+  if (existing) existing.remove()
+
+  var overlay = document.createElement("div")
+  overlay.id = "gmCharacterPickerInline"
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;z-index:2147483602;padding:20px;"
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove() }
+
+  var panel = document.createElement("div")
+  panel.style.cssText = "width:min(560px,92vw);display:grid;gap:14px;padding:22px 22px 18px;border-radius:18px;border:1px solid rgba(214,180,106,0.38);background:linear-gradient(180deg,rgba(28,22,17,0.98),rgba(16,13,10,0.98));box-shadow:0 28px 90px rgba(0,0,0,0.55);"
+
+  var title = document.createElement("div")
+  title.textContent = "Fiches personnages"
+  title.style.cssText = "font-family:Cinzel,serif;font-size:24px;letter-spacing:2px;color:#f3dfb1;text-align:center;"
+  panel.appendChild(title)
+
+  var subtitle = document.createElement("div")
+  subtitle.textContent = "Choisis la fiche a ouvrir."
+  subtitle.style.cssText = "font-size:13px;line-height:1.6;color:#cdbb96;text-align:center;"
+  panel.appendChild(subtitle)
+
+  var grid = document.createElement("div")
+  grid.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;"
+
+  var count = 4
+  try {
+    if (typeof getCustomization === "function") {
+      var data = getCustomization()
+      if (data && data.project && data.project.playerCount) count = Math.max(1, parseInt(data.project.playerCount, 10) || 4)
+    }
+  } catch (e) {}
+
+  var ids = ["greg", "ju", "elo", "bibi"]
+  for (var i = 1; i <= count; i += 1) {
+    (function(slotIndex) {
+      var slotId = slotIndex <= 4 ? ids[slotIndex - 1] : ("slot_" + slotIndex)
+      var button = document.createElement("button")
+      var label = "Joueur " + slotIndex
+      try {
+        if (typeof getPlayerDisplayName === "function") label = getPlayerDisplayName(slotId) || label
+      } catch (e) {}
+      button.type = "button"
+      button.textContent = label
+      button.style.cssText = "padding:14px 16px;border-radius:12px;border:1px solid rgba(214,180,106,0.32);background:linear-gradient(180deg,rgba(122,85,51,0.96),rgba(75,50,28,0.96));color:#f5e6c8;font-family:Cinzel,serif;font-size:15px;cursor:pointer;"
+      button.onclick = function(btnEvent) {
+        overlay.remove()
+        return openCharacterSheetFromMenuWithFallback(slotId, btnEvent)
+      }
+      grid.appendChild(button)
+    })(i)
+  }
+
+  panel.appendChild(grid)
+
+  var closeBtn = document.createElement("button")
+  closeBtn.type = "button"
+  closeBtn.textContent = "Fermer"
+  closeBtn.style.cssText = "justify-self:center;padding:10px 16px;border-radius:10px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;"
+  closeBtn.onclick = function() { overlay.remove() }
+  panel.appendChild(closeBtn)
+
+  overlay.appendChild(panel)
+  document.body.appendChild(overlay)
+  return false
+}
+
+function buildSimpleCharacterSheetDefaults(playerId) {
+  var playerLabel = "Joueur"
+  try {
+    if (typeof getPlayerDisplayName === "function") playerLabel = getPlayerDisplayName(playerId) || playerLabel
+  } catch (e) {}
+  return {
+    characterName: playerLabel,
+    characterClass: "",
+    origin: "",
+    background: "",
+    lvl: 1,
+    xp: 0,
+    hp: 24,
+    hpMax: 24,
+    mana: 8,
+    manaMax: 8,
+    stamina: 12,
+    staminaMax: 12,
+    force: 0,
+    charme: 0,
+    perspi: 0,
+    chance: 0,
+    defense: 0,
+    initiative: 0,
+    weaponMain: "",
+    armorName: "",
+    inventaire: "",
+    notes: ""
+  }
+}
+
+function saveSimpleCharacterSheet(playerId, root) {
+  if (!playerId || !root || typeof db === "undefined" || !db || typeof db.ref !== "function") return
+  var data = {}
+  root.querySelectorAll("[data-simple-sheet-field]").forEach(function(field) {
+    var key = field.getAttribute("data-simple-sheet-field")
+    if (!key) return
+    data[key] = field.value
+  })
+  db.ref("characters/" + playerId).update(data)
+  if (typeof showNotification === "function") showNotification("Fiche sauvegardee")
+}
+
+function openSimpleCharacterSheet(playerId, event) {
+  if (event) {
+    try { event.preventDefault() } catch (e) {}
+    try { event.stopPropagation() } catch (e) {}
+  }
+  var existing = document.getElementById("simpleSheetTestOverlay")
+  if (existing) existing.remove()
+
+  var overlay = document.createElement("div")
+  overlay.id = "simpleSheetTestOverlay"
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.78);display:flex;align-items:center;justify-content:center;z-index:2147483603;padding:20px;"
+  overlay.onclick = function(e) { if (e.target === overlay) overlay.remove() }
+
+  var autoSaveTimer = null
+  function runAutoSave(showToast) {
+    if (autoSaveTimer) {
+      clearTimeout(autoSaveTimer)
+      autoSaveTimer = null
+    }
+    if (!panel) return
+    if (!playerId || typeof db === "undefined" || !db || typeof db.ref !== "function") return
+    var data = {}
+    panel.querySelectorAll("[data-simple-sheet-field]").forEach(function(field) {
+      var key = field.getAttribute("data-simple-sheet-field")
+      if (!key) return
+      data[key] = field.value
+    })
+    db.ref("characters/" + playerId).update(data)
+    if (showToast && typeof showNotification === "function") showNotification("Fiche sauvegardee")
+  }
+
+  function queueAutoSave() {
+    if (autoSaveTimer) clearTimeout(autoSaveTimer)
+    autoSaveTimer = setTimeout(function() {
+      runAutoSave(false)
+    }, 450)
+  }
+
+  function closeSimpleSheet() {
+    runAutoSave(false)
+    document.removeEventListener("keydown", onSheetKeydown, true)
+    overlay.remove()
+  }
+
+  function onSheetKeydown(keyEvent) {
+    if (keyEvent.key !== "Escape") return
+    keyEvent.preventDefault()
+    keyEvent.stopPropagation()
+    closeSimpleSheet()
+  }
+
+  var defaults = buildSimpleCharacterSheetDefaults(playerId)
+  var portrait = "images/elosheet.jpg"
+  try {
+    var portraitMap = { greg:"images/gregsheet.jpg", ju:"images/yusheet.jpg", elo:"images/elosheet.jpg", bibi:"images/bibisheet.jpg" }
+    portrait = portraitMap[playerId] || portrait
+    if (typeof getPlayerCustomization === "function") {
+      var customPlayer = getPlayerCustomization(playerId)
+      if (customPlayer && customPlayer.image) portrait = customPlayer.image
+    }
+  } catch (e) {}
+
+  var panel = document.createElement("div")
+  panel.style.cssText = "width:min(980px,94vw);max-height:92vh;overflow:auto;padding:24px;border-radius:20px;background:linear-gradient(180deg,rgba(31,24,18,0.99),rgba(17,14,11,0.99));border:1px solid rgba(214,180,106,0.38);box-shadow:0 30px 90px rgba(0,0,0,0.6);display:grid;gap:18px;"
+
+  function field(label, key, value, type) {
+    return `<label style="display:grid;gap:6px;color:#d8c49c;font-size:12px;"><span>${label}</span><input data-simple-sheet-field="${key}" type="${type || "text"}" value="${String(value == null ? "" : value).replace(/"/g, "&quot;")}" style="padding:10px 12px;border-radius:10px;border:1px solid rgba(214,180,106,0.22);background:rgba(0,0,0,0.24);color:#f5e6c8;"></label>`
+  }
+
+  panel.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;">
+      <div>
+        <div style="font-family:Cinzel,serif;font-size:12px;letter-spacing:3px;color:#d8c49c;">FICHE RPG</div>
+        <div style="font-family:Cinzel,serif;font-size:34px;color:#f4e2bb;">${String(defaults.characterName).replace(/</g,"&lt;")}</div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button type="button" data-simple-sheet-save style="padding:10px 16px;border-radius:10px;border:1px solid rgba(214,180,106,0.28);background:linear-gradient(180deg,rgba(122,85,51,0.96),rgba(75,50,28,0.96));color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;">Sauvegarder</button>
+        <button type="button" data-simple-sheet-close style="padding:10px 16px;border-radius:10px;border:1px solid rgba(214,180,106,0.28);background:rgba(255,255,255,0.05);color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;">Fermer</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:280px minmax(0,1fr);gap:18px;">
+      <div style="display:grid;gap:14px;">
+        <div style="padding:14px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid rgba(214,180,106,0.18);display:grid;gap:12px;">
+          <div style="width:100%;aspect-ratio:1/1;border-radius:16px;overflow:hidden;background:linear-gradient(180deg,#f3ead5,#d8c6a0);display:flex;align-items:center;justify-content:center;">
+            <img src="${String(portrait).replace(/"/g,"&quot;")}" alt="Portrait" style="width:100%;height:100%;object-fit:cover;display:block;">
+          </div>
+          ${field("Nom", "characterName", defaults.characterName)}
+          ${field("Classe", "characterClass", defaults.characterClass)}
+          ${field("Origine", "origin", defaults.origin)}
+          ${field("Background", "background", defaults.background)}
+        </div>
+        <div style="padding:14px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid rgba(214,180,106,0.18);display:grid;gap:10px;">
+          <div style="font-family:Cinzel,serif;font-size:18px;color:#f0d087;">Ressources</div>
+          ${field("Niveau", "lvl", defaults.lvl, "number")}
+          ${field("XP", "xp", defaults.xp, "number")}
+          ${field("HP", "hp", defaults.hp, "number")}
+          ${field("HP max", "hpMax", defaults.hpMax, "number")}
+          ${field("Mana", "mana", defaults.mana, "number")}
+          ${field("Mana max", "manaMax", defaults.manaMax, "number")}
+          ${field("Endurance", "stamina", defaults.stamina, "number")}
+          ${field("Endurance max", "staminaMax", defaults.staminaMax, "number")}
+        </div>
+      </div>
+      <div style="display:grid;gap:18px;">
+        <div style="padding:16px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid rgba(214,180,106,0.18);display:grid;gap:12px;">
+          <div style="font-family:Cinzel,serif;font-size:18px;color:#f0d087;">Caracteristiques</div>
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;">
+            ${field("Force", "force", defaults.force, "number")}
+            ${field("Charme", "charme", defaults.charme, "number")}
+            ${field("Defense", "defense", defaults.defense, "number")}
+            ${field("Chance", "chance", defaults.chance, "number")}
+            ${field("Perspicacite", "perspi", defaults.perspi, "number")}
+            ${field("Initiative", "initiative", defaults.initiative, "number")}
+          </div>
+        </div>
+        <div style="padding:16px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid rgba(214,180,106,0.18);display:grid;gap:12px;">
+          <div style="font-family:Cinzel,serif;font-size:18px;color:#f0d087;">Equipement</div>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
+            ${field("Arme principale", "weaponMain", defaults.weaponMain)}
+            ${field("Armure", "armorName", defaults.armorName)}
+          </div>
+          <label style="display:grid;gap:6px;color:#d8c49c;font-size:12px;">
+            <span>Inventaire</span>
+            <textarea data-simple-sheet-field="inventaire" style="min-height:120px;padding:12px;border-radius:12px;border:1px solid rgba(214,180,106,0.22);background:rgba(0,0,0,0.24);color:#f5e6c8;resize:vertical;">${String(defaults.inventaire).replace(/</g,"&lt;")}</textarea>
+          </label>
+        </div>
+        <div style="padding:16px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid rgba(214,180,106,0.18);display:grid;gap:12px;">
+          <div style="font-family:Cinzel,serif;font-size:18px;color:#f0d087;">Histoire / Notes</div>
+          <label style="display:grid;gap:6px;color:#d8c49c;font-size:12px;">
+            <span>Notes</span>
+            <textarea data-simple-sheet-field="notes" style="min-height:180px;padding:12px;border-radius:12px;border:1px solid rgba(214,180,106,0.22);background:rgba(0,0,0,0.24);color:#f5e6c8;resize:vertical;">${String(defaults.notes).replace(/</g,"&lt;")}</textarea>
+          </label>
+        </div>
+      </div>
+    </div>
+  `
+
+  panel.querySelector("[data-simple-sheet-close]").onclick = function() { closeSimpleSheet() }
+  panel.querySelector("[data-simple-sheet-save]").onclick = function() { saveSimpleCharacterSheet(playerId, panel) }
+  panel.querySelectorAll("[data-simple-sheet-field]").forEach(function(field) {
+    field.addEventListener("input", queueAutoSave)
+    field.addEventListener("change", queueAutoSave)
+  })
+
+  function applyData(data) {
+    Object.keys(data || {}).forEach(function(key) {
+      var field = panel.querySelector('[data-simple-sheet-field="' + key + '"]')
+      if (field) field.value = data[key]
+    })
+  }
+
+  try {
+    if (typeof db !== "undefined" && db && typeof db.ref === "function") {
+      db.ref("characters/" + playerId).once("value", function(snapshot) {
+        applyData(snapshot && snapshot.val ? (snapshot.val() || {}) : {})
+      })
+    }
+  } catch (e) {}
+
+  overlay.appendChild(panel)
+  document.body.appendChild(overlay)
+  document.addEventListener("keydown", onSheetKeydown, true)
+  return false
+}
+
+function openSimpleSheetTest(event) {
+  return openSimpleCharacterSheet("greg", event)
+}
+
+function bindGMCharacterSheetMenu() {
+  var gmCharacters = document.getElementById("gmCharacters")
+  if (!gmCharacters || gmCharacters.dataset.sheetMenuBound === "true") return
+  gmCharacters.dataset.sheetMenuBound = "true"
+  gmCharacters.addEventListener("click", function(event) {
+    var button = event.target && event.target.closest ? event.target.closest("[data-sheet-player-id]") : null
+    if (!button) return
+    var playerId = button.getAttribute("data-sheet-player-id")
+    if (!playerId) return
+    openCharacterSheetFromMenuWithFallback(playerId, event)
+  })
+}
+
+bindGMCharacterSheetMenu()
+
+document.addEventListener("click", function(event) {
+  var button = event.target && event.target.closest ? event.target.closest("[data-sheet-player-id]") : null
+  if (!button) return
+  openCharacterSheetFromMenuWithFallback(button.getAttribute("data-sheet-player-id"), event)
+}, true)
 
 function forceOpenSandboxFromClick() {
   try {
