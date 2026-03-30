@@ -17,469 +17,275 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig)
 firebase.database().goOnline()
 const db = firebase.database()
-const auth = typeof firebase.auth === "function" ? firebase.auth() : null
+const auth = null
+const SESSION_REF_PATH = "game/session"
 
-window.__authReady = false
-window.__authUid = null
-window.__authLoginStarted = false
-window.__authLoginPromise = null
-window.__authRole = null
-window.__authPlayerId = null
-window.__authRoleRef = null
-window.__authRoleCb = null
-window.__authProfileRef = null
-window.__authProfileCb = null
-window.__gmAuthBusy = false
-window.__playerAuthBusy = false
-
-function detachFirebaseAccessSync() {
-  if (window.__authRoleRef && window.__authRoleCb) {
-    window.__authRoleRef.off("value", window.__authRoleCb)
-  }
-  if (window.__authProfileRef && window.__authProfileCb) {
-    window.__authProfileRef.off("value", window.__authProfileCb)
-  }
-  window.__authRoleRef = null
-  window.__authRoleCb = null
-  window.__authProfileRef = null
-  window.__authProfileCb = null
-  window.__authRole = null
-  window.__authPlayerId = null
-}
-
-function syncFirebaseAccessForUser(uid) {
-  detachFirebaseAccessSync()
-  if (!uid) return
-
-  const roleRef = db.ref("roles/" + uid)
-  const roleCb = snap => {
-    const role = snap.val()
-    window.__authRole = typeof role === "string" ? role : null
-    if (window.__authRole === "gm" && !isGM) activateGM(true)
-  }
-
-  const profileRef = db.ref("profiles/" + uid + "/playerId")
-  const profileCb = snap => {
-    const playerId = snap.val()
-    window.__authPlayerId = typeof playerId === "string" ? playerId : null
-    updatePlayerAuthMenuState()
-    if (window.__authPlayerId) setTimeout(() => { tryAutoSelectAuthenticatedPlayer() }, 60)
-  }
-
-  window.__authRoleRef = roleRef
-  window.__authRoleCb = roleCb
-  window.__authProfileRef = profileRef
-  window.__authProfileCb = profileCb
-
-  roleRef.on("value", roleCb)
-  profileRef.on("value", profileCb)
-}
-
-function initFirebaseAnonymousAuth() {
-  if (!auth) return Promise.resolve(null)
-  if (window.__authLoginPromise) return window.__authLoginPromise
-
-  window.__authLoginPromise = new Promise(resolve => {
-    let resolved = false
-    const finish = user => {
-      if (resolved) return
-      resolved = true
-      resolve(user || null)
-    }
-
-    auth.onAuthStateChanged(user => {
-      window.__authReady = !!user
-      window.__authUid = user?.uid || null
-      syncFirebaseAccessForUser(window.__authUid)
-      if (user) finish(user)
-    }, error => {
-      console.warn("Firebase auth state error:", error)
-      detachFirebaseAccessSync()
-      finish(null)
-    })
-
-    if (auth.currentUser) {
-      window.__authReady = true
-      window.__authUid = auth.currentUser.uid
-      syncFirebaseAccessForUser(window.__authUid)
-      finish(auth.currentUser)
-      return
-    }
-
-    window.__authLoginStarted = true
-    auth.signInAnonymously().catch(error => {
-      console.warn("Firebase anonymous auth failed:", error)
-      finish(null)
-    })
-  })
-
-  return window.__authLoginPromise
-}
-
-function closeGMAuthModal() {
-  const modal = document.getElementById("gmAuthModal")
-  if (modal) modal.remove()
-  window.__gmAuthBusy = false
-}
-
-function showGMAuthMessage(message, isError = false) {
-  const feedback = document.getElementById("gmAuthFeedback")
-  if (!feedback) return
-  feedback.style.display = "block"
-  feedback.style.color = isError ? "#ff8a8a" : "#d6c28a"
-  feedback.innerText = message
-}
-
-function handleGMEmailPasswordAuth(mode) {
-  if (!auth || window.__gmAuthBusy) return
-  const emailEl = document.getElementById("gmAuthEmail")
-  const passwordEl = document.getElementById("gmAuthPassword")
-  if (!emailEl || !passwordEl) return
-
-  const email = String(emailEl.value || "").trim()
-  const password = String(passwordEl.value || "")
-  if (!email || !password) {
-    showGMAuthMessage("Email et mot de passe requis", true)
-    return
-  }
-
-  window.__gmAuthBusy = true
-  showGMAuthMessage(mode === "create" ? "CrÃ©ation du compte MJ..." : "Connexion MJ...")
-
-  const action = mode === "create"
-    ? auth.createUserWithEmailAndPassword(email, password)
-    : auth.signInWithEmailAndPassword(email, password)
-
-  action.then(cred => {
-    try { localStorage.setItem("rpg_gm_email", email) } catch (e) {}
-    const uid = cred?.user?.uid || window.__authUid || ""
-    if (mode === "create") {
-      showGMAuthMessage("Compte MJ crÃ©Ã©. UID : " + uid + " â€” pense Ã  lui donner le rÃ´le gm dans Firebase.")
-      showNotification("Compte MJ crÃ©Ã© â€” attribue le rÃ´le gm dans Firebase")
-    } else {
-      showGMAuthMessage("Connexion MJ rÃ©ussie")
-      showNotification("Connexion MJ rÃ©ussie")
-      setTimeout(() => {
-        if (window.__authRole === "gm") {
-          activateGM(true)
-          closeGMAuthModal()
-        } else {
-          showGMAuthMessage("Compte connectÃ©, mais rÃ´le gm non dÃ©tectÃ©. VÃ©rifie roles/<uid> = gm dans Firebase.", true)
-        }
-      }, 300)
-    }
-  }).catch(error => {
-    console.warn("GM auth error:", error)
-    showGMAuthMessage(error?.message || "Erreur d'authentification MJ", true)
-  }).finally(() => {
-    window.__gmAuthBusy = false
-  })
-}
-
-function showGMAuthModal() {
-  const existing = document.getElementById("gmAuthModal")
-  if (existing) existing.remove()
-
-  const overlay = document.createElement("div")
-  overlay.id = "gmAuthModal"
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;z-index:1000000006;"
-  overlay.addEventListener("mousedown", e => { if (e.target === overlay) closeGMAuthModal() })
-
-  const box = document.createElement("div")
-  box.style.cssText = "width:min(460px,90vw);background:linear-gradient(180deg,rgba(28,20,12,0.98),rgba(10,8,8,0.99));border:1px solid rgba(210,178,108,0.6);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,0.85);padding:24px 24px 20px 24px;color:#f5e6c8;font-family:Cinzel,serif;"
-  overlay.appendChild(box)
-
-  const title = document.createElement("div")
-  title.style.cssText = "font-family:'Cinzel Decorative','Cinzel',serif;font-size:26px;letter-spacing:3px;text-align:center;color:#f0d087;margin-bottom:10px;"
-  title.innerText = "Connexion MJ"
-  box.appendChild(title)
-
-  const sub = document.createElement("div")
-  sub.style.cssText = "font-size:13px;line-height:1.55;text-align:center;color:#d9c39a;margin-bottom:18px;"
-  sub.innerText = "Utilise un compte Firebase stable pour Ã©viter de remapper le rÃ´le gm Ã  chaque nouvelle session."
-  box.appendChild(sub)
-
-  const email = document.createElement("input")
-  email.id = "gmAuthEmail"
-  email.type = "email"
-  email.placeholder = "Email MJ"
-  email.autocomplete = "username"
-  email.style.cssText = "width:100%;padding:12px 14px;margin-bottom:10px;background:rgba(8,8,8,0.92);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"
-  try { email.value = localStorage.getItem("rpg_gm_email") || "" } catch (e) {}
-  box.appendChild(email)
-
-  const password = document.createElement("input")
-  password.id = "gmAuthPassword"
-  password.type = "password"
-  password.placeholder = "Mot de passe MJ"
-  password.autocomplete = "current-password"
-  password.style.cssText = "width:100%;padding:12px 14px;margin-bottom:14px;background:rgba(8,8,8,0.92);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"
-  box.appendChild(password)
-
-  const feedback = document.createElement("div")
-  feedback.id = "gmAuthFeedback"
-  feedback.style.cssText = "display:none;min-height:20px;margin-bottom:12px;font-size:12px;line-height:1.4;"
-  box.appendChild(feedback)
-
-  const row = document.createElement("div")
-  row.style.cssText = "display:flex;gap:10px;flex-wrap:wrap;justify-content:center;"
-  box.appendChild(row)
-
-  const loginBtn = document.createElement("button")
-  loginBtn.innerText = "Connexion"
-  loginBtn.style.cssText = "padding:10px 18px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;"
-  loginBtn.onclick = () => handleGMEmailPasswordAuth("login")
-  row.appendChild(loginBtn)
-
-  const createBtn = document.createElement("button")
-  createBtn.innerText = "CrÃ©er compte MJ"
-  createBtn.style.cssText = "padding:10px 18px;background:linear-gradient(#3b5b7a,#20354a);color:#dcecff;border:1px solid #7ea7c9;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;"
-  createBtn.onclick = () => handleGMEmailPasswordAuth("create")
-  row.appendChild(createBtn)
-
-  const cancelBtn = document.createElement("button")
-  cancelBtn.innerText = "Annuler"
-  cancelBtn.style.cssText = "padding:10px 18px;background:#222;color:#d0c4ae;border:1px solid #555;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;"
-  cancelBtn.onclick = closeGMAuthModal
-  row.appendChild(cancelBtn)
-
-  const hint = document.createElement("div")
-  hint.style.cssText = "margin-top:14px;font-size:11px;line-height:1.5;color:#b9a786;text-align:center;"
-  hint.innerText = "AprÃ¨s crÃ©ation du compte, ajoute une seule fois son UID dans Firebase : roles/<uid> = gm."
-  box.appendChild(hint)
-
-  password.addEventListener("keydown", e => {
-    if (e.key === "Enter") handleGMEmailPasswordAuth("login")
-  })
-  email.addEventListener("keydown", e => {
-    if (e.key === "Enter") password.focus()
-  })
-
-  document.body.appendChild(overlay)
-  setTimeout(() => email.focus(), 30)
-}
-
-function tryAutoSelectAuthenticatedPlayer() {
-  if (isGM || myToken || !window.__authPlayerId) return false
-  if (!gameStarted || gameState !== "GAME") return false
-  const token = document.getElementById(window.__authPlayerId)
-  if (!token) return false
-  choosePlayer(window.__authPlayerId)
-  return true
-}
+function closeGMAuthModal() {}
+function closePlayerAuthModal() {}
+function tryAutoSelectAuthenticatedPlayer() { return false }
 
 function updatePlayerAuthMenuState() {
   const status = document.getElementById("playerAuthStatus")
-  const choiceLabel = document.querySelector("#playerMenu .menuLabel:not(#playerAuthStatus)")
-  const choiceButtons = Array.from(document.querySelectorAll("#playerMenu .playerChoiceBtn"))
-  const authButton = document.querySelector("#playerMenu button[onclick=\"requestPlayerAuth()\"]")
-  const authPlayer = window.__authPlayerId
-
   if (status) {
-    if (authPlayer) {
-      status.style.display = "block"
-      status.innerText = "ConnectÃ© en tant que " + authPlayer.toUpperCase()
-    } else {
-      status.style.display = "none"
-      status.innerText = ""
-    }
+    status.style.display = "none"
+    status.innerText = ""
   }
-
-  if (authButton) authButton.innerText = authPlayer ? "ðŸ”‘ Reconnexion" : "ðŸ”‘ Connexion"
-  if (choiceLabel) choiceLabel.style.display = authPlayer ? "none" : "block"
-
-  choiceButtons.forEach(btn => {
-    const isAssigned = authPlayer && btn.dataset.playerChoice === authPlayer
-    btn.style.display = authPlayer ? (isAssigned ? "block" : "none") : "block"
-    btn.disabled = !!(authPlayer && !isAssigned)
-  })
-}
-
-function closePlayerAuthModal() {
-  const modal = document.getElementById("playerAuthModal")
-  if (modal) modal.remove()
-  window.__playerAuthBusy = false
-}
-
-function showPlayerAuthMessage(message, isError = false) {
-  const feedback = document.getElementById("playerAuthFeedback")
-  if (!feedback) return
-  feedback.style.display = "block"
-  feedback.style.color = isError ? "#ff9d9d" : "#d6c28a"
-  feedback.innerText = message
-}
-
-function handlePlayerEmailPasswordAuth(mode) {
-  if (!auth || window.__playerAuthBusy) return
-  const emailEl = document.getElementById("playerAuthEmail")
-  const passwordEl = document.getElementById("playerAuthPassword")
-  const playerEl = document.getElementById("playerAuthCharacter")
-  if (!emailEl || !passwordEl) return
-
-  const email = String(emailEl.value || "").trim()
-  const password = String(passwordEl.value || "")
-  const chosenPlayer = playerEl ? String(playerEl.value || "").trim().toLowerCase() : ""
-  if (!email || !password) {
-    showPlayerAuthMessage("Email et mot de passe requis", true)
-    return
-  }
-  if (mode === "create" && !chosenPlayer) {
-    showPlayerAuthMessage("Choisis un personnage pour crÃ©er le compte", true)
-    return
-  }
-
-  window.__playerAuthBusy = true
-  showPlayerAuthMessage(mode === "create" ? "CrÃ©ation du compte joueur..." : "Connexion joueur...")
-
-  const action = mode === "create"
-    ? auth.createUserWithEmailAndPassword(email, password)
-    : auth.signInWithEmailAndPassword(email, password)
-
-  action.then(cred => {
-    try { localStorage.setItem("rpg_player_email", email) } catch (e) {}
-    const uid = cred?.user?.uid || window.__authUid || ""
-    if (mode === "create") {
-      return db.ref("profiles/" + uid + "/playerId").set(chosenPlayer).then(() => {
-        showPlayerAuthMessage("Compte joueur crÃ©Ã© et liÃ© Ã  " + chosenPlayer.toUpperCase())
-        showNotification("Compte joueur crÃ©Ã© : " + chosenPlayer.toUpperCase())
-      })
-    }
-    showPlayerAuthMessage("Connexion joueur rÃ©ussie")
-    showNotification("Connexion joueur rÃ©ussie")
-    setTimeout(() => {
-      if (window.__authPlayerId) {
-        tryAutoSelectAuthenticatedPlayer()
-        closePlayerAuthModal()
-      } else {
-        showPlayerAuthMessage("Compte connectÃ©, mais aucun playerId n'est dÃ©fini dans profiles/<uid>/playerId.", true)
-      }
-    }, 300)
-    return null
-  }).catch(error => {
-    console.warn("Player auth error:", error)
-    showPlayerAuthMessage(error?.message || "Erreur d'authentification joueur", true)
-  }).finally(() => {
-    window.__playerAuthBusy = false
-  })
 }
 
 function showPlayerAuthModal() {
-  const existing = document.getElementById("playerAuthModal")
-  if (existing) existing.remove()
-
-  const overlay = document.createElement("div")
-  overlay.id = "playerAuthModal"
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;z-index:1000000006;"
-  overlay.addEventListener("mousedown", e => { if (e.target === overlay) closePlayerAuthModal() })
-
-  const box = document.createElement("div")
-  box.style.cssText = "width:min(460px,90vw);background:linear-gradient(180deg,rgba(18,20,30,0.98),rgba(8,8,12,0.99));border:1px solid rgba(120,160,210,0.6);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,0.85);padding:24px 24px 20px 24px;color:#f5e6c8;font-family:Cinzel,serif;"
-  overlay.appendChild(box)
-
-  const title = document.createElement("div")
-  title.style.cssText = "font-family:'Cinzel Decorative','Cinzel',serif;font-size:24px;letter-spacing:3px;text-align:center;color:#cfe2ff;margin-bottom:10px;"
-  title.innerText = "Connexion Joueur"
-  box.appendChild(title)
-
-  const sub = document.createElement("div")
-  sub.style.cssText = "font-size:13px;line-height:1.55;text-align:center;color:#c7d3e8;margin-bottom:18px;"
-  sub.innerText = "Un compte stable Ã©vite de reconfigurer ton personnage Ã  chaque nouvelle session."
-  box.appendChild(sub)
-
-  const email = document.createElement("input")
-  email.id = "playerAuthEmail"
-  email.type = "email"
-  email.placeholder = "Email joueur"
-  email.autocomplete = "username"
-  email.style.cssText = "width:100%;padding:12px 14px;margin-bottom:10px;background:rgba(8,8,8,0.92);border:1px solid rgba(120,160,210,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"
-  try { email.value = localStorage.getItem("rpg_player_email") || "" } catch (e) {}
-  box.appendChild(email)
-
-  const password = document.createElement("input")
-  password.id = "playerAuthPassword"
-  password.type = "password"
-  password.placeholder = "Mot de passe joueur"
-  password.autocomplete = "current-password"
-  password.style.cssText = "width:100%;padding:12px 14px;margin-bottom:10px;background:rgba(8,8,8,0.92);border:1px solid rgba(120,160,210,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"
-  box.appendChild(password)
-
-  const select = document.createElement("select")
-  select.id = "playerAuthCharacter"
-  select.style.cssText = "width:100%;padding:12px 14px;margin-bottom:14px;background:rgba(8,8,8,0.92);border:1px solid rgba(120,160,210,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"
-  ;[
-    { value:"", label:"Choisir un slot joueur" },
-    { value:"greg", label:(typeof getPlayerDisplayName === "function" ? getPlayerDisplayName("greg") : "Joueur 1") },
-    { value:"ju", label:(typeof getPlayerDisplayName === "function" ? getPlayerDisplayName("ju") : "Joueur 2") },
-    { value:"elo", label:(typeof getPlayerDisplayName === "function" ? getPlayerDisplayName("elo") : "Joueur 3") },
-    { value:"bibi", label:(typeof getPlayerDisplayName === "function" ? getPlayerDisplayName("bibi") : "Joueur 4") }
-  ].forEach(optData => {
-    const opt = document.createElement("option")
-    opt.value = optData.value
-    opt.innerText = optData.label
-    select.appendChild(opt)
-  })
-  box.appendChild(select)
-
-  const feedback = document.createElement("div")
-  feedback.id = "playerAuthFeedback"
-  feedback.style.cssText = "display:none;min-height:20px;margin-bottom:12px;font-size:12px;line-height:1.4;"
-  box.appendChild(feedback)
-
-  const row = document.createElement("div")
-  row.style.cssText = "display:flex;gap:10px;flex-wrap:wrap;justify-content:center;"
-  box.appendChild(row)
-
-  const loginBtn = document.createElement("button")
-  loginBtn.innerText = "Connexion"
-  loginBtn.style.cssText = "padding:10px 18px;background:linear-gradient(#4d6f96,#2d4561);color:#eef5ff;border:1px solid #89a9cf;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;"
-  loginBtn.onclick = () => handlePlayerEmailPasswordAuth("login")
-  row.appendChild(loginBtn)
-
-  const createBtn = document.createElement("button")
-  createBtn.innerText = "CrÃ©er compte joueur"
-  createBtn.style.cssText = "padding:10px 18px;background:linear-gradient(#3d5d44,#233526);color:#e8f4e0;border:1px solid #87aa86;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;"
-  createBtn.onclick = () => handlePlayerEmailPasswordAuth("create")
-  row.appendChild(createBtn)
-
-  const cancelBtn = document.createElement("button")
-  cancelBtn.innerText = "Annuler"
-  cancelBtn.style.cssText = "padding:10px 18px;background:#222;color:#d0c4ae;border:1px solid #555;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;"
-  cancelBtn.onclick = closePlayerAuthModal
-  row.appendChild(cancelBtn)
-
-  if (auth) {
-    const gmRow = document.createElement("div")
-    gmRow.style.cssText = "margin-top:14px;padding-top:14px;border-top:1px solid rgba(140,170,210,0.2);display:flex;justify-content:center;"
-    box.appendChild(gmRow)
-
-    const gmBtn = document.createElement("button")
-    gmBtn.innerText = "Connexion MJ"
-    gmBtn.style.cssText = "padding:10px 18px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;"
-    gmBtn.onclick = () => {
-      closePlayerAuthModal()
-      setTimeout(() => showGMAuthModal(), 20)
-    }
-    gmRow.appendChild(gmBtn)
-  }
-
-  document.body.appendChild(overlay)
-  setTimeout(() => email.focus(), 30)
+  requestPlayerAuth()
 }
 
 function requestPlayerAuth() {
-  if (window.__authRole === "gm") {
-    activateGM(true)
-    return
+  const select = document.getElementById("playerSelect")
+  if (select && select.style.display === "none") {
+    select.style.display = "block"
+    select.style.opacity = "1"
   }
-  if (window.__authPlayerId) {
-    if (tryAutoSelectAuthenticatedPlayer()) return
-    showNotification("Compte joueur dÃ©jÃ  connectÃ© : " + window.__authPlayerId.toUpperCase())
-    return
-  }
-  showPlayerAuthModal()
+  const menu = document.getElementById("playerMenu")
+  if (menu) menu.classList.add("open")
+  showNotification("Choisis un slot pour rejoindre la partie")
 }
 
-initFirebaseAnonymousAuth()
+function releaseLocalSessionSlot() {
+  if (isGM || !myToken) return
+  const slotId = myToken.id
+  const presenceId = getLocalPresenceId()
+  getSessionSlotRef(slotId).transaction(current => {
+    if (!current || current.claimedBy !== presenceId) return current
+    return { claimedBy: null, claimedAt: null }
+  })
+}
+
+function getLocalPresenceId() {
+  try {
+    let value = localStorage.getItem("rpg_presence_id")
+    if (!value) {
+      value = "p_" + Math.random().toString(36).slice(2, 10)
+      localStorage.setItem("rpg_presence_id", value)
+    }
+    return value
+  } catch (e) {
+    if (!window.__fallbackPresenceId) window.__fallbackPresenceId = "p_" + Math.random().toString(36).slice(2, 10)
+    return window.__fallbackPresenceId
+  }
+}
+
+function getSessionSlotRef(slotId) {
+  return db.ref(SESSION_REF_PATH + "/slots/" + slotId)
+}
+
+function generateJoinCode() {
+  return Math.random().toString(36).slice(2, 6).toUpperCase() + "-" + Math.random().toString(36).slice(2, 6).toUpperCase()
+}
+
+function getCurrentSandboxSummary() {
+  if (typeof getSandboxSummary === "function") return getSandboxSummary()
+  const customization = typeof getCustomization === "function" ? getCustomization() : null
+  const project = customization && customization.project ? customization.project : {}
+  return {
+    title: String(project.title || "Roleplay It Yourself").trim() || "Roleplay It Yourself",
+    theme: String(project.theme || "medieval_fantasy"),
+    playerCount: Math.max(1, Math.min(12, parseInt(project.playerCount, 10) || 4))
+  }
+}
+
+function buildSessionSlots(playerCount) {
+  const slots = {}
+  ;["greg", "ju", "elo", "bibi"].slice(0, playerCount).forEach(slotId => {
+    slots[slotId] = { claimedBy: null, claimedAt: null }
+  })
+  return slots
+}
+
+function exportSandbox(label) {
+  if (typeof createSandboxExport !== "function") {
+    showNotification("Export indisponible")
+    return null
+  }
+  const exportEntry = createSandboxExport(typeof getCustomization === "function" ? getCustomization() : null, label)
+  const summary = exportEntry && exportEntry.summary ? exportEntry.summary : getCurrentSandboxSummary()
+  showNotification("Version jouable exportee")
+  return {
+    ...exportEntry,
+    summary
+  }
+}
+
+function launchSessionFromExport(exportEntry) {
+  if (!exportEntry || !exportEntry.id) {
+    showNotification("Aucun export jouable disponible")
+    return
+  }
+  const summary = exportEntry.summary || getCurrentSandboxSummary()
+  const joinCode = generateJoinCode()
+  const sessionData = {
+    exportId: exportEntry.id,
+    exportLabel: String(exportEntry.label || "Version jouable"),
+    exportCreatedAt: Number(exportEntry.createdAt) || Date.now(),
+    exportSnapshot: exportEntry.sandbox || (typeof createSandboxSnapshot === "function" ? createSandboxSnapshot() : null),
+    joinCode,
+    title: summary.title,
+    theme: summary.theme,
+    playerCount: summary.playerCount,
+    status: "lobby",
+    createdAt: Date.now()
+  }
+
+  db.ref(SESSION_REF_PATH).set({ ...sessionData, slots: buildSessionSlots(summary.playerCount) }).then(() => {
+    try { localStorage.setItem("rpg_last_join_code", joinCode) } catch (e) {}
+    showNotification("Partie lancee : " + joinCode)
+    openSessionLobbyOverlay(sessionData)
+  }).catch(error => {
+    console.warn("launchSessionFromExport failed:", error)
+    showNotification("Impossible de lancer la partie")
+  })
+}
+
+function launchSessionFromLatestExport() {
+  const latestExport = typeof getLatestSandboxExport === "function" ? getLatestSandboxExport() : null
+  if (latestExport) {
+    launchSessionFromExport(latestExport)
+    return
+  }
+  const freshExport = exportSandbox()
+  if (freshExport) launchSessionFromExport(freshExport)
+}
+
+function refreshSessionSlotAvailability() {
+  db.ref(SESSION_REF_PATH + "/slots").once("value", snap => {
+    const slots = snap.val() || {}
+    const presenceId = getLocalPresenceId()
+    document.querySelectorAll("#playerMenu .playerChoiceBtn").forEach(btn => {
+      const slotState = slots[btn.dataset.playerChoice] || null
+      const occupiedByOther = !!(slotState && slotState.claimedBy && slotState.claimedBy !== presenceId)
+      btn.disabled = occupiedByOther
+      btn.style.opacity = occupiedByOther ? "0.45" : "1"
+      btn.title = occupiedByOther ? "Slot deja pris" : ""
+    })
+  })
+}
+
+function openSessionLobbyOverlay(sessionData) {
+  const existing = document.getElementById("sessionLobbyOverlay")
+  if (existing) existing.remove()
+  const overlay = document.createElement("div")
+  overlay.id = "sessionLobbyOverlay"
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.84);display:flex;align-items:center;justify-content:center;z-index:1000000200;padding:18px;"
+  overlay.addEventListener("mousedown", event => { if (event.target === overlay) overlay.remove() })
+
+  const panel = document.createElement("div")
+  panel.style.cssText = "width:min(760px,94vw);max-height:90vh;overflow:auto;padding:24px;border-radius:18px;background:linear-gradient(180deg,rgba(18,14,10,0.98),rgba(7,7,7,0.98));border:1px solid rgba(214,180,106,0.42);box-shadow:0 24px 60px rgba(0,0,0,0.78);color:#f3e7cf;font-family:Cinzel,serif;"
+  panel.innerHTML = `
+    <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:18px;">
+      <div>
+        <div style="font-size:26px;letter-spacing:2px;color:#f0d087;">Partie prete</div>
+        <div style="font-size:13px;line-height:1.6;color:#cdbb96;margin-top:8px;">Partage ce code avec les joueurs pour qu'ils rejoignent la session.</div>
+      </div>
+      <button type="button" id="sessionLobbyClose" style="padding:10px 14px;background:#222;color:#f3e7cf;border:1px solid #555;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Fermer</button>
+    </div>
+    <div style="display:grid;gap:14px;">
+      <div style="padding:18px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid rgba(214,180,106,0.22);">
+        <div style="font-size:12px;letter-spacing:2px;color:#cdbb96;">CODE DE PARTIE</div>
+        <div id="sessionLobbyCode" style="margin-top:8px;font-size:36px;letter-spacing:4px;color:#f5e6c8;">${String(sessionData.joinCode || "")}</div>
+        <div style="margin-top:10px;font-size:12px;color:#bfae8b;">${String(sessionData.title || "Board")} · ${String(sessionData.playerCount || 4)} joueurs</div>
+        <div style="margin-top:6px;font-size:11px;color:#97886c;">${String(sessionData.exportLabel || "Version jouable")}</div>
+      </div>
+      <div id="sessionLobbySlots" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;"></div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;">
+        <button type="button" id="sessionLobbyCopy" style="padding:10px 14px;background:rgba(15,40,56,0.72);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Copier le code</button>
+        <button type="button" id="sessionLobbyBoard" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ouvrir le board</button>
+      </div>
+    </div>
+  `
+  overlay.appendChild(panel)
+  document.body.appendChild(overlay)
+
+  document.getElementById("sessionLobbyClose").onclick = () => overlay.remove()
+  document.getElementById("sessionLobbyBoard").onclick = () => overlay.remove()
+  document.getElementById("sessionLobbyCopy").onclick = async () => {
+    try {
+      if (navigator.clipboard && sessionData.joinCode) await navigator.clipboard.writeText(sessionData.joinCode)
+      showNotification("Code copie")
+    } catch (e) {
+      showNotification("Code : " + sessionData.joinCode)
+    }
+  }
+
+  const renderSlots = slots => {
+    const wrap = document.getElementById("sessionLobbySlots")
+    if (!wrap) return
+    const names = ["greg", "ju", "elo", "bibi"]
+    wrap.innerHTML = names.slice(0, sessionData.playerCount || 4).map(slotId => {
+      const slot = slots && slots[slotId] ? slots[slotId] : null
+      const occupied = !!(slot && slot.claimedBy)
+      return `<div style="padding:12px;border-radius:12px;background:rgba(0,0,0,0.18);border:1px solid rgba(214,180,106,0.18);">
+        <div style="font-size:11px;letter-spacing:2px;color:#bfae8b;">${slotId.toUpperCase()}</div>
+        <div style="margin-top:6px;font-size:15px;color:#f5e6c8;">${occupied ? "Pris" : "Libre"}</div>
+      </div>`
+    }).join("")
+  }
+
+  db.ref(SESSION_REF_PATH + "/slots").on("value", snap => renderSlots(snap.val() || {}))
+}
+
+function launchSessionFromSandbox() {
+  const freshExport = exportSandbox()
+  if (freshExport) launchSessionFromExport(freshExport)
+}
+
+function openJoinSessionOverlay() {
+  const existing = document.getElementById("joinSessionOverlay")
+  if (existing) existing.remove()
+  const overlay = document.createElement("div")
+  overlay.id = "joinSessionOverlay"
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.84);display:flex;align-items:center;justify-content:center;z-index:1000000200;padding:18px;"
+  overlay.addEventListener("mousedown", event => { if (event.target === overlay) overlay.remove() })
+
+  const panel = document.createElement("div")
+  panel.style.cssText = "width:min(520px,92vw);padding:24px;border-radius:18px;background:linear-gradient(180deg,rgba(18,14,10,0.98),rgba(7,7,7,0.98));border:1px solid rgba(214,180,106,0.42);box-shadow:0 24px 60px rgba(0,0,0,0.78);color:#f3e7cf;font-family:Cinzel,serif;"
+  panel.innerHTML = `
+    <div style="font-size:24px;letter-spacing:2px;color:#f0d087;">Rejoindre une partie</div>
+    <div style="margin-top:8px;font-size:13px;line-height:1.6;color:#cdbb96;">Entre le code donne par le MJ pour ouvrir les slots joueurs.</div>
+    <label style="display:grid;gap:6px;margin-top:18px;">
+      <span style="font-size:12px;color:#bfae8b;">Code de partie</span>
+      <input id="joinSessionCodeInput" type="text" placeholder="Ex : A1B2-C3D4" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:16px;box-sizing:border-box;text-transform:uppercase;">
+    </label>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px;">
+      <button type="button" id="joinSessionCancel" style="padding:10px 14px;background:#222;color:#f3e7cf;border:1px solid #555;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Fermer</button>
+      <button type="button" id="joinSessionConfirm" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Rejoindre</button>
+    </div>
+  `
+  overlay.appendChild(panel)
+  document.body.appendChild(overlay)
+  document.getElementById("joinSessionCancel").onclick = () => overlay.remove()
+  const input = document.getElementById("joinSessionCodeInput")
+  try { input.value = localStorage.getItem("rpg_last_join_code") || "" } catch (e) {}
+  document.getElementById("joinSessionConfirm").onclick = () => {
+    const code = String(input.value || "").trim().toUpperCase()
+    if (!code) {
+      showNotification("Entre un code de partie")
+      return
+    }
+    db.ref(SESSION_REF_PATH).once("value", snap => {
+      const session = snap.val()
+      if (!session || String(session.joinCode || "").toUpperCase() !== code) {
+        showNotification("Code invalide")
+        return
+      }
+      window.__activeJoinCode = code
+      try { localStorage.setItem("rpg_last_join_code", code) } catch (e) {}
+      overlay.remove()
+      requestPlayerAuth()
+      refreshSessionSlotAvailability()
+      showNotification("Partie rejointe")
+    })
+  }
+  input.addEventListener("keydown", event => {
+    if (event.key === "Enter") document.getElementById("joinSessionConfirm").click()
+  })
+  setTimeout(() => input.focus(), 20)
+}
 
 window.groupMadness = 0
 window.groupMadnessTier = 0
@@ -502,15 +308,7 @@ window.__lastShopEventSignature = null
 window.__lastOpenedShopTime = null
 window.__lastPublishedCameraZoom = null
 
-const MAP_LORE_BOOK_MAPS = [
-  "taverne.jpg",
-  "tavernebrume.png",
-  "palaisville.jpg",
-  "mairemaison.jpg",
-  "marche.jpg",
-  "marche1.jpg",
-  "interieurmine.jpg"
-]
+const MAP_LORE_BOOK_MAPS = []
 
 const MAP_LORE_BOOK_IMAGES = ["livre.png", "livre1.png", "livre2.png"]
 
@@ -612,7 +410,7 @@ function applyMapLoreBookReward(entry, playerId) {
     const current = parseInt(snap.val(), 10) || 0
     db.ref(path).set(current + reward.amount)
   })
-  showNotification("ðŸ“– " + playerId.toUpperCase() + " gagne +" + reward.amount + " " + reward.label)
+  showNotification(playerId.toUpperCase() + " gagne +" + reward.amount + " " + reward.label)
 }
 
 function getLocalPlayerId() {
@@ -1757,7 +1555,8 @@ db.ref("game/map").on("value", snap => {
   }, 1200)
 
   setTimeout(() => {
-    if (mapNames[mapName]) showLocation(mapNames[mapName])
+    const displayName = getMapDisplayLabel(mapName)
+    if (displayName) showLocation(displayName)
     if (isGM && !auroraActive && Math.random() < 0.03) triggerAurora()
     if (isGM && mapName === "cimetiere.jpg" && !cemeteryEventDone) setTimeout(() => triggerCemeteryEvent(), 1500)
   }, 2200)
@@ -1782,7 +1581,7 @@ db.ref("game/newGame").on("value", snap => {
   stopAllMusic()
   setGameState("MENU")
   startIntro()
-  showNotification("ðŸ†• Nouvelle partie lancÃ©e par le MJ")
+  showNotification("Nouvelle partie lancee par le MJ")
 })
 
 // â”€â”€â”€ groupMadness â€” jauge folie du groupe â”€â”€â”€
@@ -2252,7 +2051,7 @@ db.ref("game/playerDeath").on("value", snap => {
       skull.innerText = "ðŸ’€"; tok.appendChild(skull)
     }
   }
-  showNotification("ðŸ’€ " + pid.toUpperCase() + " est tombÃ© !")
+  showNotification(pid.toUpperCase() + " est tombe !")
   const snd = new Audio("audio/defaite.mp3"); setManagedAudioBaseVolume(snd, 0.6); snd.play().catch(() => {})
   screenShakeHard()
   if (!isGM && getLocalPlayerId() === String(pid || "").toLowerCase()) triggerLocalDefeat("playerDeath")
@@ -2262,7 +2061,7 @@ db.ref("game/playerDeath").on("value", snap => {
       if (!document.getElementById("revive_" + pid)) {
         const revBtn = document.createElement("button"); revBtn.id = "revive_" + pid
       revBtn.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:99999;padding:10px 24px;font-family:'Cinzel Decorative',serif;font-size:13px;background:linear-gradient(rgba(0,80,0,0.8),rgba(0,40,0,0.8));color:#88ff88;border:2px solid rgba(50,180,50,0.6);border-radius:6px;cursor:pointer;letter-spacing:2px;animation:bifrostPulse 1.5s ease-in-out infinite alternate;"
-      revBtn.innerText = "âœ¦ Ressusciter " + pid.toUpperCase()
+      revBtn.innerText = "Ressusciter " + pid.toUpperCase()
       revBtn.onclick = () => { revivePlayer(pid); revBtn.remove() }
       document.body.appendChild(revBtn)
     }
@@ -2473,7 +2272,11 @@ db.ref("game/mapAudio").on("value", snap => {
     if (musicFadeInterval) { clearInterval(musicFadeInterval); musicFadeInterval = null }
     stopAllMusic()
     setTimeout(() => {
-      crossfadeMusic("" + data.file + ".mp3")
+      const audioFile = String(data.file || "")
+      const resolvedAudio = /^(https?:|data:|blob:|\/|audio\/)/i.test(audioFile) || /\.[a-z0-9]{2,5}$/i.test(audioFile)
+        ? audioFile
+        : (audioFile ? "audio/" + audioFile + ".mp3" : "")
+      if (resolvedAudio) crossfadeMusic(resolvedAudio)
       _state._pendingMapAudio = false
     }, 300)
   }, 1400)
@@ -2543,13 +2346,13 @@ function updateTokenStats(id) {
     const maxHP   = getMaxHP(id, lvl)
     const hpColor = hp > maxHP * 0.6 ? "#3cff6b" : hp > maxHP * 0.3 ? "#ffb347" : "#ff4040"
     let curseIcons = "", powerIcon = ""
-    for (let i = 0; i < curse; i++) curseIcons += "â˜ "
-    powerIcon = corruption >= 10 ? "âœ¨" : ""
+    for (let i = 0; i < curse; i++) curseIcons += "?"
+    powerIcon = corruption >= 10 ? "?" : ""
 
     stats.innerHTML = `
-      <div class="powerText">â­ Niv ${lvl}</div>
-      <div class="hpText" style="color:${hpColor}">â¤ï¸ ${hp}/${maxHP}</div>
-      ${weight > 0 ? `<div class="weightText">ðŸŽ’ ${weight}</div>` : ""}
+      <div class="powerText">? Niv ${lvl}</div>
+      <div class="hpText" style="color:${hpColor}">? ${hp}/${maxHP}</div>
+      ${weight > 0 ? `<div class="weightText">?? ${weight}</div>` : ""}
       ${curseIcons ? `<div class="curseText">${curseIcons}</div>` : ""}
       ${powerIcon  ? `<div class="powerText">${powerIcon}</div>` : ""}
     `
@@ -2669,8 +2472,8 @@ function watchCharacter(snapshot) {
 }
 
 function triggerLevelUp(playerID) {
-  showNotification("âœ¨ " + playerID.toUpperCase() + " LEVEL UP !")
-  addMJLog("â­ " + playerID.toUpperCase() + " LEVEL UP")
+  showNotification(playerID.toUpperCase() + " LEVEL UP !")
+  addMJLog(playerID.toUpperCase() + " LEVEL UP")
   showLevelUpEffect(playerID)
   showLevelUpText(playerID)
   playSound("levelUpSound")
@@ -2685,8 +2488,8 @@ function updateGMStats(playerID, data) {
   const box = document.getElementById("gmStats_" + playerID)
   if (!box) return
   let curseIcons = ""
-  for (let i = 0; i < (data.curse || 0); i++) curseIcons += "â˜ "
-  box.innerHTML = `<div class="gmMiniHPText">â¤ï¸ ${data.hp || 0}</div><div class="gmMiniCurse">${curseIcons}</div><div class="gmMiniPower">${(data.corruption || 0) >= 10 ? "âœ¨" : ""}</div>`
+  for (let i = 0; i < (data.curse || 0); i++) curseIcons += "?"
+  box.innerHTML = `<div class="gmMiniHPText">? ${data.hp || 0}</div><div class="gmMiniCurse">${curseIcons}</div><div class="gmMiniPower">${(data.corruption || 0) >= 10 ? "?" : ""}</div>`
 }
 
 function getPartyLevel(callback) {
@@ -2783,7 +2586,7 @@ function revivePlayer(playerId) {
     const skull = document.getElementById("skull_" + playerId)
     if (skull) skull.remove()
   }
-  showNotification("ðŸ’« " + playerId.toUpperCase() + " revient Ã  la vie !")
+  showNotification(playerId.toUpperCase() + " revient a la vie !")
   db.ref("game/playerRevive").set({ player: playerId, time: Date.now() })
 }
 
@@ -2820,7 +2623,7 @@ function giveXP(amount) {
     })
   })
   showXPMessage(amount)
-  addMJLog("â­ MJ donne " + amount + " XP au groupe")
+  addMJLog("? MJ donne " + amount + " XP au groupe")
 }
 
 /* ========================= */
@@ -2828,66 +2631,7 @@ function giveXP(amount) {
 /* ========================= */
 
 function saveGame() {
-  if (!isGM) return
-  const saveName = prompt("Nom du projet :", "Projet " + new Date().toLocaleDateString("fr-FR"))
-  if (!saveName) return
-
-  // Toutes les clÃ©s nÃ©cessaires pour une reprise complÃ¨te
-  const keys = [
-    "characters",
-    "tokens",
-    "elements",
-    "game/map",
-    "game/wantedPosters",
-    "game/wantedOpen",
-    "game/runeChallenge",
-    "game/mapLoreBook",
-    "game/readLoreBooks",
-    "game/storyImage",
-    "game/storyImage2",
-    "game/storyImage3"
-  ]
-
-  const data = { _saveName: saveName, _saveDate: new Date().toLocaleString("fr-FR") }
-  if (typeof getCustomization === "function") {
-    data.customization = getCustomization()
-  }
-  let pending = keys.length
-
-  keys.forEach(key => {
-    db.ref(key).once("value", snap => {
-      const val = snap.val()
-      if (val !== null) {
-        const parts = key.split("/")
-        if (parts.length === 1) {
-          data[key] = val
-        } else {
-          if (!data[parts[0]]) data[parts[0]] = {}
-          data[parts[0]][parts[1]] = val
-        }
-      }
-      pending--
-      if (pending === 0) {
-        // Sauvegarde Firebase (source principale)
-        db.ref("studioProjects/" + saveName).set(data).then(() => {
-          showNotification("Projet sauvegarde : " + saveName)
-          addMJLog("Projet sauvegarde : " + saveName)
-        }).catch(e => {
-          showNotification("âš  Erreur sauvegarde Firebase")
-          console.error("Save error Firebase:", e)
-        })
-        // Sauvegarde localStorage (copie de secours locale)
-        try {
-          const saves = parseLocalStorageJSON("rpg_studio_projects", {})
-          saves[saveName] = data
-          localStorage.setItem("rpg_studio_projects", JSON.stringify(saves))
-          localStorage.setItem("rpg_studio_project",  JSON.stringify(data))
-        } catch(e) {
-          console.warn("localStorage save failed:", e)
-        }
-      }
-    })
-  })
+  showNotification("Les anciennes sauvegardes ont ete retirees")
 }
 
 function _applyLoadData(data, callback) {
@@ -2993,7 +2737,7 @@ function _applyLoadData(data, callback) {
 
     if (failed.length) {
       console.error("Load error:", failed)
-      showNotification("âš  Erreur chargement: " + failed.map(f => f.label).join(", "))
+      showNotification("Erreur chargement: " + failed.map(f => f.label).join(", "))
       return
     }
     if (typeof applyCustomizationToUI === "function") {
@@ -3003,103 +2747,23 @@ function _applyLoadData(data, callback) {
   })
 }
 
-function loadGame() {
-  // Chercher le dernier projet studio dans Firebase, fallback localStorage
-  db.ref("studioProjects").orderByChild("_saveDate").limitToLast(1).once("value", snap => {
-    let data = null
-    snap.forEach(child => { data = child.val() })
-    if (!data) {
-      // Fallback localStorage
-      const raw = localStorage.getItem("rpg_studio_project")
-      if (!raw) { showNotification("Aucun projet"); return }
-      try { data = JSON.parse(raw) } catch(e) { showNotification("Projet corrompu"); return }
-    }
-    if (!data.characters && !data.tokens) { showNotification("Projet vide"); return }
-    _applyLoadData(data, () => {
-    combatActive = false
-    combatStarting = false
-    resetMadnessPresentation()
-    if (typeof resetAuroraPresentation === "function") resetAuroraPresentation()
-    db.ref("events/aurora").remove()
-    ;[
-      "mobAttackPanel",
-      "allyPNJPanel",
-      "allyViewerPanel",
-      "runeChallengeOverlay",
-      "spellMiniGame",
-      "curseIntroScreen",
-      "curseWheelScreen",
-      "documentOverlay"
-    ].forEach(id => {
-      const el = document.getElementById(id)
-      if (el) el.remove()
-    })
-    const combatArena = document.getElementById("combatArena"); if (combatArena) combatArena.style.display = "none"
-    const combatGrid = document.getElementById("combatGrid"); if (combatGrid) combatGrid.style.display = "none"
-    const combatFilter = document.getElementById("combatFilter"); if (combatFilter) combatFilter.style.display = "none"
-    const defeatScreen = document.getElementById("defeatScreen"); if (defeatScreen) defeatScreen.style.display = "none"
-    const fade = document.getElementById("fadeScreen"); if (fade) { fade.style.opacity = "0"; fade.style.pointerEvents = "none" }
-    updateMadnessVisibility()
-    updateThuumButton()
-    showNotification("Projet charge")
-    }) // fin _applyLoadData
-  }) // fin Firebase once
-}
-
-function loadSave(saveName) {
-  // Chercher dans Firebase en priorite, fallback localStorage
-  db.ref("studioProjects/" + saveName).once("value", snap => {
-    let data = snap.val()
-    if (!data) {
-      const saves = parseLocalStorageJSON("rpg_studio_projects", {})
-      data = saves[saveName]
-    }
-    if (!data) { showNotification("Projet introuvable"); return }
-    _applyLoadData(data, () => {
-    combatActive = false
-    combatStarting = false
-    resetMadnessPresentation()
-    if (typeof resetAuroraPresentation === "function") resetAuroraPresentation()
-    ;[
-      "mobAttackPanel",
-      "allyPNJPanel",
-      "allyViewerPanel",
-      "runeChallengeOverlay",
-      "spellMiniGame",
-      "curseIntroScreen",
-      "curseWheelScreen",
-      "documentOverlay"
-    ].forEach(id => {
-      const el = document.getElementById(id)
-      if (el) el.remove()
-    })
-    const combatArena = document.getElementById("combatArena"); if (combatArena) combatArena.style.display = "none"
-    const combatGrid = document.getElementById("combatGrid"); if (combatGrid) combatGrid.style.display = "none"
-    const combatFilter = document.getElementById("combatFilter"); if (combatFilter) combatFilter.style.display = "none"
-    const defeatScreen = document.getElementById("defeatScreen"); if (defeatScreen) defeatScreen.style.display = "none"
-    const fade = document.getElementById("fadeScreen"); if (fade) { fade.style.opacity = "0"; fade.style.pointerEvents = "none" }
-    updateMadnessVisibility()
-    updateThuumButton()
-    const panel = document.getElementById("savePanel"); if (panel) panel.remove()
-    showNotification("Projet charge : " + saveName)
-    addMJLog("Projet charge : " + saveName)
-    }) // fin _applyLoadData
-  }) // fin Firebase once
-}
-
-function deleteSave(saveName) {
-  if (!confirm("Supprimer ce projet ?")) return
-  // Supprimer dans Firebase
-  db.ref("studioProjects/" + saveName).remove().catch(e => console.warn("Delete Firebase save error:", e))
-  // Supprimer dans localStorage
-  const saves = parseLocalStorageJSON("rpg_studio_projects", {})
-  delete saves[saveName]
-  localStorage.setItem("rpg_studio_projects", JSON.stringify(saves))
-  showSaveMenu()
+function openSandboxAfterProjectCreation(message) {
+  if (window.__sandboxLaunchWatchdog) {
+    clearTimeout(window.__sandboxLaunchWatchdog)
+    window.__sandboxLaunchWatchdog = null
+  }
+  window.__startInSandboxMode = false
+  if (typeof setBuilderShellVisible === "function") setBuilderShellVisible(false)
+  if (!gameStarted) gameStarted = true
+  hideIntroLayers()
+  sanitizeLegacySandboxUI()
+  showTavern()
+  activateGM(true)
+  if (typeof showNotification === "function") showNotification(message || "Bac a sable MJ pret")
 }
 
 function newGame() {
-  if (!confirm("Creer un nouveau projet vide ? Le projet courant sera reinitialise.")) return
+  if (!window.__startInSandboxMode && !confirm("Creer un nouveau bac a sable vide ? Le contenu courant sera reinitialise.")) return
 
   // Attendre que Firebase Auth soit prÃªte avant d'Ã©crire
   const doReset = () => {
@@ -3263,9 +2927,13 @@ function newGame() {
       if (failed.length) {
         console.error("newGame reset failed", failed)
         finalizeNewGameLocally()
-        showNotification("Mode local actif : projet cree sans synchronisation Firebase")
-        setGameState("MENU")
-        startIntro()
+        if (window.__startInSandboxMode) {
+          openSandboxAfterProjectCreation("Mode local actif : bac a sable MJ pret")
+        } else {
+          showNotification("Mode local actif : bac a sable cree sans synchronisation Firebase")
+          setGameState("MENU")
+          startIntro()
+        }
         return
       }
 
@@ -3273,14 +2941,19 @@ function newGame() {
         if (readbackFailed.length) {
           console.error("newGame reset readback mismatch", readbackFailed)
           finalizeNewGameLocally()
-          showNotification("Mode local actif : verification Firebase ignoree")
-          setGameState("MENU")
-          startIntro()
+          if (window.__startInSandboxMode) {
+            openSandboxAfterProjectCreation("Mode local actif : verification ignoree, bac a sable MJ pret")
+          } else {
+            showNotification("Mode local actif : verification Firebase ignoree")
+            setGameState("MENU")
+            startIntro()
+          }
           return
         }
 
         // Nettoyage en arriÃ¨re-plan (non bloquant)
         ;[
+          db.ref(SESSION_REF_PATH).remove(),
           db.ref("elements").remove(),
           db.ref("combat").remove(),
           db.ref("diceRoll").remove(),
@@ -3316,10 +2989,14 @@ function newGame() {
         ].forEach(p => p.catch(() => {}))
 
         finalizeNewGameLocally()
-        showNotification("Nouveau projet vide")
-        addMJLog("Nouveau projet initialise")
-        setGameState("MENU")
-        startIntro()
+        addMJLog("Nouveau bac a sable initialise")
+        if (window.__startInSandboxMode) {
+          openSandboxAfterProjectCreation("Nouveau bac a sable vide")
+        } else {
+          showNotification("Nouveau bac a sable vide")
+          setGameState("MENU")
+          startIntro()
+        }
       })
     })
   } // fin doReset
@@ -3337,7 +3014,7 @@ function resetAllPlayerStats() {
       const update = { lvl, hp: computed.hp, poids: computed.poids }
       allStats.forEach(s => { update[s] = computed[s] })
       db.ref("characters/" + pid).update(update)
-      showNotification("âœ“ Stats " + pid + " rÃ©initialisÃ©es (lvl " + lvl + ")")
+      showNotification("Stats " + pid + " reinitialisees (lvl " + lvl + ")")
     })
   })
 }
@@ -3369,8 +3046,8 @@ function toggleDiceBar(forceState) {
   if (!bar || !toggle) return
   const collapsed = typeof forceState === "boolean" ? forceState : !bar.classList.contains("collapsed")
   bar.classList.toggle("collapsed", collapsed)
-  toggle.innerText = collapsed ? "â–´" : "â–¾"
-  toggle.setAttribute("aria-label", collapsed ? "DÃ©plier les dÃ©s" : "Replier les dÃ©s")
+  toggle.innerText = collapsed ? "?" : "?"
+  toggle.setAttribute("aria-label", collapsed ? "Deplier les des" : "Replier les des")
 }
 
 function mobRoll(max) {
@@ -3421,7 +3098,7 @@ function showDiceAnimation(playerName, max, final) {
   const safeName = String(playerName).replace(/</g, "&lt;").replace(/>/g, "&gt;")
   const { cube, label, resLabel } = _buildDice3D(resultBox)
 
-  label.textContent = safeName + " â€” d" + max
+  label.textContent = safeName + " — d" + max
   resLabel.textContent = ""
   resultBox.style.opacity = 1
 
@@ -3449,13 +3126,13 @@ function showDiceAnimation(playerName, max, final) {
 
       if (final === max) {
         resultBox.classList.add("crit")
-        resLabel.textContent = "âœ¦ " + final + " âœ¦"
+        resLabel.textContent = "? " + final + " ?"
         playSound("critSound"); screenShake(); flashGold()
         tryRuneEventOnDice()
         if (playerName !== "MJ" && playerName !== "MOB") {
           db.ref("characters/" + playerName + "/corruption").once("value", snap => {
             db.ref("characters/" + playerName + "/corruption").set(Math.min(10, (parseInt(snap.val()) || 0) + 1))
-            showNotification("âœ¨ " + playerName.toUpperCase() + " gagne 1 point de Pouvoir !")
+            showNotification("? " + playerName.toUpperCase() + " gagne 1 point de Pouvoir !")
           })
         }
       }
@@ -3467,7 +3144,7 @@ function showDiceAnimation(playerName, max, final) {
         if (playerName !== "MJ" && playerName !== "MOB") {
           db.ref("characters/" + playerName + "/curse").once("value", snap => {
             db.ref("characters/" + playerName + "/curse").set(Math.min(8, (parseInt(snap.val()) || 0) + 1))
-            showNotification("â˜  " + playerName.toUpperCase() + " gagne 1 point de MalÃ©diction !")
+            showNotification("? " + playerName.toUpperCase() + " gagne 1 point de Malediction !")
           })
         }
       }
@@ -3505,7 +3182,277 @@ function rollStat(stat) {
 /* GAME STATE                */
 /* ========================= */
 
+function buildLegacyPanelPlaceholder(title, body) {
+  return (
+    `<div style="padding:14px 12px;text-align:center;font-family:Cinzel,serif;">` +
+      `<div style="font-size:14px;letter-spacing:2px;color:#e6c27a;margin-bottom:8px;">${title}</div>` +
+      `<div style="font-size:12px;line-height:1.5;color:rgba(255,240,210,0.82);">${body}</div>` +
+    `</div>`
+  )
+}
+
+function getSandboxContentItems(type) {
+  try {
+    if (typeof getCustomization !== "function") return []
+    const data = getCustomization()
+    const content = data && data.content ? data.content : {}
+    if (type === "map") return content.maps || []
+    if (type === "pnj") return content.pnjs || []
+    if (type === "mob") return content.mobs || []
+    if (type === "document") return content.documents || []
+  } catch (_) {}
+  return []
+}
+
+function getSandboxCollectionInfo(type) {
+  const map = {
+    map: { key: "maps", label: "map" },
+    pnj: { key: "pnjs", label: "PNJ" },
+    mob: { key: "mobs", label: "mob" },
+    document: { key: "documents", label: "document" }
+  }
+  return map[String(type || "").toLowerCase()] || null
+}
+
+function updateSandboxCustomization(mutator) {
+  try {
+    if (typeof getCustomization !== "function" || typeof saveCustomization !== "function") return false
+    const next = getCustomization()
+    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+    mutator(next)
+    saveCustomization(next)
+    if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
+    if (typeof renderNativeStudioContentList === "function") renderNativeStudioContentList()
+    sanitizeLegacySandboxUI()
+    return true
+  } catch (error) {
+    console.warn("updateSandboxCustomization failed:", error)
+    return false
+  }
+}
+
+function findCustomMapEntry(mapName) {
+  try {
+    const maps = getSandboxContentItems("map")
+    return maps.find(item => String(item.map || "") === String(mapName || "")) || null
+  } catch (_) {
+    return null
+  }
+}
+
+function getMapDisplayLabel(mapName) {
+  const customEntry = findCustomMapEntry(mapName)
+  if (customEntry && customEntry.label) return String(customEntry.label)
+  if (typeof mapNames === "object" && mapNames && mapNames[mapName]) return mapNames[mapName]
+  return ""
+}
+
+function launchSandboxMap(index) {
+  const maps = getSandboxContentItems("map")
+  const item = maps[index]
+  if (!item) return
+  changeMap(item.map || "background.jpg", item.audio || "")
+  if (item.label) {
+    setTimeout(() => {
+      try { showLocation(String(item.label)) } catch (_) {}
+    }, 2000)
+  }
+}
+
+function editSandboxItemSettings(type, index) {
+  const info = getSandboxCollectionInfo(type)
+  if (!info) return
+  const items = getSandboxContentItems(type)
+  const item = items[index]
+  if (!item) return
+
+  const nextLabel = prompt("Titre :", String(item.label || ""))
+  if (nextLabel == null) return
+  const trimmedLabel = String(nextLabel).trim()
+  if (!trimmedLabel) {
+    showNotification("Titre obligatoire")
+    return
+  }
+
+  const nextCategory = prompt("Categorie :", String(item.category || "Custom"))
+  if (nextCategory == null) return
+  const trimmedCategory = String(nextCategory).trim() || "Custom"
+
+  let nextAudio = null
+  if (type === "map") {
+    const audioValue = prompt("Musique de la map (nom de fichier, URL ou vide) :", String(item.audio || ""))
+    if (audioValue == null) return
+    nextAudio = String(audioValue).trim()
+  }
+
+  updateSandboxCustomization(next => {
+    const target = next.content[info.key] && next.content[info.key][index]
+    if (!target) return
+    target.label = trimmedLabel
+    target.category = trimmedCategory
+    if (type === "map") target.audio = nextAudio
+    if (type === "document") target.title = trimmedLabel
+  })
+}
+
+function buildSandboxManagerPanel(options) {
+  const items = getSandboxContentItems(options.type)
+  const actions = items.length
+    ? items.map((item, index) => {
+        const label = String(item.label || "Sans titre")
+        const category = String(item.category || "Custom")
+        const launchButton = options.type === "map"
+          ? `<button type="button" onclick="launchSandboxMap(${index})" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 10px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;">` +
+              `<span style="text-align:left;">${label}</span>` +
+              `<span style="font-size:11px;color:#bfae8b;">Ouvrir</span>` +
+            `</button>`
+          : `<button type="button" onclick="focusNativeStudioItem('${options.type}', ${index})" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 10px;background:rgba(255,255,255,0.05);border:1px solid rgba(214,180,106,0.2);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;">` +
+              `<span style="text-align:left;">${label}</span>` +
+              `<span style="font-size:11px;color:#bfae8b;">${category}</span>` +
+            `</button>`
+        return (
+          `<div style="display:grid;gap:8px;padding:10px;background:rgba(0,0,0,0.18);border:1px solid rgba(214,180,106,0.18);border-radius:10px;">` +
+            `<div style="display:flex;gap:8px;align-items:stretch;">` +
+              launchButton +
+              `<button type="button" onclick="editSandboxItemSettings('${options.type}', ${index})" title="Personnaliser" style="width:42px;min-width:42px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:16px;">?</button>` +
+            `</div>` +
+            `<div style="font-size:11px;color:#bfae8b;">${category}${options.type === "map" && item.audio ? " • musique perso" : ""}</div>` +
+            `<div style="display:flex;flex-wrap:wrap;gap:6px;">` +
+              `<button type="button" onclick="moveNativeStudioItem('${options.type}', ${index}, -1)" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Monter</button>` +
+              `<button type="button" onclick="moveNativeStudioItem('${options.type}', ${index}, 1)" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Descendre</button>` +
+              `<button type="button" onclick="deleteNativeStudioItem('${options.type}', ${index})" style="padding:7px 9px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(214,110,110,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Supprimer</button>` +
+            `</div>` +
+          `</div>`
+        )
+      }).join("")
+    : `<div style="font-size:12px;color:#bfae8b;padding:10px;background:rgba(0,0,0,0.18);border:1px dashed rgba(214,180,106,0.18);border-radius:10px;">Aucun element pour le moment.</div>`
+
+  return (
+    `<div style="display:grid;gap:12px;padding:14px;font-family:Cinzel,serif;">` +
+      `<div style="display:grid;gap:6px;">` +
+        `<div style="font-size:14px;letter-spacing:2px;color:#e6c27a;">${options.title}</div>` +
+        `<div style="font-size:12px;line-height:1.6;color:rgba(255,240,210,0.82);">${options.body}</div>` +
+      `</div>` +
+      `<div style="display:flex;flex-wrap:wrap;gap:8px;">` +
+        `<button type="button" onclick="triggerNativeStudioLocalAdd('${options.type}')" style="padding:9px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter un fichier local</button>` +
+        `<button type="button" onclick="openNativeStudioQuickCreate('${options.type}')" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter manuellement</button>` +
+      `</div>` +
+      `<div style="display:grid;gap:10px;">${actions}</div>` +
+    `</div>`
+  )
+}
+
+function sanitizeLegacySandboxUI() {
+  const gmSaveBtn = document.getElementById("gmSaveBtn")
+  if (gmSaveBtn) gmSaveBtn.textContent = "Studio MJ"
+
+  const diceToggle = document.getElementById("diceBarToggle")
+  if (diceToggle) {
+    diceToggle.textContent = "?"
+    diceToggle.setAttribute("aria-label", "Replier les dés")
+  }
+
+  const playerAttackBtn = document.getElementById("playerAttackBtn")
+  if (playerAttackBtn) playerAttackBtn.textContent = "?"
+
+  const combatIntroText = document.getElementById("combatIntroText")
+  if (combatIntroText) combatIntroText.textContent = "? PREPAREZ-VOUS AU COMBAT ?"
+
+  const mobMenuTitle = document.getElementById("mobMenuTitle")
+  if (mobMenuTitle) mobMenuTitle.textContent = "? CONFIGURATION DU COMBAT"
+
+  const mobMenuLaunch = document.getElementById("mobMenuLaunch")
+  if (mobMenuLaunch) mobMenuLaunch.textContent = "? Lancer"
+
+  const wantedTitle = document.querySelector("#wantedEditor div")
+  if (wantedTitle) wantedTitle.textContent = "? CREER UNE AFFICHE"
+
+  const wantedReward = document.getElementById("wantedReward")
+  if (wantedReward) wantedReward.placeholder = "Recompense"
+
+  const defeatText = document.getElementById("defeatText")
+  if (defeatText) defeatText.textContent = "DEFAITE"
+
+  const defeatSubText = document.getElementById("defeatSubText")
+  if (defeatSubText) defeatSubText.innerHTML = "Vos heros tombent dans l'obscurite...<br>La partie peut reprendre depuis le bac a sable."
+
+  const playerCombatPanel = document.getElementById("playerCombatPanel")
+  if (playerCombatPanel) {
+    playerCombatPanel.innerHTML = `
+      <div class="playerCombatTitle">Stats</div>
+      <div class="playerStat">Force : <input id="combat_force"></div>
+      <div class="playerStat">Charme : <input id="combat_charme"></div>
+      <div class="playerStat">Perspi : <input id="combat_perspi"></div>
+      <div class="playerStat">Chance : <input id="combat_chance"></div>
+      <div class="playerStat">Defense : <input id="combat_defense"></div>
+      <div class="playerStat">HP : <input id="combat_hp"><div id="combatHPBarContainer"><div id="combatHPBar"></div></div></div>
+    `
+  }
+
+  const gmCharacters = document.getElementById("gmCharacters")
+  if (gmCharacters) {
+    gmCharacters.innerHTML = `
+      <button onclick="openCharacterSheet('greg')">Joueur 1</button>
+      <button onclick="openCharacterSheet('ju')">Joueur 2</button>
+      <button onclick="openCharacterSheet('elo')">Joueur 3</button>
+      <button onclick="openCharacterSheet('bibi')">Joueur 4</button>
+    `
+  }
+
+  const panelFactories = {
+    mapMenu: function() {
+      return buildSandboxManagerPanel({
+        type: "map",
+        title: "Maps et lieux",
+        body: "Ici ajoute tes maps et lieux. Nomme-les de facon claire pour t'y retrouver et donner une bonne scenerie aux joueurs."
+      })
+    },
+    pnjMenu: function() {
+      return buildSandboxManagerPanel({
+        type: "pnj",
+        title: "PNJ",
+        body: "Ici ajoute tes PNJ. Donne-leur des noms clairs et des categories simples pour garder un casting lisible."
+      })
+    },
+    mobMenu2: function() {
+      return buildSandboxManagerPanel({
+        type: "mob",
+        title: "Mobs et ennemis",
+        body: "Ici ajoute tes mobs. Classe-les proprement pour retrouver vite tes menaces et tester tes combats."
+      })
+    },
+    elementsMenu: function() {
+      return buildSandboxManagerPanel({
+        type: "document",
+        title: "Documents et visuels",
+        body: "Ici ajoute tes documents, indices et images de narration. Donne-leur un nom clair pour les retrouver facilement en partie."
+      })
+    }
+  }
+
+  Object.keys(panelFactories).forEach(id => {
+    const panel = document.getElementById(id)
+    if (!panel) return
+    panel.innerHTML = panelFactories[id]()
+    panel.dataset.cleaned = "1"
+  })
+
+  const mjLogTitle = document.querySelector("#mjLog .mjTitle span")
+  if (mjLogTitle) mjLogTitle.textContent = "Journal du MJ"
+
+  const mjLogToggle = document.getElementById("mjLogToggle")
+  if (mjLogToggle) {
+    mjLogToggle.textContent = "?"
+    mjLogToggle.title = "Reduire"
+  }
+}
+
+window.addEventListener("load", () => {
+  setTimeout(sanitizeLegacySandboxUI, 30)
+})
+
   function setGameState(state) {
+    sanitizeLegacySandboxUI()
     gameState = state
   if (state !== "GAME" && state !== "COMBAT" && typeof cleanupRuneChallengeUI === "function") cleanupRuneChallengeUI()
   switch (state) {
@@ -3665,6 +3612,7 @@ function fadeOut() {
 }
 
 function showTavern() {
+  if (typeof setBuilderShellVisible === "function") setBuilderShellVisible(false)
   hideIntroLayers()
   setGameState("GAME")
   const fade = document.getElementById("fadeScreen"); const map = document.getElementById("map")
@@ -3694,7 +3642,10 @@ function showTavern() {
     ensureMapMusicPlayback(mapName, 0)
     setTimeout(() => { fade.style.opacity = 0 }, 500)
     ensureMapMusicPlayback(mapName, 800)
-    setTimeout(() => { if (mapNames[mapName]) showLocation(mapNames[mapName]) }, 2000)
+    setTimeout(() => {
+      const displayName = getMapDisplayLabel(mapName)
+      if (displayName) showLocation(displayName)
+    }, 2000)
     // Forcer rechargement des stats et positions des tokens
     setTimeout(() => {
       ;["greg","ju","elo","bibi"].forEach(pid => updateTokenStats(pid))
@@ -3720,9 +3671,21 @@ function startIntro() {
     const music = document.getElementById("music"); music.volume = 0; music.play().catch(() => {})
     music.__baseVolume = 1
     music.__audioChannel = "music"
-    const targetVolume = (typeof getUserMusicVolume === "function") ? getUserMusicVolume() : 0.8
     let v = 0
-    const fade = setInterval(() => { if (v < targetVolume) { v = Math.min(targetVolume, v + 0.05); music.volume = v } else clearInterval(fade) }, 200)
+    if (window.__menuMusicFadeInterval) clearInterval(window.__menuMusicFadeInterval)
+    window.__menuMusicFadeInterval = setInterval(() => {
+      const targetVolume = (typeof getScaledAudioVolume === "function")
+        ? getScaledAudioVolume(1, "music")
+        : ((typeof getUserMusicVolume === "function") ? getUserMusicVolume() : 0.8)
+      if (v < targetVolume) {
+        v = Math.min(targetVolume, v + 0.05)
+        music.volume = v
+      } else {
+        music.volume = targetVolume
+        clearInterval(window.__menuMusicFadeInterval)
+        window.__menuMusicFadeInterval = null
+      }
+    }, 200)
   }, 120)
 }
 
@@ -3766,17 +3729,7 @@ document.addEventListener("click", e => {
 /* ========================= */
 
 function requestGM() {
-  if (window.__authRole === "gm") {
-    activateGM(true)
-    return
-  }
-  if (auth) {
-    showGMAuthModal()
-    return
-  }
-  const password = prompt("Mot de passe MJ")
-  if (password && password.toLowerCase().trim() === "mouches") activateGM()
-  else showNotification("AccÃ¨s refusÃ©")
+  activateGM()
 }
 
 function activateGM(fromFirebaseRole = false) {
@@ -3787,7 +3740,7 @@ function activateGM(fromFirebaseRole = false) {
   document.getElementById("gmSaveBar").style.display = "block"
   ensureMadnessGMButton()
   updateThuumButton()
-  showNotification(fromFirebaseRole ? "ðŸŽ² Mode MJ activÃ© (Firebase)" : "ðŸŽ² Mode MJ activÃ©")
+  showNotification(fromFirebaseRole ? "Mode MJ active (Firebase)" : "Mode MJ active")
   // Fermer et masquer complÃ¨tement le menu de sÃ©lection
   const select = document.getElementById("playerSelect")
   if (select) {
@@ -3871,23 +3824,38 @@ function choosePlayer(id) {
     selected = null; _state.tokenDragging = false; _state.tokenDragStart = null
     document.querySelectorAll(".token").forEach(t => t.classList.remove("selectedPlayer", "gmSelected"))
     if (myToken) myToken.classList.add("selectedPlayer")
-    showNotification("ðŸŽ­ MJ joue : " + id.toUpperCase())
+    showNotification("MJ joue : " + id.toUpperCase())
     watchLocalPlayerDefeat(id)
     updateThuumButton()
     _collapsePlayerMenu(id)
     setTimeout(() => openCharacterSheet(id), 50)
     return
   }
-  if (myToken) { showNotification("Personnage dÃ©jÃ  choisi"); return }
-  document.querySelectorAll(".token").forEach(t => t.classList.remove("selectedPlayer"))
-  myToken = document.getElementById(id); window.myToken = myToken
-  myToken.classList.add("selectedPlayer")
-  showNotification("âœ¨ Votre hÃ©ros est : " + id.toUpperCase())
-  watchLocalPlayerDefeat(id)
-  updateThuumButton()
-  watchFreePoints(id)
-  // RÃ©duire le menu en mini badge
-  _collapsePlayerMenu(id)
+  if (!window.__activeJoinCode) { showNotification("Entre d'abord le code de partie"); return }
+  if (myToken) { showNotification("Personnage deja choisi"); return }
+  const presenceId = getLocalPresenceId()
+  getSessionSlotRef(id).transaction(current => {
+    if (current && current.claimedBy && current.claimedBy !== presenceId) return
+    return {
+      claimedBy: presenceId,
+      claimedAt: Date.now()
+    }
+  }, (error, committed) => {
+    if (error || !committed) {
+      showNotification("Ce slot est deja pris")
+      refreshSessionSlotAvailability()
+      return
+    }
+    document.querySelectorAll(".token").forEach(t => t.classList.remove("selectedPlayer"))
+    myToken = document.getElementById(id); window.myToken = myToken
+    myToken.classList.add("selectedPlayer")
+    showNotification("Votre heros est : " + id.toUpperCase())
+    watchLocalPlayerDefeat(id)
+    updateThuumButton()
+    watchFreePoints(id)
+    refreshSessionSlotAvailability()
+    _collapsePlayerMenu(id)
+  })
 }
 
 function _collapsePlayerMenu(id) {
@@ -3906,8 +3874,11 @@ function togglePlayerMenu() {
 function openPlayerMenuOnStart() {
   const menu = document.getElementById("playerMenu")
   updatePlayerAuthMenuState()
+  refreshSessionSlotAvailability()
   if (menu && !myToken) menu.classList.add("open")
 }
+
+window.addEventListener("beforeunload", releaseLocalSessionSlot)
 
 /* ========================= */
 /* DRAG TOKENS               */
@@ -4019,8 +3990,6 @@ document.addEventListener("keydown", e => {
   }
 
   if (key === "escape") {
-    const gmAuthModal = document.getElementById("gmAuthModal"); if (gmAuthModal) { closeGMAuthModal(); return }
-    const playerAuthModal = document.getElementById("playerAuthModal"); if (playerAuthModal) { closePlayerAuthModal(); return }
     const savePanel = document.getElementById("savePanel"); if (savePanel) { savePanel.remove(); return }
     const wantedEditor = document.getElementById("wantedEditor"); if (wantedEditor && wantedEditor.style.display !== "none") { wantedEditor.style.display = "none"; return }
     const mobSelectionMenu = document.getElementById("mobSelectionMenu"); if (mobSelectionMenu && mobSelectionMenu.style.display !== "none") { mobSelectionMenu.style.display = "none"; return }
@@ -4060,7 +4029,6 @@ document.addEventListener("keydown", e => {
     if (key === "e") { toggleGMSection("elementsMenu"); return }
     if (key === "t") { toggleGMSection("mobMenu2"); return }
     if (key === "a" && combatActive) { openAllyPNJPanel(); return }
-    if (key === "s" && !e.ctrlKey) { showSaveMenu(); return }
     if (key === "?") { toggleGMShortcutHelp(); return }
   }
 
@@ -4079,6 +4047,9 @@ document.addEventListener("keydown", e => {
       return
     }
     if (myToken) { openCharacterSheet(); return }
-    showNotification("Choisissez un personnage ðŸŽ­")
+    showNotification("Choisissez un personnage")
   }
 })
+
+
+

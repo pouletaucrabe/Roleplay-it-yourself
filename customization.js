@@ -264,6 +264,7 @@
       themeLabel: typeof getProjectThemeLabel === "function"
         ? getProjectThemeLabel(customization.project.theme)
         : String(customization.project.theme || "Medieval fantasy"),
+      playerCount: Math.max(1, Math.min(12, parseInt(customization.project.playerCount, 10) || 4)),
       players: PLAYER_IDS.map(id => ({ id, name: getPlayerDisplayName(id) })),
       customCounts: {
         maps: customization.content.maps.length,
@@ -298,16 +299,10 @@
     if (!targetMenuId) return
     const bootDelay = ensureGameStartedForHub()
     const openMenu = () => {
+      if (!isGMValue() && typeof activateGM === "function") activateGM()
       if (typeof toggleGMSection === "function") toggleGMSection(targetMenuId)
     }
-    if (isGMValue()) {
-      setTimeout(openMenu, 180 + bootDelay)
-      return
-    }
-    window.__pendingStudioMenuId = targetMenuId
-    if (typeof requestGM === "function") {
-      setTimeout(() => requestGM(), bootDelay)
-    }
+    setTimeout(openMenu, 180 + bootDelay)
   }
 
   function openStudioCustomization(type) {
@@ -320,7 +315,7 @@
     const summary = getStudioSummary()
     const studioPresentation = typeof getProjectThemePresentation === "function"
       ? getProjectThemePresentation(getExtendedCustomization().project.theme)
-      : { studioLead: "Tableau de bord de creation pour construire ton projet, organiser le contenu et ouvrir les outils de jeu." }
+      : { studioLead: "Tableau de bord de creation pour construire ton bac a sable, organiser le contenu et ouvrir les outils de jeu." }
     const overlay = document.createElement("div")
     overlay.id = "creatorStudioOverlay"
     overlay.style.cssText = "position:fixed;inset:0;background:rgba(5,5,5,0.82);display:flex;align-items:center;justify-content:center;z-index:1000000011;padding:18px;"
@@ -340,9 +335,10 @@
           <section style="padding:18px;background:rgba(255,255,255,0.03);border:1px solid rgba(214,180,106,0.22);border-radius:14px;">
             <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;">
               <div>
-                <div style="font-size:12px;letter-spacing:2px;color:#cdbb96;">PROJET</div>
+                <div style="font-size:12px;letter-spacing:2px;color:#cdbb96;">BAC A SABLE</div>
                 <div style="font-size:22px;color:#f0d087;margin-top:4px;">${esc(summary.title)}</div>
                 <div style="font-size:12px;color:#bfae8b;margin-top:6px;">Ambiance : ${esc(summary.themeLabel)}</div>
+                <div style="font-size:12px;color:#bfae8b;margin-top:4px;">Joueurs : ${esc(String(summary.playerCount))}</div>
               </div>
               <button data-studio-open="project" style="padding:10px 14px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Configurer</button>
             </div>
@@ -357,7 +353,6 @@
               <button data-studio-open-menu="pnjMenu" style="padding:12px 14px;background:rgba(15,40,56,0.7);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:10px;cursor:pointer;font-family:Cinzel,serif;">PNJ</button>
               <button data-studio-open-menu="mobMenu2" style="padding:12px 14px;background:rgba(15,40,56,0.7);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:10px;cursor:pointer;font-family:Cinzel,serif;">Mobs</button>
               <button data-studio-open-menu="elementsMenu" style="padding:12px 14px;background:rgba(15,40,56,0.7);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:10px;cursor:pointer;font-family:Cinzel,serif;">Documents</button>
-              <button data-studio-open="save" style="padding:12px 14px;background:rgba(15,40,56,0.7);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:10px;cursor:pointer;font-family:Cinzel,serif;">Sauvegardes</button>
               <button id="creatorStudioOpenBoard" style="padding:12px 14px;background:rgba(18,60,42,0.85);color:#d5ffe4;border:1px solid rgba(90,180,120,0.45);border-radius:10px;cursor:pointer;font-family:Cinzel,serif;">Ouvrir le board</button>
             </div>
           </section>
@@ -403,11 +398,6 @@
     panel.querySelectorAll("[data-studio-open]").forEach(button => {
       button.onclick = () => {
         const action = String(button.dataset.studioOpen || "")
-        if (action === "save") {
-          overlay.remove()
-          if (typeof showSaveMenu === "function") showSaveMenu()
-          return
-        }
         openStudioCustomization(action === "project" ? "" : action)
       }
     })
@@ -426,6 +416,7 @@
     const customization = getExtendedCustomization()
     const themeOptionsMarkup = getProjectThemeOptions().map(option => `<option value="${esc(option.value)}"${option.value === customization.project.theme ? " selected" : ""}>${esc(option.label)}</option>`).join("")
     const focusType = options && typeof options === "object" ? String(options.focusType || "") : ""
+    const preferredTab = options && typeof options === "object" ? String(options.tab || "") : ""
     const overlay = document.createElement("div")
     overlay.id = "customizationOverlay"
     overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;z-index:1000000010;padding:18px;"
@@ -434,16 +425,40 @@
     panel.style.cssText = "width:min(1080px,96vw);max-height:92vh;overflow:auto;background:linear-gradient(180deg,rgba(20,16,12,0.98),rgba(8,8,8,0.98));border:1px solid rgba(214,180,106,0.45);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,0.85);padding:22px;color:#f3e7cf;font-family:Cinzel,serif;"
     overlay.appendChild(panel)
     panel.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px;"><div><div style="font-size:22px;letter-spacing:2px;color:#f0d087;">Personnaliser le projet</div><div style="font-size:12px;line-height:1.5;color:#cdbb96;margin-top:6px;">Les listes maps, PNJ, mobs et documents sont generees, et tu peux ajouter les tiens.</div></div><button id="customizationClose" style="padding:10px 14px;background:#222;color:#f3e7cf;border:1px solid #555;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Fermer</button></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px;"><div><div style="font-size:22px;letter-spacing:2px;color:#f0d087;">Regler le bac a sable</div><div style="font-size:12px;line-height:1.5;color:#cdbb96;margin-top:6px;">Les listes maps, PNJ, mobs et documents sont generees, et tu peux ajouter les tiens.</div></div><button id="customizationClose" style="padding:10px 14px;background:#222;color:#f3e7cf;border:1px solid #555;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Fermer</button></div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
+        <button type="button" data-custom-tab-btn="project" style="padding:10px 14px;background:rgba(255,255,255,0.06);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:999px;cursor:pointer;font-family:Cinzel,serif;">Bac a sable</button>
+        <button type="button" data-custom-tab-btn="players" style="padding:10px 14px;background:rgba(255,255,255,0.06);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:999px;cursor:pointer;font-family:Cinzel,serif;">Joueurs</button>
+        <button type="button" data-custom-tab-btn="content" style="padding:10px 14px;background:rgba(255,255,255,0.06);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:999px;cursor:pointer;font-family:Cinzel,serif;">Contenu</button>
+        <button type="button" data-custom-tab-btn="assets" style="padding:10px 14px;background:rgba(255,255,255,0.06);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:999px;cursor:pointer;font-family:Cinzel,serif;">Assets</button>
+      </div>
       <div style="display:grid;gap:18px;">
-        <div style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);display:grid;gap:14px;"><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Titre</div><input id="customProjectTitle" type="text" value="${esc(customization.project.title)}" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"></div><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Ambiance</div><select id="customProjectTheme" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;">${themeOptionsMarkup}</select></div></div>
-        <div style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);"><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:12px;">Slots joueurs</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">${PLAYER_IDS.map(playerId => { const player = customization.players[playerId]; return `<div style="padding:12px;border:1px solid rgba(160,130,80,0.22);border-radius:10px;background:rgba(0,0,0,0.18);"><div style="font-size:11px;color:#d7c39c;letter-spacing:2px;margin-bottom:10px;">${playerId.toUpperCase()}</div><label style="display:grid;gap:6px;margin-bottom:10px;"><span style="font-size:12px;color:#bfae8b;">Nom affiche</span><input data-custom-name="${playerId}" type="text" value="${esc(player.name)}" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;margin-bottom:10px;"><span style="font-size:12px;color:#bfae8b;">URL image</span><input data-custom-image="${playerId}" type="text" value="${esc(player.image)}" placeholder="https://... ou data:image/..." style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Uploader une image</span><input data-custom-upload="${playerId}" type="file" accept="image/*" style="font-size:12px;color:#e8d6b3;"></label></div>` }).join("")}</div></div>
-        <div style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);"><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Ajouter du contenu custom</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:end;"><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Type</span><select id="customItemType" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"><option value="map">Map</option><option value="pnj">PNJ</option><option value="highPnj">High PNJ</option><option value="mob">Mob</option><option value="document">Document</option></select></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Categorie</span><input id="customItemCategory" type="text" placeholder="Ex : Mon univers" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Titre</span><input id="customItemLabel" type="text" placeholder="Ex : Temple du feu" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Image / nom de map / id</span><input id="customItemAsset" type="text" placeholder="Ex : temple.jpg" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Upload image</span><input id="customItemUpload" type="file" accept="image/*" style="font-size:12px;color:#e8d6b3;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Section map</span><select id="customItemSection" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"><option value="villes">Villes</option><option value="landscape">Landscape</option><option value="lieux">Lieux</option><option value="monde">Mapmonde</option></select></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Audio map / tier mob</span><input id="customItemExtra" type="text" placeholder="Ex : maMusique ou weak" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><button id="addCustomItem" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ajouter</button></div><div id="customContentList" style="display:grid;gap:8px;margin-top:14px;"></div></div>
-        <div style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);"><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Override d'image cible</div><div style="display:grid;grid-template-columns:1.4fr 1fr auto;gap:10px;align-items:end;"><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Nom du fichier existant</span><input id="assetOverrideKey" type="text" placeholder="Ex : taverne.jpg" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Image de remplacement</span><input id="assetOverrideFile" type="file" accept="image/*" style="font-size:12px;color:#e8d6b3;"></label><button id="assetOverrideSave" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ajouter</button></div><div id="assetOverrideList" style="display:grid;gap:8px;margin-top:14px;"></div></div>
-        <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;"><button id="customizationReset" style="padding:10px 14px;background:#3a0000;color:#ffd1d1;border:1px solid #6e2e2e;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Reset personnalisation</button><button id="customizationSave" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Sauvegarder</button></div>
+        <section data-custom-tab="project" style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);display:grid;gap:14px;"><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Titre</div><input id="customProjectTitle" type="text" value="${esc(customization.project.title)}" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"></div><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Ambiance</div><select id="customProjectTheme" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;">${themeOptionsMarkup}</select></div><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Nombre de joueurs</div><input id="customProjectPlayerCount" type="number" min="1" max="12" value="${Math.max(1, Math.min(12, parseInt(customization.project.playerCount, 10) || 4))}" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"></div><div style="font-size:12px;line-height:1.6;color:#bfae8b;">Tu peux changer ce nombre a tout moment dans ce bac a sable.</div></section>
+        <section data-custom-tab="players" style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);"><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:12px;">Slots joueurs</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">${PLAYER_IDS.map(playerId => { const player = customization.players[playerId]; return `<div style="padding:12px;border:1px solid rgba(160,130,80,0.22);border-radius:10px;background:rgba(0,0,0,0.18);"><div style="font-size:11px;color:#d7c39c;letter-spacing:2px;margin-bottom:10px;">${playerId.toUpperCase()}</div><label style="display:grid;gap:6px;margin-bottom:10px;"><span style="font-size:12px;color:#bfae8b;">Nom affiche</span><input data-custom-name="${playerId}" type="text" value="${esc(player.name)}" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;margin-bottom:10px;"><span style="font-size:12px;color:#bfae8b;">URL image</span><input data-custom-image="${playerId}" type="text" value="${esc(player.image)}" placeholder="https://... ou data:image/..." style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Uploader une image</span><input data-custom-upload="${playerId}" type="file" accept="image/*" style="font-size:12px;color:#e8d6b3;"></label></div>` }).join("")}</div></section>
+        <section data-custom-tab="content" style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);"><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Ajouter du contenu custom</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:end;"><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Type</span><select id="customItemType" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"><option value="map">Map</option><option value="pnj">PNJ</option><option value="highPnj">High PNJ</option><option value="mob">Mob</option><option value="document">Document</option></select></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Categorie</span><input id="customItemCategory" type="text" placeholder="Ex : Mon univers" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Titre</span><input id="customItemLabel" type="text" placeholder="Ex : Temple du feu" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Image / nom de map / id</span><input id="customItemAsset" type="text" placeholder="Ex : temple.jpg" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Upload image</span><input id="customItemUpload" type="file" accept="image/*" style="font-size:12px;color:#e8d6b3;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Section map</span><select id="customItemSection" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"><option value="villes">Villes</option><option value="landscape">Landscape</option><option value="lieux">Lieux</option><option value="monde">Mapmonde</option></select></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Audio map / tier mob</span><input id="customItemExtra" type="text" placeholder="Ex : maMusique ou weak" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><button id="addCustomItem" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ajouter</button></div><div id="customContentList" style="display:grid;gap:8px;margin-top:14px;"></div></section>
+        <section data-custom-tab="assets" style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);"><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Override d'image cible</div><div style="display:grid;grid-template-columns:1.4fr 1fr auto;gap:10px;align-items:end;"><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Nom du fichier existant</span><input id="assetOverrideKey" type="text" placeholder="Ex : taverne.jpg" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Image de remplacement</span><input id="assetOverrideFile" type="file" accept="image/*" style="font-size:12px;color:#e8d6b3;"></label><button id="assetOverrideSave" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ajouter</button></div><div id="assetOverrideList" style="display:grid;gap:8px;margin-top:14px;"></div></section>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;"><button id="customizationLaunch" style="padding:10px 16px;background:rgba(15,40,56,0.72);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Lancer la partie</button><button id="customizationExport" style="padding:10px 16px;background:rgba(69,52,23,0.78);color:#f0d8ab;border:1px solid rgba(202,164,107,0.4);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Exporter une version jouable</button><button id="customizationReset" style="padding:10px 14px;background:#3a0000;color:#ffd1d1;border:1px solid #6e2e2e;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Reinitialiser le bac a sable</button><button id="customizationSave" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Sauvegarder le bac a sable</button></div>
       </div>`
     document.body.appendChild(overlay)
     byId("customizationClose").onclick = () => overlay.remove()
+    const availableTabs = ["project", "players", "content", "assets"]
+    const initialTab = availableTabs.includes(preferredTab) ? preferredTab : (focusType ? "content" : "project")
+    function activateTab(tabName) {
+      const wanted = availableTabs.includes(tabName) ? tabName : "project"
+      panel.querySelectorAll("[data-custom-tab]").forEach(section => {
+        section.style.display = section.dataset.customTab === wanted ? "grid" : "none"
+      })
+      panel.querySelectorAll("[data-custom-tab-btn]").forEach(button => {
+        const active = button.dataset.customTabBtn === wanted
+        button.style.background = active ? "linear-gradient(#7a5533,#4b321c)" : "rgba(255,255,255,0.06)"
+        button.style.borderColor = active ? "#caa46b" : "rgba(214,180,106,0.24)"
+        button.style.color = active ? "#f5e6c8" : "#e8d8b6"
+      })
+    }
+    panel.querySelectorAll("[data-custom-tab-btn]").forEach(button => {
+      button.onclick = () => activateTab(button.dataset.customTabBtn)
+    })
+    activateTab(initialTab)
     if (focusType && byId("customItemType")) byId("customItemType").value = focusType
     panel.querySelectorAll("[data-custom-upload]").forEach(input => {
       input.addEventListener("change", async event => {
@@ -494,24 +509,45 @@
       renderAssetOverrides()
       applyCustomizationToUI()
     }
-    byId("customizationSave").onclick = () => {
+    function collectCustomizationFromPanel() {
       const next = getExtendedCustomization()
       next.project.title = String(byId("customProjectTitle").value || "").trim() || "Roleplay It Yourself"
       next.project.theme = String(byId("customProjectTheme").value || "").trim() || getDefaultCustomization().project.theme
+      next.project.playerCount = Math.max(1, Math.min(12, parseInt(byId("customProjectPlayerCount").value, 10) || 4))
       PLAYER_IDS.forEach(playerId => {
         next.players[playerId].name = String(panel.querySelector(`[data-custom-name="${playerId}"]`).value || "").trim() || getDefaultCustomization().players[playerId].name
         next.players[playerId].image = String(panel.querySelector(`[data-custom-image="${playerId}"]`).value || "").trim()
       })
+      return next
+    }
+
+    byId("customizationSave").onclick = () => {
+      const next = collectCustomizationFromPanel()
       saveExtendedCustomization(next)
       applyCustomizationToUI()
       overlay.remove()
-      if (typeof showNotification === "function") showNotification("Personnalisation sauvegardee")
+      if (typeof showNotification === "function") showNotification("Bac a sable mis a jour")
+    }
+
+    byId("customizationExport").onclick = () => {
+      const next = collectCustomizationFromPanel()
+      saveExtendedCustomization(next)
+      applyCustomizationToUI()
+      if (typeof exportSandbox === "function") exportSandbox()
+    }
+
+    byId("customizationLaunch").onclick = () => {
+      const next = collectCustomizationFromPanel()
+      saveExtendedCustomization(next)
+      applyCustomizationToUI()
+      overlay.remove()
+      if (typeof launchSessionFromSandbox === "function") launchSessionFromSandbox()
     }
     byId("customizationReset").onclick = () => {
       localStorage.removeItem(CUSTOMIZATION_STORAGE_KEY)
       applyCustomizationToUI()
       overlay.remove()
-      if (typeof showNotification === "function") showNotification("Personnalisation reinitialisee")
+      if (typeof showNotification === "function") showNotification("Bac a sable reinitialise")
     }
     renderCustomList()
     renderAssetOverrides()
@@ -522,7 +558,7 @@
     const button = document.createElement("button")
     button.id = "customizationLauncher"
     button.type = "button"
-    button.innerText = "Personnaliser"
+    button.innerText = "Studio MJ"
     button.style.cssText = "position:fixed;right:14px;top:14px;z-index:1000000002;padding:10px 14px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:10px;cursor:pointer;font-family:Cinzel,serif;box-shadow:0 8px 22px rgba(0,0,0,0.45);"
     button.onclick = openCustomizationPanel
     document.body.appendChild(button)
@@ -562,7 +598,7 @@
       } catch (fallbackError) {
         console.error("Studio MJ unavailable:", fallbackError)
         if (typeof showNotification === "function") {
-          showNotification("Studio MJ indisponible, ouverture du mode personnalisation impossible.")
+          showNotification("Studio MJ indisponible pour le moment.")
         }
       }
     }
@@ -571,8 +607,13 @@
   function openPlayerStudio() {
     const bootDelay = ensureGameStartedForHub()
     setTimeout(() => {
+      if (typeof openJoinSessionOverlay === "function") {
+        openJoinSessionOverlay()
+        return
+      }
       if (typeof openPlayerMenuOnStart === "function") openPlayerMenuOnStart()
-      if (!window.__authPlayerId && typeof requestPlayerAuth === "function") requestPlayerAuth()
+      const playerMenu = byId("playerMenu")
+      if (playerMenu) playerMenu.classList.add("open")
     }, 220 + bootDelay)
   }
 
@@ -599,15 +640,6 @@
         return result
       }
       window.__customSheetPatched = true
-    }
-    if (typeof window.showPlayerAuthModal === "function" && !window.__customPlayerAuthPatched) {
-      const original = window.showPlayerAuthModal
-      window.showPlayerAuthModal = function () {
-        const result = original.apply(this, arguments)
-        setTimeout(refreshAuthSelect, 20)
-        return result
-      }
-      window.__customPlayerAuthPatched = true
     }
     if (typeof window.animateGameTitle === "function" && !window.__customTitlePatched) {
       const original = window.animateGameTitle

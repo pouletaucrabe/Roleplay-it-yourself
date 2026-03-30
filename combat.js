@@ -18,7 +18,7 @@ function _syncCombatStart(mainMob, tier, extraMobs) {
     mainMob,
     tier,
     extraMobs: extraMobs || [],
-    returnMap: currentMap || "taverne.jpg",
+    returnMap: currentMap || "background.jpg",
     time: Date.now()
   })
 }
@@ -689,7 +689,7 @@ function launchMobDiff(tier) {
 /* DROPDOWN MENU MOB         */
 /* ========================= */
 
-const MOB_SELECT_LIST = ["gobelins","loup","draugr","garde","bandit","ogre","valkyrie","golem","zombie","zombie2","witch","fantome","vampire","dragon","fenrir","balraug","jormungand","kraken"]
+const MOB_SELECT_LIST = []
 
 function toggleMobDropdown(slot, triggerEl) {
   const dd = document.getElementById("mobDropdown_" + slot); if (!dd) return

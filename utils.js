@@ -20,6 +20,7 @@ function getObjectValueLoose(obj, wantedKey) {
 }
 
 const CUSTOMIZATION_STORAGE_KEY = "rpg_customization_v1"
+const SANDBOX_EXPORTS_STORAGE_KEY = "rpg_sandbox_exports_v1"
 
 function getDefaultCustomization() {
   return {
@@ -44,6 +45,36 @@ function getDefaultCustomization() {
       mobs: [],
       documents: []
     }
+  }
+}
+
+function normalizeCustomization(raw) {
+  const base = getDefaultCustomization()
+  if (!raw || typeof raw !== "object") return base
+  return {
+    project: { ...base.project, ...(raw.project || {}) },
+    players: {
+      greg: { ...base.players.greg, ...((raw.players || {}).greg || {}) },
+      ju:   { ...base.players.ju,   ...((raw.players || {}).ju || {}) },
+      elo:  { ...base.players.elo,  ...((raw.players || {}).elo || {}) },
+      bibi: { ...base.players.bibi, ...((raw.players || {}).bibi || {}) }
+    },
+    assets: raw.assets && typeof raw.assets === "object" ? { ...raw.assets } : {},
+    content: raw.content && typeof raw.content === "object"
+      ? {
+          maps: Array.isArray(raw.content.maps) ? raw.content.maps.map(item => ({ ...item })) : [],
+          pnjs: Array.isArray(raw.content.pnjs) ? raw.content.pnjs.map(item => ({ ...item })) : [],
+          highPnjs: Array.isArray(raw.content.highPnjs) ? raw.content.highPnjs.map(item => ({ ...item })) : [],
+          mobs: Array.isArray(raw.content.mobs) ? raw.content.mobs.map(item => ({ ...item })) : [],
+          documents: Array.isArray(raw.content.documents) ? raw.content.documents.map(item => ({ ...item })) : []
+        }
+      : {
+          maps: [],
+          pnjs: [],
+          highPnjs: [],
+          mobs: [],
+          documents: []
+        }
   }
 }
 
@@ -114,31 +145,73 @@ function getProjectThemePresentation(themeValue) {
 
 function getCustomization() {
   const raw = parseLocalStorageJSON(CUSTOMIZATION_STORAGE_KEY, null)
-  const base = getDefaultCustomization()
-  if (!raw || typeof raw !== "object") return base
-  return {
-    project: { ...base.project, ...(raw.project || {}) },
-    players: {
-      greg: { ...base.players.greg, ...((raw.players || {}).greg || {}) },
-      ju:   { ...base.players.ju,   ...((raw.players || {}).ju || {}) },
-      elo:  { ...base.players.elo,  ...((raw.players || {}).elo || {}) },
-      bibi: { ...base.players.bibi, ...((raw.players || {}).bibi || {}) }
-    },
-    assets: raw.assets && typeof raw.assets === "object" ? raw.assets : {},
-    content: raw.content && typeof raw.content === "object"
-      ? {
-          maps: Array.isArray(raw.content.maps) ? raw.content.maps : [],
-          pnjs: Array.isArray(raw.content.pnjs) ? raw.content.pnjs : [],
-          highPnjs: Array.isArray(raw.content.highPnjs) ? raw.content.highPnjs : [],
-          mobs: Array.isArray(raw.content.mobs) ? raw.content.mobs : [],
-          documents: Array.isArray(raw.content.documents) ? raw.content.documents : []
-        }
-      : { ...base.content }
-  }
+  return normalizeCustomization(raw)
 }
 
 function saveCustomization(data) {
-  localStorage.setItem(CUSTOMIZATION_STORAGE_KEY, JSON.stringify(data))
+  localStorage.setItem(CUSTOMIZATION_STORAGE_KEY, JSON.stringify(normalizeCustomization(data)))
+}
+
+function createSandboxSnapshot(data) {
+  return normalizeCustomization(data || getCustomization())
+}
+
+function getSandboxSummary(data) {
+  const customization = createSandboxSnapshot(data)
+  const project = customization.project || {}
+  return {
+    title: String(project.title || "Roleplay It Yourself").trim() || "Roleplay It Yourself",
+    theme: String(project.theme || "medieval_fantasy"),
+    playerCount: Math.max(1, Math.min(12, parseInt(project.playerCount, 10) || 4))
+  }
+}
+
+function getSandboxExports() {
+  const raw = parseLocalStorageJSON(SANDBOX_EXPORTS_STORAGE_KEY, [])
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter(item => item && typeof item === "object")
+    .map(item => ({
+      id: String(item.id || ""),
+      label: String(item.label || "").trim() || "Version jouable",
+      createdAt: Number(item.createdAt) || Date.now(),
+      summary: getSandboxSummary(item.sandbox),
+      sandbox: createSandboxSnapshot(item.sandbox)
+    }))
+    .filter(item => item.id)
+    .sort((a, b) => b.createdAt - a.createdAt)
+}
+
+function saveSandboxExports(exportsList) {
+  const sanitized = Array.isArray(exportsList) ? exportsList.map(item => ({
+    id: String(item.id || ""),
+    label: String(item.label || "").trim() || "Version jouable",
+    createdAt: Number(item.createdAt) || Date.now(),
+    summary: getSandboxSummary(item.sandbox),
+    sandbox: createSandboxSnapshot(item.sandbox)
+  })).filter(item => item.id) : []
+  localStorage.setItem(SANDBOX_EXPORTS_STORAGE_KEY, JSON.stringify(sanitized))
+}
+
+function createSandboxExport(data, label) {
+  const snapshot = createSandboxSnapshot(data)
+  const exportsList = getSandboxExports()
+  const createdAt = Date.now()
+  const exportEntry = {
+    id: "exp_" + createdAt.toString(36) + "_" + Math.random().toString(36).slice(2, 8),
+    label: String(label || "").trim() || ("Version jouable " + (exportsList.length + 1)),
+    createdAt,
+    summary: getSandboxSummary(snapshot),
+    sandbox: snapshot
+  }
+  exportsList.unshift(exportEntry)
+  saveSandboxExports(exportsList)
+  return exportEntry
+}
+
+function getLatestSandboxExport() {
+  const exportsList = getSandboxExports()
+  return exportsList.length ? exportsList[0] : null
 }
 
 function getPlayerCustomization(playerId) {
@@ -544,6 +617,25 @@ function initializeManagedAudioElements() {
   syncManagedAudioVolumes()
 }
 
+function forcePrimaryAudioVolumes() {
+  const musicIds = ["music", "musicA", "musicB", "auroraMusic", "forsureMusic", "sortPrisonMusic", "madnessLow", "madnessMid", "madnessHigh", "madnessPeak"]
+  musicIds.forEach(id => {
+    const audio = document.getElementById(id)
+    if (!audio) return
+    audio.__audioChannel = "music"
+    if (!Number.isFinite(parseFloat(audio.__baseVolume))) audio.__baseVolume = 1
+    audio.volume = getScaledAudioVolume(audio.__baseVolume, "music")
+  })
+
+  document.querySelectorAll("audio").forEach(audio => {
+    if (!audio) return
+    const channel = audio.__audioChannel || inferAudioChannel(audio)
+    if (channel !== "effects") return
+    if (!Number.isFinite(parseFloat(audio.__baseVolume))) audio.__baseVolume = 1
+    audio.volume = getScaledAudioVolume(audio.__baseVolume, "effects")
+  })
+}
+
 function crossfadeMusic(newMusic) {
   if (
     auroraActive &&
@@ -909,11 +1001,23 @@ document.addEventListener("DOMContentLoaded", () => {
   if (musicSlider) musicSlider.value = String(initialMusicVolume)
   if (effectsSlider) effectsSlider.value = String(initialEffectsVolume)
   initializeManagedAudioElements()
+  forcePrimaryAudioVolumes()
 
   if (musicSlider) {
     const handleMusicSlider = () => {
       setUserMusicVolume(musicSlider.value)
+      if (window.__menuMusicFadeInterval) {
+        clearInterval(window.__menuMusicFadeInterval)
+        window.__menuMusicFadeInterval = null
+      }
       syncManagedAudioVolumes()
+      forcePrimaryAudioVolumes()
+      const menuMusic = document.getElementById("music")
+      if (menuMusic) {
+        menuMusic.__baseVolume = 1
+        menuMusic.__audioChannel = "music"
+        menuMusic.volume = getScaledAudioVolume(1, "music")
+      }
     }
     musicSlider.addEventListener("input", handleMusicSlider)
     musicSlider.addEventListener("change", handleMusicSlider)
@@ -923,6 +1027,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const handleEffectsSlider = () => {
       setUserEffectsVolume(effectsSlider.value)
       syncManagedAudioVolumes()
+      forcePrimaryAudioVolumes()
     }
     effectsSlider.addEventListener("input", handleEffectsSlider)
     effectsSlider.addEventListener("change", handleEffectsSlider)
