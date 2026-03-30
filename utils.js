@@ -21,6 +21,23 @@ function getObjectValueLoose(obj, wantedKey) {
 
 const CUSTOMIZATION_STORAGE_KEY = "rpg_customization_v1"
 const SANDBOX_EXPORTS_STORAGE_KEY = "rpg_sandbox_exports_v1"
+const DEFAULT_PLAYER_SLOT_META = {
+  greg: { label: "Joueur 1", index: 1 },
+  ju:   { label: "Joueur 2", index: 2 },
+  elo:  { label: "Joueur 3", index: 3 },
+  bibi: { label: "Joueur 4", index: 4 }
+}
+
+function getDefaultPlayerSlotLabel(playerId) {
+  const meta = DEFAULT_PLAYER_SLOT_META[String(playerId || "")]
+  return meta ? meta.label : "Joueur"
+}
+
+function getDefaultPlayerSlotImage(playerId) {
+  const meta = DEFAULT_PLAYER_SLOT_META[String(playerId || "")] || { index: "?" }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f5ecd6"/><stop offset="100%" stop-color="#d9c39a"/></linearGradient></defs><circle cx="80" cy="80" r="76" fill="url(#g)" stroke="#9d8357" stroke-width="8"/><circle cx="80" cy="62" r="24" fill="#8f7a56"/><path d="M42 126c7-24 26-36 38-36s31 12 38 36" fill="#8f7a56"/><text x="80" y="150" text-anchor="middle" font-family="Cinzel, serif" font-size="24" fill="#5b482c">${meta.index}</text></svg>`
+  return "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg)
+}
 
 function getDefaultCustomization() {
   return {
@@ -32,10 +49,10 @@ function getDefaultCustomization() {
       starterMode: "empty"
     },
     players: {
-      greg: { name: "Joueur 1", image: "" },
-      ju:   { name: "Joueur 2", image: "" },
-      elo:  { name: "Joueur 3", image: "" },
-      bibi: { name: "Joueur 4", image: "" }
+      greg: { name: getDefaultPlayerSlotLabel("greg"), image: "", enabled: true },
+      ju:   { name: getDefaultPlayerSlotLabel("ju"), image: "", enabled: true },
+      elo:  { name: getDefaultPlayerSlotLabel("elo"), image: "", enabled: true },
+      bibi: { name: getDefaultPlayerSlotLabel("bibi"), image: "", enabled: true }
     },
     assets: {},
     content: {
@@ -216,12 +233,12 @@ function getLatestSandboxExport() {
 
 function getPlayerCustomization(playerId) {
   const customization = getCustomization()
-  return customization.players[playerId] || { name: playerId, image: "" }
+  return customization.players[playerId] || { name: getDefaultPlayerSlotLabel(playerId), image: "" }
 }
 
 function getPlayerDisplayName(playerId) {
   const player = getPlayerCustomization(playerId)
-  return String(player.name || playerId || "").trim() || String(playerId || "")
+  return String(player.name || getDefaultPlayerSlotLabel(playerId) || "").trim() || getDefaultPlayerSlotLabel(playerId)
 }
 
 function getAssetOverride(path) {
@@ -243,6 +260,7 @@ function resolveImagePath(path) {
   const playerKey = src.replace(/\.(png|jpg|jpeg|webp|gif)$/i, "")
   const playerImage = getPlayerCustomization(playerKey).image
   if (playerImage) return playerImage
+  if (DEFAULT_PLAYER_SLOT_META[playerKey]) return getDefaultPlayerSlotImage(playerKey)
   return "images/" + src
 }
 

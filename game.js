@@ -29,6 +29,26 @@ function closeGMAuthModal() {}
 function closePlayerAuthModal() {}
 function tryAutoSelectAuthenticatedPlayer() { return false }
 
+function setSandboxStudioMode(enabled) {
+  try {
+    document.body.classList.toggle("sandbox-studio-mode", !!enabled)
+    if (enabled) {
+      isGM = true
+      window.isGM = true
+      if (window.__menuMusicFadeInterval) {
+        clearInterval(window.__menuMusicFadeInterval)
+        window.__menuMusicFadeInterval = null
+      }
+      const menuMusic = document.getElementById("music")
+      if (menuMusic) {
+        try { menuMusic.pause() } catch (e) {}
+        menuMusic.currentTime = 0
+        menuMusic.volume = 0
+      }
+    }
+  } catch (e) {}
+}
+
 function updatePlayerAuthMenuState() {
   const status = document.getElementById("playerAuthStatus")
   if (status) {
@@ -490,7 +510,7 @@ function showMapLoreBookOverlay(bookData) {
   box.appendChild(img)
 
   const text = document.createElement("div")
-  text.style.cssText = "position:absolute;left:18%;top:24%;width:64%;height:46%;display:flex;align-items:center;justify-content:center;text-align:center;white-space:pre-line;font-family:'IM Fell English',serif;font-size:clamp(22px,2vw,34px);line-height:1.45;color:#3c2713;text-shadow:0 1px 0 rgba(255,235,190,0.2);padding:34px 40px;box-sizing:border-box;background:url('images/paper1.png') center/100% 100% no-repeat;"
+  text.style.cssText = "position:absolute;left:18%;top:24%;width:64%;height:46%;display:flex;align-items:center;justify-content:center;text-align:center;white-space:pre-line;font-family:'IM Fell English',serif;font-size:clamp(22px,2vw,34px);line-height:1.45;color:#3c2713;text-shadow:0 1px 0 rgba(255,235,190,0.2);padding:34px 40px;box-sizing:border-box;background:linear-gradient(180deg,rgba(238,226,198,0.96),rgba(215,199,164,0.96));border-radius:18px;box-shadow:inset 0 0 0 1px rgba(130,98,54,0.18);"
   text.innerText = entry.text
   box.appendChild(text)
 
@@ -2759,6 +2779,7 @@ function openSandboxAfterProjectCreation(message) {
   }
   window.__startInSandboxMode = false
   try {
+    setSandboxStudioMode(true)
     if (typeof setBuilderShellVisible === "function") setBuilderShellVisible(false)
     if (!gameStarted) gameStarted = true
     hideIntroLayers()
@@ -2768,15 +2789,23 @@ function openSandboxAfterProjectCreation(message) {
     const diceBar = document.getElementById("diceBar")
     const diceLog = document.getElementById("diceLog")
     if (camera) camera.style.display = "block"
-    if (map && !map.style.backgroundImage) {
-      map.style.backgroundImage = "url('" + resolveImagePath("background.jpg") + "')"
-      map.style.backgroundSize = "cover"
-      map.style.backgroundPosition = "center"
+    if (map) {
+      map.style.position = "absolute"
+      map.style.inset = "0"
+      map.style.width = "100vw"
+      map.style.height = "100vh"
+      map.style.backgroundImage = "none"
+      map.style.background = "none"
     }
     if (diceBar) diceBar.style.display = "flex"
     if (diceLog) diceLog.style.display = "block"
     showTavern()
     activateGM(true)
+    if (typeof applyCustomizationToUI === "function") {
+      setTimeout(() => {
+        try { applyCustomizationToUI() } catch (e) {}
+      }, 40)
+    }
     if (typeof openCustomizationPanel === "function") {
       setTimeout(() => {
         try { openCustomizationPanel() } catch (e) {}
@@ -2790,9 +2819,18 @@ function openSandboxAfterProjectCreation(message) {
       hideIntroLayers()
       setGameState("GAME")
       const camera = document.getElementById("camera")
+      const map = document.getElementById("map")
       const diceBar = document.getElementById("diceBar")
       const diceLog = document.getElementById("diceLog")
       if (camera) camera.style.display = "block"
+      if (map) {
+        map.style.position = "absolute"
+        map.style.inset = "0"
+        map.style.width = "100vw"
+        map.style.height = "100vh"
+        map.style.backgroundImage = "none"
+        map.style.background = "none"
+      }
       if (diceBar) diceBar.style.display = "flex"
       if (diceLog) diceLog.style.display = "block"
       activateGM(true)
@@ -3088,7 +3126,7 @@ function toggleDiceBar(forceState) {
   if (!bar || !toggle) return
   const collapsed = typeof forceState === "boolean" ? forceState : !bar.classList.contains("collapsed")
   bar.classList.toggle("collapsed", collapsed)
-  toggle.innerText = collapsed ? "?" : "?"
+  toggle.innerHTML = collapsed ? "&#9656;" : "&#9662;"
   toggle.setAttribute("aria-label", collapsed ? "Deplier les des" : "Replier les des")
 }
 
@@ -3386,7 +3424,7 @@ function buildSandboxManagerPanel(options) {
 
 function sanitizeLegacySandboxUI() {
   const gmSaveBtn = document.getElementById("gmSaveBtn")
-  if (gmSaveBtn) gmSaveBtn.textContent = "Studio MJ"
+  if (gmSaveBtn) gmSaveBtn.textContent = "Save"
 
   const diceToggle = document.getElementById("diceBarToggle")
   if (diceToggle) {
@@ -3433,12 +3471,16 @@ function sanitizeLegacySandboxUI() {
 
   const gmCharacters = document.getElementById("gmCharacters")
   if (gmCharacters) {
-    gmCharacters.innerHTML = `
-      <button onclick="openCharacterSheet('greg')">Joueur 1</button>
-      <button onclick="openCharacterSheet('ju')">Joueur 2</button>
-      <button onclick="openCharacterSheet('elo')">Joueur 3</button>
-      <button onclick="openCharacterSheet('bibi')">Joueur 4</button>
-    `
+    if (typeof applyCustomizationToUI === "function") {
+      setTimeout(applyCustomizationToUI, 20)
+    } else {
+      gmCharacters.innerHTML = `
+        <button onclick="openCharacterSheet('greg')">Joueur 1</button>
+        <button onclick="openCharacterSheet('ju')">Joueur 2</button>
+        <button onclick="openCharacterSheet('elo')">Joueur 3</button>
+        <button onclick="openCharacterSheet('bibi')">Joueur 4</button>
+      `
+    }
   }
 
   const panelFactories = {
@@ -3697,9 +3739,11 @@ function showTavern() {
 
 function startIntro() {
   if (window.__skipIntroHub) {
+    setSandboxStudioMode(true)
     hideIntroLayers()
     return
   }
+  setSandboxStudioMode(false)
   if (typeof startMenuSparks === "function") startMenuSparks()
   if (typeof stopAllMusic === "function") stopAllMusic()
   if (typeof preloadAssets === "function") preloadAssets()
@@ -3714,6 +3758,7 @@ function startIntro() {
       start.style.visibility = "hidden"
     }
     showIntroLayer()
+    if (window.__skipIntroHub || document.body.classList.contains("sandbox-studio-mode")) return
     const music = document.getElementById("music"); music.volume = 0; music.play().catch(() => {})
     music.__baseVolume = 1
     music.__audioChannel = "music"
@@ -3799,9 +3844,13 @@ function activateGM(fromFirebaseRole = false) {
 
 function toggleGMSection(id) {
   const section = document.getElementById(id); if (!section) return
-  const isOpen  = section.style.display === "block"
-  document.querySelectorAll(".gmSection").forEach(sec => { sec.style.display = "none" })
-  if (!isOpen) section.style.display = "block"
+  const isOpen = section.style.display === "block"
+  document.querySelectorAll(".gmSection").forEach(sec => {
+    sec.style.display = "none"
+  })
+  if (!isOpen) {
+    section.style.display = "block"
+  }
 }
 
 function toggleCategory(id, button) {
@@ -3938,6 +3987,8 @@ document.querySelectorAll(".token").forEach(token => {
   })
   token.addEventListener("mousedown", e => {
     if (e.target.closest("#playerSelect") || e.target.closest("button")) return
+    const sandboxStudio = document.body.classList.contains("sandbox-studio-mode")
+    if (sandboxStudio) return
     const now = Date.now()
     if (now - lastClickTime < 300) {
       if (isGM && token.id !== "mobToken") openCharacterSheet(token.id)
@@ -3945,29 +3996,98 @@ document.querySelectorAll(".token").forEach(token => {
     }
     lastClickTime = now
     if (isGM) {
+      const map = document.getElementById("map")
+      const mapRect = map ? map.getBoundingClientRect() : { left: 0, top: 0 }
       document.querySelectorAll(".token").forEach(t => t.classList.remove("gmSelected"))
       token.classList.add("gmSelected"); selected = token; lastX = selected.offsetLeft
+      _state.tokenDragOffset = {
+        x: e.clientX - mapRect.left - selected.offsetLeft,
+        y: e.clientY - mapRect.top - selected.offsetTop
+      }
       _state.tokenDragStart = { x: e.clientX, y: e.clientY }; _state.tokenDragging = false
-      e.preventDefault(); return
+      selected.style.transition = "none"
+      e.preventDefault(); e.stopPropagation(); return
     }
     if (!myToken || token.id !== myToken.id) return
     selected = token; lastX = selected.offsetLeft; e.preventDefault()
   })
 })
 
+window.__sandboxTokenDrag = null
+
+document.querySelectorAll(".token").forEach(token => {
+  token.addEventListener("pointerdown", e => {
+    if (!document.body.classList.contains("sandbox-studio-mode")) return
+    if (e.button !== 0) return
+    if (token.id === "mobToken") return
+    const map = document.getElementById("map")
+    if (!map) return
+    const rect = map.getBoundingClientRect()
+    document.querySelectorAll(".token").forEach(t => t.classList.remove("gmSelected"))
+    token.classList.add("gmSelected")
+    window.__sandboxTokenDrag = {
+      token,
+      offsetX: e.clientX - rect.left - token.offsetLeft,
+      offsetY: e.clientY - rect.top - token.offsetTop
+    }
+    token.dataset.mjPlaced = "true"
+    token.style.transition = "none"
+    token.style.cursor = "grabbing"
+    e.preventDefault()
+    e.stopPropagation()
+  })
+})
+
+document.addEventListener("pointermove", e => {
+  const drag = window.__sandboxTokenDrag
+  if (!drag) return
+  const map = document.getElementById("map")
+  if (!map) return
+  const rect = map.getBoundingClientRect()
+  const token = drag.token
+  const x = Math.max(0, Math.min(rect.width - token.offsetWidth, e.clientX - rect.left - drag.offsetX))
+  const y = Math.max(0, Math.min(rect.height - token.offsetHeight, e.clientY - rect.top - drag.offsetY))
+  token.style.left = x + "px"
+  token.style.top = y + "px"
+})
+
+document.addEventListener("pointerup", () => {
+  const drag = window.__sandboxTokenDrag
+  if (!drag) return
+  const token = drag.token
+  token.style.transition = ""
+  token.style.cursor = ""
+  if (token && token.id) {
+    const finalX = parseInt(token.style.left, 10) || 0
+    const finalY = parseInt(token.style.top, 10) || 0
+    db.ref("tokens/" + token.id).update({ x: finalX, y: finalY })
+  }
+  window.__sandboxTokenDrag = null
+})
+
 document.addEventListener("mousemove", e => {
   if (!selected) return
+  const sandboxStudio = document.body.classList.contains("sandbox-studio-mode")
   if (_state.tokenDragStart && !_state.tokenDragging) {
     if (Math.abs(e.clientX - _state.tokenDragStart.x) < 5 && Math.abs(e.clientY - _state.tokenDragStart.y) < 5) return
     _state.tokenDragging = true
   }
   if (!isGM && (!myToken || selected.id !== myToken.id)) return
   const map  = document.getElementById("map"); const rect = map.getBoundingClientRect()
-  const gx   = Math.floor((e.clientX - rect.left) / grid) * grid
-  const gy   = Math.floor((e.clientY - rect.top)  / grid) * grid
+  const offsetX = (isGM && _state.tokenDragOffset) ? _state.tokenDragOffset.x : 0
+  const offsetY = (isGM && _state.tokenDragOffset) ? _state.tokenDragOffset.y : 0
+  const rawX = e.clientX - rect.left - offsetX
+  const rawY = e.clientY - rect.top - offsetY
+  const gx   = sandboxStudio && isGM
+    ? Math.max(0, Math.min(rect.width - selected.offsetWidth, rawX))
+    : Math.floor((rawX + grid / 2) / grid) * grid
+  const gy   = sandboxStudio && isGM
+    ? Math.max(0, Math.min(rect.height - selected.offsetHeight, rawY))
+    : Math.floor((rawY + grid / 2) / grid) * grid
   if (gx < lastX) selected.classList.add("faceLeft")
   if (gx > lastX) selected.classList.remove("faceLeft")
   lastX = gx; selected.style.left = gx + "px"; selected.style.top = gy + "px"
+  if (sandboxStudio && isGM) selected.dataset.mjPlaced = "true"
   const now = Date.now()
   if (now - lastSend > sendDelay && (gx !== lastSentX || gy !== lastSentY)) {
     if (!selected._fbSlot) db.ref("tokens/" + selected.id).update({ x: gx, y: gy })
@@ -3976,7 +4096,15 @@ document.addEventListener("mousemove", e => {
 })
 
 document.addEventListener("mouseup", () => {
-  _state.tokenDragging = false; _state.tokenDragStart = null; selected = null
+  if (selected) {
+    selected.style.transition = ""
+    if (isGM && !selected._fbSlot) {
+      const finalX = parseInt(selected.style.left, 10) || 0
+      const finalY = parseInt(selected.style.top, 10) || 0
+      db.ref("tokens/" + selected.id).update({ x: finalX, y: finalY })
+    }
+  }
+  _state.tokenDragging = false; _state.tokenDragStart = null; _state.tokenDragOffset = null; selected = null
 })
 
 /* ========================= */

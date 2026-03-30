@@ -2,6 +2,12 @@
 
 (function () {
   const PLAYER_IDS = ["greg", "ju", "elo", "bibi"]
+  const PLAYER_TOKEN_POSITIONS = {
+    greg: { left: 160, top: 260 },
+    ju:   { left: 280, top: 260 },
+    elo:  { left: 400, top: 260 },
+    bibi: { left: 520, top: 260 }
+  }
 
   function byId(id) { return document.getElementById(id) }
   function clone(value) { return JSON.parse(JSON.stringify(value)) }
@@ -27,6 +33,18 @@
 
   function saveExtendedCustomization(data) {
     saveCustomization(data)
+  }
+
+  function stopStudioMenuMusic() {
+    try {
+      const music = byId("music")
+      if (!music) return
+      music.pause()
+      music.currentTime = 0
+      music.volume = 0
+      music.removeAttribute("src")
+      music.load()
+    } catch (e) {}
   }
 
   function getDefaultCatalog() {
@@ -94,6 +112,16 @@
     return `<button class="mapCategoryButton" onclick="toggleCategory('${id}', this)"><span class="arrow">&#9656;</span> ${esc(label)}</button><div id="${esc(id)}" class="mapCategory">${buttonsHtml}</div>`
   }
 
+  function createStudioEmptyState(title, message) {
+    return `
+      <div style="display:grid;gap:10px;padding:14px;border:1px dashed rgba(214,180,106,0.28);border-radius:12px;background:rgba(0,0,0,0.12);">
+        <div style="font-family:Cinzel,serif;font-size:14px;letter-spacing:1px;color:#f0d087;">${esc(title)}</div>
+        <div style="font-size:12px;line-height:1.7;color:#cdbb96;">${esc(message)}</div>
+        <button type="button" onclick="if (typeof openCustomizationPanel === 'function') openCustomizationPanel()" style="justify-self:start;padding:10px 14px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ouvrir le studio</button>
+      </div>
+    `
+  }
+
   function slugify(value) {
     return String(value || "")
       .toLowerCase()
@@ -135,20 +163,40 @@
   }
 
   function refreshPlayerLabels() {
+    const customization = getExtendedCustomization()
+    const visibleCount = Math.max(1, Math.min(4, parseInt(customization.project.playerCount, 10) || 4))
     PLAYER_IDS.forEach(playerId => {
       const player = getPlayerCustomization(playerId)
       const name = getPlayerDisplayName(playerId)
-      const image = player.image || resolveImagePath(playerId + ".png")
+      const image = player.image || getDefaultPlayerSlotImage(playerId)
+      const isVisible = PLAYER_IDS.indexOf(playerId) < visibleCount && player.enabled !== false
       document.querySelectorAll(`[data-player-choice="${playerId}"]`).forEach(button => { button.innerText = name })
+      document.querySelectorAll(`[data-player-choice="${playerId}"]`).forEach(button => {
+        button.style.display = isVisible ? "" : "none"
+      })
       const token = byId(playerId)
       if (token) {
+        token.style.display = isVisible ? "flex" : "none"
+        const position = PLAYER_TOKEN_POSITIONS[playerId]
+        if (isVisible && position && token.dataset.mjPlaced !== "true") {
+          token.style.left = position.left + "px"
+          token.style.top = position.top + "px"
+        }
+        if (!isVisible) token.dataset.mjPlaced = "false"
         const img = token.querySelector("img")
         if (img) img.src = image
         const tag = token.querySelector(".nameTag")
         if (tag) tag.innerText = name
       }
-      document.querySelectorAll(`button[onclick="openCharacterSheet('${playerId}')"]`).forEach(button => { button.innerText = name })
     })
+
+    const gmCharacters = byId("gmCharacters")
+    if (gmCharacters) {
+      gmCharacters.innerHTML = PLAYER_IDS
+        .filter(playerId => PLAYER_IDS.indexOf(playerId) < visibleCount && getPlayerCustomization(playerId).enabled !== false)
+        .map(playerId => `<button onclick="openCharacterSheet('${playerId}')">${esc(getPlayerDisplayName(playerId))}</button>`)
+        .join("")
+    }
   }
 
   function refreshAuthSelect() {
@@ -164,21 +212,33 @@
     const catalog = getCatalog()
     const renderMapBtn = item => `<button onclick="changeMap('${esc(item[1])}'${item[2] ? `, '${esc(item[2])}'` : ""})">${esc(item[0])}</button>`
     const renderSection = (groups, prefix) => groups.map((group, index) => createCategoryBlock(`${prefix}_${index}`, group[0], group[1].map(renderMapBtn).join(""))).join("")
-    if (byId("mapVilles")) byId("mapVilles").innerHTML = renderSection(catalog.maps.villes, "dynMapVilles")
-    if (byId("mapLandscape")) byId("mapLandscape").innerHTML = catalog.maps.landscape.flatMap(group => group[1]).map(item => `<button onclick="changeMap('${esc(item[1])}'${item[2] ? `, '${esc(item[2])}'` : ""})" class="map-simple-btn">${esc(item[0])}</button>`).join("")
-    if (byId("mapLieux")) byId("mapLieux").innerHTML = renderSection(catalog.maps.lieux, "dynMapLieux")
-    if (byId("mapMondeTab")) byId("mapMondeTab").innerHTML = catalog.maps.monde.flatMap(group => group[1]).map(item => `<button onclick="changeMap('${esc(item[1])}')" class="map-simple-btn">${esc(item[0])}</button>`).join("") + `<button onclick="toggleWorldMapFogTopLeft()" class="map-simple-btn">Fog haut-gauche</button>`
+    if (byId("mapVilles")) byId("mapVilles").innerHTML = catalog.maps.villes.length
+      ? renderSection(catalog.maps.villes, "dynMapVilles")
+      : createStudioEmptyState("Aucune map de ville", "Ajoute tes premieres villes ou scenes dans le studio MJ.")
+    if (byId("mapLandscape")) {
+      const landscapeItems = catalog.maps.landscape.flatMap(group => group[1]).map(item => `<button onclick="changeMap('${esc(item[1])}'${item[2] ? `, '${esc(item[2])}'` : ""})" class="map-simple-btn">${esc(item[0])}</button>`).join("")
+      byId("mapLandscape").innerHTML = landscapeItems || createStudioEmptyState("Aucun paysage", "Ajoute tes plans larges, paysages ou ambiances de voyage dans le studio.")
+    }
+    if (byId("mapLieux")) byId("mapLieux").innerHTML = catalog.maps.lieux.length
+      ? renderSection(catalog.maps.lieux, "dynMapLieux")
+      : createStudioEmptyState("Aucun lieu", "Ajoute tes lieux speciaux, intérieurs ou scenes d'exploration depuis le studio.")
+    if (byId("mapMondeTab")) {
+      const mondeItems = catalog.maps.monde.flatMap(group => group[1]).map(item => `<button onclick="changeMap('${esc(item[1])}')" class="map-simple-btn">${esc(item[0])}</button>`).join("")
+      byId("mapMondeTab").innerHTML = mondeItems
+        ? mondeItems + `<button onclick="toggleWorldMapFogTopLeft()" class="map-simple-btn">Fog haut-gauche</button>`
+        : createStudioEmptyState("Aucune map monde", "Ajoute une carte globale ou une vue strategique depuis le studio MJ.")
+    }
   }
 
   function renderPNJMenu() {
     const catalog = getCatalog()
     const pnjButtons = catalog.pnjs.map((group, index) => createCategoryBlock(`dynPnj_${index}`, group[0], group[1].map(item => `<button onclick="setPNJImage('${esc(item[1])}')">${esc(item[0])}</button>`).join(""))).join("")
     const slotControls = `<div style="margin-top:6px;border-top:1px solid rgba(30,90,102,0.3);padding-top:6px;"><div style="font-family:Cinzel;font-size:10px;color:#1e8a9a;text-align:center;margin-bottom:4px;letter-spacing:1px;">SLOT PNJ</div><div style="display:flex;gap:4px;justify-content:center;margin-bottom:4px;"><button id="slot1Btn" onclick="setPNJSlot(1)" style="flex:1;padding:4px;font-family:Cinzel;font-size:10px;background:rgba(30,90,102,0.4);color:#a0d8e0;border:1px solid #1e5a66;border-radius:3px;cursor:pointer;">1 Centre</button><button id="slot2Btn" onclick="setPNJSlot(2)" style="flex:1;padding:4px;font-family:Cinzel;font-size:10px;background:rgba(30,90,102,0.15);color:#6a9aaa;border:1px solid rgba(30,90,102,0.3);border-radius:3px;cursor:pointer;">2 Gauche</button><button id="slot3Btn" onclick="setPNJSlot(3)" style="flex:1;padding:4px;font-family:Cinzel;font-size:10px;background:rgba(30,90,102,0.15);color:#6a9aaa;border:1px solid rgba(30,90,102,0.3);border-radius:3px;cursor:pointer;">3 Droite</button></div><div style="display:flex;gap:4px;"><button onclick="closePNJBySlot(1)" style="flex:1;padding:3px;font-family:Cinzel;font-size:9px;background:rgba(180,40,40,0.3);color:#ffaaaa;border:1px solid rgba(200,60,60,0.4);border-radius:3px;cursor:pointer;">X C</button><button onclick="closePNJBySlot(2)" style="flex:1;padding:3px;font-family:Cinzel;font-size:9px;background:rgba(180,40,40,0.3);color:#ffaaaa;border:1px solid rgba(200,60,60,0.4);border-radius:3px;cursor:pointer;">X G</button><button onclick="closePNJBySlot(3)" style="flex:1;padding:3px;font-family:Cinzel;font-size:9px;background:rgba(180,40,40,0.3);color:#ffaaaa;border:1px solid rgba(200,60,60,0.4);border-radius:3px;cursor:pointer;">X D</button></div></div>`
-    if (byId("pnjTab")) byId("pnjTab").innerHTML = pnjButtons + slotControls
-    if (byId("highPnjTab")) byId("highPnjTab").innerHTML = catalog.highPnjs.map((group, index) => {
+    if (byId("pnjTab")) byId("pnjTab").innerHTML = (pnjButtons || createStudioEmptyState("Aucun PNJ", "Ajoute tes PNJ dans le studio pour construire ton casting.")) + slotControls
+    if (byId("highPnjTab")) byId("highPnjTab").innerHTML = (catalog.highPnjs.length ? catalog.highPnjs.map((group, index) => {
       const buttons = group[1].map(item => `<button onclick="showHighPNJ('${esc(item[1])}', '${esc(item[2])}')">${esc(item[0])}</button>`).join("")
       return index === 0 ? buttons : createCategoryBlock(`dynHighPnj_${index}`, group[0], buttons)
-    }).join("")
+    }).join("") : createStudioEmptyState("Aucun High PNJ", "Ajoute tes portraits ou personnages importants depuis le studio MJ."))
   }
 
   function renderMobsMenu() {
@@ -186,18 +246,32 @@
     const renderMobBtn = item => item[2] === "boss"
       ? `<button onclick="startCombat('${esc(item[1])}','boss')">${esc(item[0])}</button>`
       : `<button onclick="openMobDiff('${esc(item[1])}', event)" style="width:100%;text-align:left;">${esc(item[0])}</button>`
-    if (byId("mobTab")) byId("mobTab").innerHTML = catalog.mobs.normal.map((group, index) => createCategoryBlock(`dynMob_${index}`, group[0], group[1].map(renderMobBtn).join(""))).join("")
-    if (byId("pnjCombatTab")) byId("pnjCombatTab").innerHTML = catalog.mobs.combat.map((group, index) => createCategoryBlock(`dynCombatMob_${index}`, group[0], group[1].map(renderMobBtn).join(""))).join("")
+    if (byId("mobTab")) {
+      const normalHtml = catalog.mobs.normal.map((group, index) => createCategoryBlock(`dynMob_${index}`, group[0], group[1].map(renderMobBtn).join(""))).join("")
+      byId("mobTab").innerHTML = normalHtml || createStudioEmptyState("Aucun mob", "Ajoute tes ennemis et creatures dans le studio pour remplir cette liste.")
+    }
+    if (byId("pnjCombatTab")) {
+      const combatHtml = catalog.mobs.combat.map((group, index) => createCategoryBlock(`dynCombatMob_${index}`, group[0], group[1].map(renderMobBtn).join(""))).join("")
+      byId("pnjCombatTab").innerHTML = combatHtml || createStudioEmptyState("Aucun PNJ combat", "Ajoute des PNJ orientés combat ou des boss depuis le studio MJ.")
+    }
   }
 
   function renderDocumentsMenu() {
     const docs = getCatalog().documents.flatMap(group => group[1])
     if (byId("elemIndices")) {
-      byId("elemIndices").innerHTML = `<div class="elem-title">DOCUMENTS</div>` + docs.map(item => `<button onclick="showDocument('${esc(item[1])}','${esc(item[2])}')" class="elem-doc-btn">${esc(item[0])}</button>`).join("") + `<div class="panel-divider-tight"><button onclick="clearAllElements()" class="elem-clear-btn">Tout effacer</button></div>`
+      byId("elemIndices").innerHTML = `<div class="elem-title">DOCUMENTS</div>` + (docs.length
+        ? docs.map(item => `<button onclick="showDocument('${esc(item[1])}','${esc(item[2])}')" class="elem-doc-btn">${esc(item[0])}</button>`).join("")
+        : createStudioEmptyState("Aucun document", "Ajoute notes, images et visuels dans le studio pour les retrouver ici.")) + `<div class="panel-divider-tight"><button onclick="clearAllElements()" class="elem-clear-btn">Tout effacer</button></div>`
     }
+    ;["elemObjets", "elemEffets", "elemCartes", "elemJeu", "elemFolie", "elemWanted"].forEach(id => {
+      const panel = byId(id)
+      if (!panel) return
+      panel.innerHTML = createStudioEmptyState("Module conserve", "Cette partie du moteur est gardee, mais aucun contenu n'est preconfigure. Tu pourras la brancher progressivement depuis le studio.")
+    })
   }
 
   function applyCustomizationToUI() {
+    stopStudioMenuMusic()
     ensureCustomMobsRegistered()
     refreshProjectTitle()
     refreshThemePresentation()
@@ -207,6 +281,8 @@
     renderPNJMenu()
     renderMobsMenu()
     renderDocumentsMenu()
+    const projectCount = Math.max(1, Math.min(4, parseInt(getExtendedCustomization().project.playerCount, 10) || 4))
+    syncSandboxPlayerCountControls(projectCount)
   }
 
   function readFileAsDataURL(file) {
@@ -307,7 +383,17 @@
 
   function openStudioCustomization(type) {
     closeStudioOverlay()
-    openCustomizationPanel(type ? { focusType: type } : undefined)
+    const action = String(type || "").trim()
+    if (!action) {
+      openCustomizationPanel()
+      return
+    }
+    const panelTabs = ["project", "players", "content", "assets"]
+    if (panelTabs.includes(action)) {
+      openCustomizationPanel({ tab: action })
+      return
+    }
+    openCustomizationPanel({ focusType: action, tab: "content" })
   }
 
   function showCreatorStudioHome() {
@@ -341,6 +427,16 @@
                 <div style="font-size:12px;color:#bfae8b;margin-top:4px;">Joueurs : ${esc(String(summary.playerCount))}</div>
               </div>
               <button data-studio-open="project" style="padding:10px 14px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Configurer</button>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+              <button data-studio-open="players" style="padding:10px 14px;background:rgba(15,40,56,0.72);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Regler les slots</button>
+              <button data-studio-open="project" style="padding:10px 14px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Projet</button>
+            </div>
+            <div style="display:grid;gap:8px;margin-bottom:12px;padding:12px;border:1px solid rgba(214,180,106,0.18);border-radius:12px;background:rgba(0,0,0,0.16);">
+              <div style="font-size:12px;letter-spacing:2px;color:#cdbb96;">CHOISIR LE NOMBRE DE JOUEURS</div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                ${[1,2,3,4].map(count => `<button type="button" data-home-player-count="${count}" style="padding:10px 14px;border-radius:999px;border:1px solid ${count === summary.playerCount ? "#caa46b" : "rgba(214,180,106,0.24)"};background:${count === summary.playerCount ? "linear-gradient(#7a5533,#4b321c)" : "rgba(255,255,255,0.06)"};color:#f5e6c8;cursor:pointer;font-family:Cinzel,serif;">${count}</button>`).join("")}
+              </div>
             </div>
             <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;">
               ${summary.players.map(player => `<div style="padding:10px 12px;border:1px solid rgba(160,130,80,0.22);border-radius:10px;background:rgba(0,0,0,0.18);"><div style="font-size:10px;letter-spacing:2px;color:#bfae8b;margin-bottom:4px;">${esc(player.id.toUpperCase())}</div><div style="font-size:14px;color:#f5e6c8;">${esc(player.name)}</div></div>`).join("")}
@@ -408,6 +504,15 @@
         openStudioGameMenu(menuId)
       }
     })
+    panel.querySelectorAll("[data-home-player-count]").forEach(button => {
+      button.onclick = () => {
+        const next = getExtendedCustomization()
+        next.project.playerCount = Math.max(1, Math.min(4, parseInt(button.dataset.homePlayerCount, 10) || 4))
+        saveExtendedCustomization(next)
+        applyCustomizationToUI()
+        showCreatorStudioHome()
+      }
+    })
   }
 
   function openCustomizationPanel(options) {
@@ -433,8 +538,8 @@
         <button type="button" data-custom-tab-btn="assets" style="padding:10px 14px;background:rgba(255,255,255,0.06);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:999px;cursor:pointer;font-family:Cinzel,serif;">Assets</button>
       </div>
       <div style="display:grid;gap:18px;">
-        <section data-custom-tab="project" style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);display:grid;gap:14px;"><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Titre</div><input id="customProjectTitle" type="text" value="${esc(customization.project.title)}" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"></div><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Ambiance</div><select id="customProjectTheme" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;">${themeOptionsMarkup}</select></div><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Nombre de joueurs</div><input id="customProjectPlayerCount" type="number" min="1" max="12" value="${Math.max(1, Math.min(12, parseInt(customization.project.playerCount, 10) || 4))}" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"></div><div style="font-size:12px;line-height:1.6;color:#bfae8b;">Tu peux changer ce nombre a tout moment dans ce bac a sable.</div></section>
-        <section data-custom-tab="players" style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);"><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:12px;">Slots joueurs</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">${PLAYER_IDS.map(playerId => { const player = customization.players[playerId]; return `<div style="padding:12px;border:1px solid rgba(160,130,80,0.22);border-radius:10px;background:rgba(0,0,0,0.18);"><div style="font-size:11px;color:#d7c39c;letter-spacing:2px;margin-bottom:10px;">${playerId.toUpperCase()}</div><label style="display:grid;gap:6px;margin-bottom:10px;"><span style="font-size:12px;color:#bfae8b;">Nom affiche</span><input data-custom-name="${playerId}" type="text" value="${esc(player.name)}" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;margin-bottom:10px;"><span style="font-size:12px;color:#bfae8b;">URL image</span><input data-custom-image="${playerId}" type="text" value="${esc(player.image)}" placeholder="https://... ou data:image/..." style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Uploader une image</span><input data-custom-upload="${playerId}" type="file" accept="image/*" style="font-size:12px;color:#e8d6b3;"></label></div>` }).join("")}</div></section>
+        <section data-custom-tab="project" style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);display:grid;gap:14px;"><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Titre</div><input id="customProjectTitle" type="text" value="${esc(customization.project.title)}" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"></div><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Ambiance</div><select id="customProjectTheme" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;">${themeOptionsMarkup}</select></div><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Nombre de slots joueurs</div><input id="customProjectPlayerCount" type="number" min="1" max="4" value="${Math.max(1, Math.min(4, parseInt(customization.project.playerCount, 10) || 4))}" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"></div><div style="display:flex;flex-wrap:wrap;gap:8px;">${[1,2,3,4].map(count => `<button type="button" data-player-count-choice="${count}" style="padding:10px 14px;border-radius:999px;border:1px solid ${count === Math.max(1, Math.min(4, parseInt(customization.project.playerCount, 10) || 4)) ? "#caa46b" : "rgba(214,180,106,0.24)"};background:${count === Math.max(1, Math.min(4, parseInt(customization.project.playerCount, 10) || 4)) ? "linear-gradient(#7a5533,#4b321c)" : "rgba(255,255,255,0.06)"};color:#f5e6c8;cursor:pointer;font-family:Cinzel,serif;">${count}</button>`).join("")}</div><div style="font-size:12px;line-height:1.6;color:#bfae8b;">Choisis ici combien de slots joueurs doivent etre visibles sur le board.</div></section>
+        <section data-custom-tab="players" style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);display:grid;gap:14px;"><div><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Nombre de slots joueurs visibles</div><div style="display:flex;flex-wrap:wrap;gap:8px;">${[1,2,3,4].map(count => `<button type="button" data-player-count-choice="${count}" style="padding:10px 14px;border-radius:999px;border:1px solid ${count === Math.max(1, Math.min(4, parseInt(customization.project.playerCount, 10) || 4)) ? "#caa46b" : "rgba(214,180,106,0.24)"};background:${count === Math.max(1, Math.min(4, parseInt(customization.project.playerCount, 10) || 4)) ? "linear-gradient(#7a5533,#4b321c)" : "rgba(255,255,255,0.06)"};color:#f5e6c8;cursor:pointer;font-family:Cinzel,serif;">${count}</button>`).join("")}</div><div style="margin-top:8px;font-size:12px;line-height:1.6;color:#bfae8b;">Choisis rapidement combien de slots tu veux afficher sur le board.</div></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">${PLAYER_IDS.map(playerId => { const player = customization.players[playerId]; return `<div style="padding:12px;border:1px solid rgba(160,130,80,0.22);border-radius:10px;background:rgba(0,0,0,0.18);"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;"><div style="font-size:11px;color:#d7c39c;letter-spacing:2px;">${playerId.toUpperCase()}</div><label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#e8d8b6;"><input data-custom-enabled="${playerId}" type="checkbox" ${player.enabled !== false ? "checked" : ""}> Actif</label></div><label style="display:grid;gap:6px;margin-bottom:10px;"><span style="font-size:12px;color:#bfae8b;">Nom affiche</span><input data-custom-name="${playerId}" type="text" value="${esc(player.name)}" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;margin-bottom:10px;"><span style="font-size:12px;color:#bfae8b;">URL image</span><input data-custom-image="${playerId}" type="text" value="${esc(player.image)}" placeholder="https://... ou data:image/..." style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Uploader une image</span><input data-custom-upload="${playerId}" type="file" accept="image/*" style="font-size:12px;color:#e8d6b3;"></label></div>` }).join("")}</div></section>
         <section data-custom-tab="content" style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);"><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Ajouter du contenu custom</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:end;"><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Type</span><select id="customItemType" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"><option value="map">Map</option><option value="pnj">PNJ</option><option value="highPnj">High PNJ</option><option value="mob">Mob</option><option value="document">Document</option></select></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Categorie</span><input id="customItemCategory" type="text" placeholder="Ex : Mon univers" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Titre</span><input id="customItemLabel" type="text" placeholder="Ex : Temple du feu" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Image / nom de map / id</span><input id="customItemAsset" type="text" placeholder="Ex : temple.jpg" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Upload image</span><input id="customItemUpload" type="file" accept="image/*" style="font-size:12px;color:#e8d6b3;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Section map</span><select id="customItemSection" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"><option value="villes">Villes</option><option value="landscape">Landscape</option><option value="lieux">Lieux</option><option value="monde">Mapmonde</option></select></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Audio map / tier mob</span><input id="customItemExtra" type="text" placeholder="Ex : maMusique ou weak" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><button id="addCustomItem" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ajouter</button></div><div id="customContentList" style="display:grid;gap:8px;margin-top:14px;"></div></section>
         <section data-custom-tab="assets" style="padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);"><div style="font-size:13px;letter-spacing:2px;color:#f0d087;margin-bottom:10px;">Override d'image cible</div><div style="display:grid;grid-template-columns:1.4fr 1fr auto;gap:10px;align-items:end;"><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Nom du fichier existant</span><input id="assetOverrideKey" type="text" placeholder="Ex : taverne.jpg" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label><label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Image de remplacement</span><input id="assetOverrideFile" type="file" accept="image/*" style="font-size:12px;color:#e8d6b3;"></label><button id="assetOverrideSave" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ajouter</button></div><div id="assetOverrideList" style="display:grid;gap:8px;margin-top:14px;"></div></section>
         <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;"><button id="customizationLaunch" style="padding:10px 16px;background:rgba(15,40,56,0.72);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Lancer la partie</button><button id="customizationExport" style="padding:10px 16px;background:rgba(69,52,23,0.78);color:#f0d8ab;border:1px solid rgba(202,164,107,0.4);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Exporter une version jouable</button><button id="customizationReset" style="padding:10px 14px;background:#3a0000;color:#ffd1d1;border:1px solid #6e2e2e;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Reinitialiser le bac a sable</button><button id="customizationSave" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Sauvegarder le bac a sable</button></div>
@@ -513,13 +618,40 @@
       const next = getExtendedCustomization()
       next.project.title = String(byId("customProjectTitle").value || "").trim() || "Roleplay It Yourself"
       next.project.theme = String(byId("customProjectTheme").value || "").trim() || getDefaultCustomization().project.theme
-      next.project.playerCount = Math.max(1, Math.min(12, parseInt(byId("customProjectPlayerCount").value, 10) || 4))
+      next.project.playerCount = Math.max(1, Math.min(4, parseInt(byId("customProjectPlayerCount").value, 10) || 4))
       PLAYER_IDS.forEach(playerId => {
         next.players[playerId].name = String(panel.querySelector(`[data-custom-name="${playerId}"]`).value || "").trim() || getDefaultCustomization().players[playerId].name
         next.players[playerId].image = String(panel.querySelector(`[data-custom-image="${playerId}"]`).value || "").trim()
+        next.players[playerId].enabled = !!panel.querySelector(`[data-custom-enabled="${playerId}"]`).checked
       })
       return next
     }
+
+    function liveApplyProjectSettings() {
+      const next = collectCustomizationFromPanel()
+      saveExtendedCustomization(next)
+      applyCustomizationToUI()
+    }
+
+    ;["customProjectTitle", "customProjectTheme", "customProjectPlayerCount"].forEach(id => {
+      const field = byId(id)
+      if (!field) return
+      field.addEventListener("input", liveApplyProjectSettings)
+      field.addEventListener("change", liveApplyProjectSettings)
+    })
+    panel.querySelectorAll("[data-player-count-choice]").forEach(button => {
+      button.onclick = () => {
+        const field = byId("customProjectPlayerCount")
+        if (!field) return
+        field.value = button.dataset.playerCountChoice
+        liveApplyProjectSettings()
+        panel.querySelectorAll("[data-player-count-choice]").forEach(btn => {
+          const active = btn === button
+          btn.style.background = active ? "linear-gradient(#7a5533,#4b321c)" : "rgba(255,255,255,0.06)"
+          btn.style.borderColor = active ? "#caa46b" : "rgba(214,180,106,0.24)"
+        })
+      }
+    })
 
     byId("customizationSave").onclick = () => {
       const next = collectCustomizationFromPanel()
@@ -675,10 +807,64 @@
     applyCustomizationToUI()
     setTimeout(patchRuntimeFunctions, 300)
     setTimeout(applyCustomizationToUI, 700)
+    document.addEventListener("mousedown", event => {
+      const root = event.target && event.target.closest ? event.target.closest(".sandboxPlayersMenu") : null
+      if (!root) closeSandboxPlayerMenu()
+    })
   })
+
+  function closeSandboxPlayerMenu() {
+    const menu = byId("sandboxPlayersDropdown")
+    const button = byId("sandboxPlayersBtn")
+    if (menu) {
+      menu.classList.remove("open")
+      menu.style.display = "none"
+    }
+    if (button) button.setAttribute("aria-expanded", "false")
+  }
+
+  function toggleSandboxPlayerMenu() {
+    const menu = byId("sandboxPlayersDropdown")
+    const button = byId("sandboxPlayersBtn")
+    if (!menu) return
+    const nextOpen = menu.style.display === "none" || !menu.classList.contains("open")
+    menu.classList.toggle("open", nextOpen)
+    menu.style.display = nextOpen ? "grid" : "none"
+    if (button) button.setAttribute("aria-expanded", nextOpen ? "true" : "false")
+  }
+
+  function syncSandboxPlayerCountControls(count) {
+    const input = byId("sandboxPlayersCustomInput")
+    if (input) input.value = String(count)
+    const button = byId("sandboxPlayersBtn")
+    if (button) button.textContent = count > 1 ? `Joueurs (${count})` : "Joueurs (1)"
+  }
+
+  function applySandboxPlayerCountToBoard(count) {
+    const next = getExtendedCustomization()
+    next.project.playerCount = Math.max(1, Math.min(4, parseInt(count, 10) || 4))
+    saveExtendedCustomization(next)
+    applyCustomizationToUI()
+    syncSandboxPlayerCountControls(next.project.playerCount)
+  }
+
+  function setSandboxPlayerCount(count) {
+    applySandboxPlayerCountToBoard(count)
+    closeSandboxPlayerMenu()
+  }
+
+  function applyCustomSandboxPlayerCount() {
+    const input = byId("sandboxPlayersCustomInput")
+    applySandboxPlayerCountToBoard(input ? input.value : 4)
+    closeSandboxPlayerMenu()
+  }
 
   window.applyCustomizationToUI = applyCustomizationToUI
   window.openCustomizationPanel = openCustomizationPanel
   window.openCreatorStudio = openCreatorStudio
   window.openPlayerStudio = openPlayerStudio
+  window.setSandboxPlayerCount = setSandboxPlayerCount
+  window.applyCustomSandboxPlayerCount = applyCustomSandboxPlayerCount
+  window.toggleSandboxPlayerMenu = toggleSandboxPlayerMenu
+  window.closeSandboxPlayerMenu = closeSandboxPlayerMenu
 })()

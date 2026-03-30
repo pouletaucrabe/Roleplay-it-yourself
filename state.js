@@ -11,6 +11,7 @@ const _state = {
   pendingTier:      null,
   tokenDragging:    false,
   tokenDragStart:   null,
+  tokenDragOffset:  null,
   mobDiffPending:   null,
   runeJustOpened:   false,
   bibiData:         {}

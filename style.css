@@ -265,7 +265,10 @@ html, body {
   content: "" !important;
   position: absolute !important;
   inset: -10px -12px !important;
-  background: url("images/boutonnoirlarge.png") center/100% 100% no-repeat !important;
+  background:
+    radial-gradient(circle at center, rgba(76,54,24,0.92) 0%, rgba(31,22,10,0.96) 68%, rgba(10,8,5,0.98) 100%) !important;
+  border: 1px solid rgba(180,140,60,0.45) !important;
+  border-radius: 22px !important;
   opacity: 1 !important;
   display: block !important;
   pointer-events: none !important;
@@ -1111,7 +1114,6 @@ html, body {
 #playerMenu {
   position: absolute; top: 65px; right: 0; width: 280px;
   background:
-    url("images/charac.png") center/100% 100% no-repeat,
     linear-gradient(160deg, rgba(18,18,18,0.96) 0%, #060606 40%, rgba(18,18,18,0.98) 100%);
   padding: 92px 26px 84px; border-radius: 3px; overflow: hidden;
   max-height: 0;
@@ -1246,13 +1248,7 @@ html, body {
 }
 
 #diceBar::before {
-  content: "";
-  position: absolute;
-  inset: -14px -24px;
-  background: url("images/boutonnoirlarge.png") center/100% 100% no-repeat;
-  pointer-events: none;
-  z-index: -1;
-  filter: drop-shadow(0 0 18px rgba(0,0,0,0.5));
+  content: none;
 }
 
 #diceBar button {
@@ -1417,7 +1413,7 @@ html, body {
   overflow-y: auto; max-height: 90vh;
   position: fixed; top: 50%; left: 50%;
   transform: translate(-50%,-50%);
-  background: url("images/paper1.png"); background-size: cover;
+  background: linear-gradient(180deg, rgba(232,220,188,0.98), rgba(206,188,152,0.98));
   padding: 40px; display: none;
   z-index: 9999999;
   font-family: var(--font-text);
@@ -1439,10 +1435,10 @@ html, body {
 /* Malédiction */
 .curseGem {
   display: inline-block; width: 20px; height: 20px;
-  background: url("mouche.png") center/contain no-repeat;
+  background: radial-gradient(circle at 50% 45%, rgba(90,20,20,0.95) 0%, rgba(45,8,8,0.98) 72%, rgba(18,4,4,1) 100%);
   margin-right: 2px; cursor: pointer; transition: all 0.2s;
   filter: grayscale(100%) brightness(0.25);
-  border: none; border-radius: 0;
+  border: none; border-radius: 999px;
 }
 
 .curseGem.active {
@@ -1730,22 +1726,160 @@ html, body {
 /* SAUVEGARDE MJ             */
 /* ========================= */
 
-#gmSaveBar { display: none; position: fixed; top: 16px; left: 160px; z-index: 99999999; }
+#gmSaveBar { display: none; position: fixed; top: 18px; left: 18px; z-index: 99999999; }
+
+#sandboxPlayerSlotsBar {
+  display: none;
+  position: fixed;
+  top: 18px;
+  left: 110px;
+  z-index: 99999999;
+}
+
+.sandboxPlayersMenu {
+  position: relative;
+}
+
+#sandboxPlayersBtn {
+  font-family: var(--font-body); font-size: 13px; padding: 10px 18px;
+  background: linear-gradient(180deg, rgba(28,21,12,0.96), rgba(11,10,8,0.98));
+  color: #f4dfb0;
+  border: 1px solid rgba(214,180,106,0.42);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.34);
+  border-radius: 999px; cursor: pointer; transition: 0.2s;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+#sandboxPlayersBtn:hover {
+  background: linear-gradient(180deg, rgba(56,40,20,0.98), rgba(16,14,10,1));
+  transform: translateY(-1px);
+  color: #fff0c8;
+}
+
+.sandboxPlayersDropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  min-width: 220px;
+  padding: 10px;
+  display: none;
+  gap: 8px;
+  background: linear-gradient(180deg, rgba(12,12,12,0.92), rgba(24,18,12,0.94));
+  border: 1px solid rgba(214,180,106,0.28);
+  border-radius: 16px;
+  box-shadow: 0 18px 40px rgba(0,0,0,0.42);
+  backdrop-filter: blur(8px);
+}
+
+.sandboxPlayersDropdown.open {
+  display: grid;
+}
+
+.sandboxPlayersAction {
+  font-family: var(--font-body);
+  font-size: 13px;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(214,180,106,0.18);
+  background: rgba(255,255,255,0.04);
+  color: #f3e7cf;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.sandboxPlayersAction:hover {
+  background: rgba(255,255,255,0.09);
+  border-color: rgba(214,180,106,0.38);
+}
+
+.sandboxPlayersCustomRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+#sandboxPlayersCustomInput {
+  width: 100%;
+  padding: 10px 12px;
+  background: rgba(8,8,8,0.9);
+  border: 1px solid rgba(180,150,90,0.45);
+  border-radius: 10px;
+  color: #f5e6c8;
+  font-family: var(--font-body);
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.sandboxPlayersApply {
+  min-width: 54px;
+  text-align: center;
+}
+
+.studioSaveMenu {
+  position: relative;
+}
 
 #gmSaveBtn {
-  font-family: var(--font-body); font-size: 13px; padding: 8px 16px;
-  background: linear-gradient(180deg, rgba(10,40,50,0.95), rgba(5,20,28,0.98));
-  color: rgba(30,200,220,0.9);
-  border: 1px solid var(--teal-border);
-  box-shadow: 0 0 0 1px var(--gold-dim), 0 0 10px rgba(30,140,160,0.2);
-  border-radius: 3px; cursor: pointer; transition: 0.2s;
-  letter-spacing: 1px;
+  font-family: var(--font-body); font-size: 13px; padding: 10px 18px;
+  background: linear-gradient(180deg, rgba(28,21,12,0.96), rgba(11,10,8,0.98));
+  color: #f4dfb0;
+  border: 1px solid rgba(214,180,106,0.42);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.34);
+  border-radius: 999px; cursor: pointer; transition: 0.2s;
+  letter-spacing: 2px;
+  text-transform: uppercase;
 }
 
 #gmSaveBtn:hover {
-  background: linear-gradient(180deg, rgba(15,60,75,0.98), rgba(8,30,40,1));
-  box-shadow: 0 0 0 1px var(--gold-dim), 0 0 20px rgba(30,180,200,0.4);
-  transform: translateY(-1px); color: #e8f8ff;
+  background: linear-gradient(180deg, rgba(56,40,20,0.98), rgba(16,14,10,1));
+  transform: translateY(-1px);
+  color: #fff0c8;
+}
+
+.studioSaveDropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  min-width: 210px;
+  padding: 10px;
+  display: none;
+  gap: 8px;
+  background: linear-gradient(180deg, rgba(12,12,12,0.92), rgba(24,18,12,0.94));
+  border: 1px solid rgba(214,180,106,0.28);
+  border-radius: 16px;
+  box-shadow: 0 18px 40px rgba(0,0,0,0.42);
+  backdrop-filter: blur(8px);
+}
+
+.studioSaveDropdown.open {
+  display: grid;
+}
+
+.studioSaveAction {
+  font-family: var(--font-body);
+  font-size: 13px;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(214,180,106,0.18);
+  background: rgba(255,255,255,0.04);
+  color: #f3e7cf;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.studioSaveAction:hover {
+  background: rgba(255,255,255,0.09);
+  border-color: rgba(214,180,106,0.38);
+}
+
+.studioSaveActionDanger {
+  color: #ffd7d7;
+  border-color: rgba(214,110,110,0.22);
+  background: rgba(90,22,22,0.35);
 }
 
 /* ========================= */
@@ -2912,7 +3046,7 @@ body {
   min-height: 120px;
   max-width: 320px;
   max-height: 220px;
-  background: url("images/nuage.png") top left / contain no-repeat;
+  background: radial-gradient(ellipse at top left, rgba(255,255,255,0.18), rgba(255,255,255,0.04) 52%, rgba(255,255,255,0) 74%);
   pointer-events: none;
   z-index: 9;
   display: none;
@@ -3158,8 +3292,9 @@ body {
 }
 
 #diceBar::before {
-  inset: -10px -12px !important;
-  background: url("images/boutonnoirlarge.png") center/100% 100% no-repeat !important;
+  content: none !important;
+  inset: auto !important;
+  background: none !important;
 }
 
 /* — Logs et notifications — */
@@ -3354,6 +3489,132 @@ body {
   align-items: center;
   justify-content: center;
   padding: 28px;
+}
+
+body.sandbox-studio-mode #builderAppShell,
+body.sandbox-studio-mode #intro,
+body.sandbox-studio-mode #startScreen,
+body.sandbox-studio-mode #dialogueBox,
+body.sandbox-studio-mode #playerSelect,
+body.sandbox-studio-mode #audioSliders,
+body.sandbox-studio-mode #mjLog,
+body.sandbox-studio-mode #playerAttackBtn,
+body.sandbox-studio-mode #playerThuumBtn,
+body.sandbox-studio-mode #playerThuumPanel,
+body.sandbox-studio-mode #menuMusicCredit {
+  display: none !important;
+}
+
+body.sandbox-studio-mode #camera {
+  display: block !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+
+body.sandbox-studio-mode #gmSaveBar,
+body.sandbox-studio-mode #customizationLauncher,
+body.sandbox-studio-mode #sandboxPlayerSlotsBar {
+  display: block !important;
+}
+
+body.sandbox-studio-mode #customizationLauncher {
+  display: block !important;
+  top: 18px !important;
+  right: 18px !important;
+}
+
+body.sandbox-studio-mode #gmSaveBar {
+  display: block !important;
+}
+
+body.sandbox-studio-mode #map {
+  background: none !important;
+  background-image: none !important;
+  background-color: #f8f5ee !important;
+  box-shadow: none !important;
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+}
+
+body.sandbox-studio-mode #grid {
+  background-image:
+    linear-gradient(rgba(70, 96, 118, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(70, 96, 118, 0.12) 1px, transparent 1px) !important;
+  background-size: 80px 80px !important;
+  opacity: 1 !important;
+}
+
+body.sandbox-studio-mode .token {
+  z-index: 20 !important;
+}
+
+body.sandbox-studio-mode .token img {
+  border-radius: 22px !important;
+  background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(232,223,206,0.95)) !important;
+  box-shadow:
+    0 0 0 1px rgba(111, 92, 59, 0.22),
+    0 10px 22px rgba(67, 56, 35, 0.16),
+    inset 0 1px 0 rgba(255,255,255,0.8) !important;
+}
+
+body.sandbox-studio-mode .token::before,
+body.sandbox-studio-mode .token::after {
+  display: none !important;
+}
+
+body.sandbox-studio-mode .nameTag {
+  background: rgba(255,255,255,0.9) !important;
+  border: 1px solid rgba(111, 92, 59, 0.18) !important;
+  border-radius: 999px !important;
+  box-shadow: 0 8px 18px rgba(67, 56, 35, 0.12) !important;
+  color: #4a3a23 !important;
+  text-shadow: none !important;
+  padding: 7px 14px !important;
+}
+
+body.sandbox-studio-mode .tokenStats {
+  display: none !important;
+}
+
+body.sandbox-studio-mode .hpBarToken {
+  top: -10px !important;
+  background: rgba(66, 52, 29, 0.2) !important;
+  border: 1px solid rgba(111, 92, 59, 0.24) !important;
+}
+
+body.sandbox-studio-mode #gmBar {
+  display: flex !important;
+  bottom: 20px !important;
+  top: auto !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 99999997 !important;
+}
+
+body.sandbox-studio-mode .gmSection {
+  top: auto !important;
+  bottom: 92px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 99999998 !important;
+  max-height: calc(100vh - 140px) !important;
+  overflow-y: auto !important;
+}
+
+body.sandbox-studio-mode #diceBar {
+  display: flex !important;
+  z-index: 99999996 !important;
+}
+
+body.sandbox-studio-mode #diceLog {
+  display: block !important;
+  z-index: 99999996 !important;
 }
 
 #builderShellBackdrop {
