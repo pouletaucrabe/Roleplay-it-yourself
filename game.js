@@ -3332,9 +3332,7 @@ function getSandboxContentItems(type) {
     const data = getCustomization()
     const content = data && data.content ? data.content : {}
     if (type === "map") {
-      const savedMaps = Array.isArray(content.maps) ? content.maps : []
-      const runtimeMaps = Array.isArray(window.__sandboxRuntimeMaps) ? window.__sandboxRuntimeMaps : []
-      return savedMaps.concat(runtimeMaps)
+      return ensureSandboxMapRuntimeState()
     }
     if (type === "pnj") return content.pnjs || []
     if (type === "mob") return content.mobs || []
@@ -3353,14 +3351,77 @@ function getSandboxCollectionInfo(type) {
   return map[String(type || "").toLowerCase()] || null
 }
 
-function getSavedSandboxMapCount() {
+function ensureSandboxMapRuntimeState(forceRefresh) {
   try {
-    if (typeof getCustomization !== "function") return 0
+    if (!forceRefresh && Array.isArray(window.__sandboxMapPanelState)) {
+      window.__sandboxMapPanelState = window.__sandboxMapPanelState.map((item, index) => ({
+        ...item,
+        __runtimeKey: String(item && item.__runtimeKey || item && item.id || ("map_" + index))
+      }))
+      return window.__sandboxMapPanelState
+    }
+    if (typeof getCustomization !== "function") {
+      window.__sandboxMapPanelState = []
+      return window.__sandboxMapPanelState
+    }
     const data = getCustomization()
     const content = data && data.content ? data.content : {}
-    return Array.isArray(content.maps) ? content.maps.length : 0
+    const savedMaps = Array.isArray(content.maps) ? content.maps.map((item, index) => ({
+      ...item,
+      __runtimeKey: String(item && item.__runtimeKey || item && item.id || ("map_" + index))
+    })) : []
+    window.__sandboxMapPanelState = savedMaps
+    return window.__sandboxMapPanelState
   } catch (_) {}
-  return 0
+  window.__sandboxMapPanelState = Array.isArray(window.__sandboxMapPanelState) ? window.__sandboxMapPanelState : []
+  return window.__sandboxMapPanelState
+}
+
+function findSandboxMapIndexByKey(mapKey) {
+  const maps = ensureSandboxMapRuntimeState()
+  return maps.findIndex(item => item && String(item.__runtimeKey || "") === String(mapKey || ""))
+}
+
+function persistSandboxMapRuntimeState() {
+  try {
+    if (typeof getCustomization !== "function" || typeof saveCustomization !== "function") return false
+    const next = getCustomization()
+    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+    next.content.maps = ensureSandboxMapRuntimeState().map(item => {
+      const clone = { ...item }
+      delete clone.__runtimeKey
+      delete clone.__runtimeOnly
+      return clone
+    })
+    saveCustomization(next)
+    if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
+    return true
+  } catch (_) {}
+  return false
+}
+
+function persistSandboxMapsDirect(maps) {
+  try {
+    if (typeof getCustomization !== "function" || typeof saveCustomization !== "function") return false
+    const next = getCustomization()
+    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+    next.content.maps = (Array.isArray(maps) ? maps : []).map((item, index) => ({
+      label: String(item && item.label || "Sans titre"),
+      category: String(item && item.category || "Custom"),
+      map: String(item && item.map || ""),
+      section: String(item && item.section || "lieux"),
+      audio: String(item && item.audio || ""),
+      id: String(item && (item.id || item.__runtimeKey) || ("map_" + index))
+    }))
+    saveCustomization(next)
+    window.__sandboxMapPanelState = next.content.maps.map((item, index) => ({
+      ...item,
+      __runtimeKey: String(item && item.id || ("map_" + index))
+    }))
+    if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
+    return true
+  } catch (_) {}
+  return false
 }
 
 function updateSandboxCustomization(mutator) {
@@ -3373,6 +3434,7 @@ function updateSandboxCustomization(mutator) {
     if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
     if (typeof renderNativeStudioContentList === "function") renderNativeStudioContentList()
     try { renderSandboxManagerPanelById("mapMenu") } catch (_) {}
+    try { forceRenderMapMenuPanelList() } catch (_) {}
     try { renderSandboxManagerPanelById("pnjMenu") } catch (_) {}
     try { renderSandboxManagerPanelById("mobMenu2") } catch (_) {}
     try { renderSandboxManagerPanelById("elementsMenu") } catch (_) {}
@@ -3410,12 +3472,43 @@ function launchSandboxMap(index) {
   const maps = getSandboxContentItems("map")
   const item = maps[index]
   if (!item) return
-  changeMap(item.map || "background.jpg", item.audio || "")
+  const mapValue = String(item.map || "").trim()
+  if (/^(data:|blob:|https?:|\/)/i.test(mapValue)) {
+    try {
+      const map = document.getElementById("map")
+      const layer = document.getElementById("sandboxStartMapLayer")
+      if (layer) {
+        layer.src = mapValue
+        layer.style.display = "block"
+      }
+      if (map) {
+        map.style.backgroundImage = "url('" + mapValue.replace(/'/g, "\\'") + "')"
+        map.style.backgroundSize = "cover"
+        map.style.backgroundPosition = "center center"
+        map.style.backgroundRepeat = "no-repeat"
+      }
+      if (typeof updateCamera === "function") updateCamera()
+    } catch (_) {}
+    if (item.label) {
+      setTimeout(() => {
+        try { showLocation(String(item.label)) } catch (_) {}
+      }, 120)
+    }
+    return
+  }
+  changeMap(mapValue || "background.jpg", item.audio || "")
   if (item.label) {
     setTimeout(() => {
       try { showLocation(String(item.label)) } catch (_) {}
     }, 2000)
   }
+}
+
+function launchSandboxMapByKey(mapKey) {
+  const index = findSandboxMapIndexByKey(mapKey)
+  if (index < 0) return false
+  launchSandboxMap(index)
+  return false
 }
 
 function renameSandboxMap(index) {
@@ -3429,37 +3522,37 @@ function renameSandboxMap(index) {
     if (typeof showNotification === "function") showNotification("Nom obligatoire")
     return false
   }
-  const savedCount = getSavedSandboxMapCount()
-  if (index >= savedCount) {
-    const runtimeMaps = Array.isArray(window.__sandboxRuntimeMaps) ? window.__sandboxRuntimeMaps : []
-    const runtimeIndex = index - savedCount
-    if (runtimeMaps[runtimeIndex]) runtimeMaps[runtimeIndex].label = trimmedLabel
-    window.__sandboxRuntimeMaps = runtimeMaps
-    try { renderSandboxManagerPanelById("mapMenu") } catch (_) {}
-    return false
-  }
-  updateSandboxCustomization(function(next) {
-    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
-    next.content.maps = Array.isArray(next.content.maps) ? next.content.maps : []
-    if (!next.content.maps[index]) return
-    next.content.maps[index].label = trimmedLabel
-  })
+  const runtimeMaps = ensureSandboxMapRuntimeState().slice()
+  if (!runtimeMaps[index]) return false
+  runtimeMaps[index].label = trimmedLabel
+  persistSandboxMapsDirect(runtimeMaps)
+  try { renderSandboxManagerPanelById("mapMenu") } catch (_) {}
+  try { forceRenderMapMenuPanelList() } catch (_) {}
+  try { renderSandboxMapManagerOverlay() } catch (_) {}
   return false
 }
 
+function renameSandboxMapByKey(mapKey) {
+  const index = findSandboxMapIndexByKey(mapKey)
+  if (index < 0) return false
+  return renameSandboxMap(index)
+}
+
 function deleteSandboxMap(index) {
-  const savedCount = getSavedSandboxMapCount()
-  if (index >= savedCount) {
-    const runtimeMaps = Array.isArray(window.__sandboxRuntimeMaps) ? window.__sandboxRuntimeMaps : []
-    const runtimeIndex = index - savedCount
-    if (runtimeIndex >= 0 && runtimeIndex < runtimeMaps.length) {
-      runtimeMaps.splice(runtimeIndex, 1)
-      window.__sandboxRuntimeMaps = runtimeMaps
-      try { renderSandboxManagerPanelById("mapMenu") } catch (_) {}
-    }
-    return false
-  }
-  return deleteNativeStudioItem("map", index)
+  const runtimeMaps = ensureSandboxMapRuntimeState().slice()
+  if (index < 0 || index >= runtimeMaps.length) return false
+  runtimeMaps.splice(index, 1)
+  persistSandboxMapsDirect(runtimeMaps)
+  try { renderSandboxManagerPanelById("mapMenu") } catch (_) {}
+  try { forceRenderMapMenuPanelList() } catch (_) {}
+  try { renderSandboxMapManagerOverlay() } catch (_) {}
+  return false
+}
+
+function deleteSandboxMapByKey(mapKey) {
+  const index = findSandboxMapIndexByKey(mapKey)
+  if (index < 0) return false
+  return deleteSandboxMap(index)
 }
 
 function createSandboxMapFromPanel() {
@@ -3495,18 +3588,20 @@ function createSandboxMapFromPanel() {
           if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
           return
         }
-        updateSandboxCustomization(function(next) {
-          next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
-          next.content.maps = Array.isArray(next.content.maps) ? next.content.maps : []
-          next.content.maps.push({
-            label: trimmedLabel,
-            category: "Custom",
-            map: asset,
-            section: "lieux",
-            audio: ""
-          })
+        const runtimeMaps = ensureSandboxMapRuntimeState().slice()
+        const runtimeKey = "runtime_map_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 6)
+        runtimeMaps.push({
+          label: trimmedLabel,
+          category: "Custom",
+          map: asset,
+          section: "lieux",
+          audio: "",
+          __runtimeKey: runtimeKey,
+          id: runtimeKey
         })
-        try { renderSandboxManagerPanelById("mapMenu") } catch (_) {}
+        persistSandboxMapsDirect(runtimeMaps)
+        try { forceRenderMapMenuPanelList() } catch (_) {}
+        try { renderSandboxMapManagerOverlay() } catch (_) {}
         const panel = document.getElementById("mapMenu")
         if (panel) panel.style.display = "block"
         if (typeof showNotification === "function") showNotification("Map ajoutee")
@@ -3526,6 +3621,10 @@ function startSandboxMapDrag(index) {
   window.__sandboxDraggedMapIndex = Number(index)
 }
 
+function startSandboxMapDragByKey(mapKey) {
+  window.__sandboxDraggedMapIndex = findSandboxMapIndexByKey(mapKey)
+}
+
 function allowSandboxMapDrop(event) {
   if (event) event.preventDefault()
   return false
@@ -3536,26 +3635,21 @@ function dropSandboxMap(targetIndex) {
   const destIndex = Number(targetIndex)
   window.__sandboxDraggedMapIndex = null
   if (!Number.isFinite(sourceIndex) || !Number.isFinite(destIndex) || sourceIndex === destIndex) return false
-  const savedCount = getSavedSandboxMapCount()
-  if (sourceIndex >= savedCount || destIndex >= savedCount) {
-    const runtimeMaps = Array.isArray(window.__sandboxRuntimeMaps) ? window.__sandboxRuntimeMaps.slice() : []
-    const sourceRuntimeIndex = sourceIndex - savedCount
-    const destRuntimeIndex = destIndex - savedCount
-    if (sourceRuntimeIndex < 0 || destRuntimeIndex < 0 || sourceRuntimeIndex >= runtimeMaps.length || destRuntimeIndex >= runtimeMaps.length) return false
-    const moved = runtimeMaps.splice(sourceRuntimeIndex, 1)[0]
-    runtimeMaps.splice(destRuntimeIndex, 0, moved)
-    window.__sandboxRuntimeMaps = runtimeMaps
-    try { renderSandboxManagerPanelById("mapMenu") } catch (_) {}
-    return false
-  }
-  updateSandboxCustomization(function(next) {
-    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
-    next.content.maps = Array.isArray(next.content.maps) ? next.content.maps : []
-    if (sourceIndex < 0 || destIndex < 0 || sourceIndex >= next.content.maps.length || destIndex >= next.content.maps.length) return
-    const moved = next.content.maps.splice(sourceIndex, 1)[0]
-    next.content.maps.splice(destIndex, 0, moved)
-  })
+  const runtimeMaps = ensureSandboxMapRuntimeState().slice()
+  if (sourceIndex < 0 || destIndex < 0 || sourceIndex >= runtimeMaps.length || destIndex >= runtimeMaps.length) return false
+  const moved = runtimeMaps.splice(sourceIndex, 1)[0]
+  runtimeMaps.splice(destIndex, 0, moved)
+  persistSandboxMapsDirect(runtimeMaps)
+  try { renderSandboxManagerPanelById("mapMenu") } catch (_) {}
+  try { forceRenderMapMenuPanelList() } catch (_) {}
+  try { renderSandboxMapManagerOverlay() } catch (_) {}
   return false
+}
+
+function dropSandboxMapByKey(targetKey) {
+  const targetIndex = findSandboxMapIndexByKey(targetKey)
+  if (targetIndex < 0) return false
+  return dropSandboxMap(targetIndex)
 }
 
 function endSandboxMapDrag() {
@@ -3622,27 +3716,12 @@ function buildSandboxManagerPanel(options) {
         `<button type="button" onclick="return createSandboxMapFromPanel()" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Nouvelle map</button>` +
       `</div>`
     : ""
-  const actions = items.length
+  const actions = options.type === "map"
+    ? ""
+    : items.length
     ? items.map((item, index) => {
         const label = String(item.label || "Sans titre")
         const category = String(item.category || "Custom")
-        if (options.type === "map") {
-          return (
-            `<div draggable="true" ondragstart="startSandboxMapDrag(${index})" ondragover="allowSandboxMapDrop(event)" ondrop="dropSandboxMap(${index})" ondragend="endSandboxMapDrag()" style="display:grid;gap:8px;padding:10px;background:rgba(0,0,0,0.18);border:1px solid rgba(214,180,106,0.18);border-radius:10px;cursor:grab;">` +
-              `<div style="display:flex;gap:8px;align-items:center;">` +
-                `<button type="button" onclick="launchSandboxMap(${index})" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;">` +
-                  `<span>${label}</span>` +
-                  `<span style="font-size:11px;color:#bfae8b;">Lancer</span>` +
-                `</button>` +
-                `<span title="Glisser pour reordonner" style="width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f0d087;font-size:16px;">::</span>` +
-              `</div>` +
-              `<div style="display:flex;flex-wrap:wrap;gap:6px;">` +
-                `<button type="button" onclick="return renameSandboxMap(${index})" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Renommer</button>` +
-                `<button type="button" onclick="return deleteSandboxMap(${index})" style="padding:7px 9px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(214,110,110,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Supprimer</button>` +
-              `</div>` +
-            `</div>`
-          )
-        }
         const launchButton = options.type === "map"
           ? `<button type="button" onclick="launchSandboxMap(${index})" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 10px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;">` +
               `<span style="text-align:left;">${label}</span>` +
@@ -3682,7 +3761,10 @@ function buildSandboxManagerPanel(options) {
             `<button type="button" onclick="openNativeStudioQuickCreate('${options.type}')" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter manuellement</button>` +
           `</div>`
       ) +
-      `<div style="display:grid;gap:10px;">${actions}</div>` +
+      (options.type === "map"
+        ? `<div data-sandbox-map-debug style="font-size:11px;color:#bfae8b;">Maps en memoire : ${items.length}</div>`
+        : ``) +
+      `<div data-sandbox-map-list style="display:grid;gap:10px;">${actions}</div>` +
     `</div>`
   )
 }
@@ -3723,6 +3805,308 @@ function renderSandboxManagerPanelById(id) {
   if (!panelFactories[id]) return
   panel.innerHTML = panelFactories[id]()
   panel.dataset.cleaned = "1"
+  if (id === "mapMenu") ensureSandboxMapMenuInteractions()
+}
+
+function forceRenderMapMenuPanelList() {
+  try {
+    const panel = document.getElementById("mapMenu")
+    if (!panel) return
+    const host = panel.querySelector("[data-sandbox-map-list]")
+    const debug = panel.querySelector("[data-sandbox-map-debug]")
+    if (!host) return
+    const maps = getSandboxContentItems("map")
+    if (debug) {
+      debug.textContent = "Maps en memoire : " + maps.length
+    }
+    if (!maps.length) {
+      host.innerHTML = `<div style="font-size:12px;color:#bfae8b;padding:10px;background:rgba(0,0,0,0.18);border:1px dashed rgba(214,180,106,0.18);border-radius:10px;">Aucun element pour le moment.</div>`
+      return
+    }
+    host.innerHTML = ""
+    maps.forEach((item, index) => {
+      const label = String(item && item.label || "Sans titre")
+      const card = document.createElement("div")
+      card.setAttribute("data-map-card", "true")
+      card.setAttribute("data-map-index", String(index))
+      card.style.cssText = "display:grid;gap:8px;padding:10px;background:rgba(0,0,0,0.18);border:1px solid rgba(214,180,106,0.18);border-radius:10px;cursor:grab;"
+
+      const topRow = document.createElement("div")
+      topRow.style.cssText = "display:flex;gap:8px;align-items:center;"
+
+      const launchBtn = document.createElement("button")
+      launchBtn.type = "button"
+      launchBtn.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;"
+      launchBtn.innerHTML = `<span>${label}</span><span style="font-size:11px;color:#bfae8b;">Lancer</span>`
+      launchBtn.addEventListener("click", function(event) {
+        event.preventDefault()
+        event.stopPropagation()
+        launchSandboxMap(index)
+      })
+
+      const dragHandle = document.createElement("span")
+      dragHandle.title = "Glisser pour reordonner"
+      dragHandle.setAttribute("draggable", "true")
+      dragHandle.style.cssText = "width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f0d087;font-size:16px;"
+      dragHandle.textContent = "::"
+      dragHandle.addEventListener("dragstart", function(event) {
+        event.stopPropagation()
+        startSandboxMapDrag(index)
+      })
+
+      topRow.appendChild(launchBtn)
+      topRow.appendChild(dragHandle)
+
+      const actionsRow = document.createElement("div")
+      actionsRow.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;"
+
+      const renameBtn = document.createElement("button")
+      renameBtn.type = "button"
+      renameBtn.style.cssText = "padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;"
+      renameBtn.textContent = "Renommer"
+      renameBtn.addEventListener("click", function(event) {
+        event.preventDefault()
+        event.stopPropagation()
+        renameSandboxMap(index)
+      })
+
+      const deleteBtn = document.createElement("button")
+      deleteBtn.type = "button"
+      deleteBtn.style.cssText = "padding:7px 9px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(214,110,110,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;"
+      deleteBtn.textContent = "Supprimer"
+      deleteBtn.addEventListener("click", function(event) {
+        event.preventDefault()
+        event.stopPropagation()
+        deleteSandboxMap(index)
+      })
+
+      actionsRow.appendChild(renameBtn)
+      actionsRow.appendChild(deleteBtn)
+
+      card.addEventListener("dragover", function(event) {
+        event.preventDefault()
+      })
+      card.addEventListener("drop", function(event) {
+        event.preventDefault()
+        dropSandboxMap(index)
+      })
+      card.addEventListener("dragend", function() {
+        endSandboxMapDrag()
+      })
+
+      card.appendChild(topRow)
+      card.appendChild(actionsRow)
+      host.appendChild(card)
+    })
+  } catch (_) {}
+}
+
+function appendSandboxMapCardToVisiblePanel(item) {
+  try {
+    const panel = document.getElementById("mapMenu")
+    if (!panel) return
+    const host = panel.querySelector("[data-sandbox-map-list]")
+    const debug = panel.querySelector("[data-sandbox-map-debug]")
+    if (!host) return
+    const mapKey = String(item && item.__runtimeKey || "")
+    const maps = getSandboxContentItems("map")
+    if (debug) debug.textContent = "Maps en memoire : " + maps.length
+    if (host.textContent && host.textContent.indexOf("Aucun element pour le moment.") !== -1) {
+      host.innerHTML = ""
+    }
+    const card = document.createElement("div")
+    card.setAttribute("draggable", "true")
+    card.setAttribute("data-map-card", "true")
+    card.setAttribute("data-map-key", mapKey)
+    card.style.cssText = "display:grid;gap:8px;padding:10px;background:rgba(0,0,0,0.18);border:1px solid rgba(214,180,106,0.18);border-radius:10px;cursor:grab;"
+    card.innerHTML =
+      `<div style="display:flex;gap:8px;align-items:center;">` +
+        `<button type="button" data-map-action="launch" data-map-key="${mapKey}" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;">` +
+          `<span>${String(item && item.label || "Sans titre")}</span>` +
+          `<span style="font-size:11px;color:#bfae8b;">Lancer</span>` +
+        `</button>` +
+        `<span title="Glisser pour reordonner" style="width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f0d087;font-size:16px;">::</span>` +
+      `</div>` +
+      `<div style="display:flex;flex-wrap:wrap;gap:6px;">` +
+        `<button type="button" data-map-action="rename" data-map-key="${mapKey}" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Renommer</button>` +
+        `<button type="button" data-map-action="delete" data-map-key="${mapKey}" style="padding:7px 9px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(214,110,110,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Supprimer</button>` +
+      `</div>`
+    host.appendChild(card)
+  } catch (_) {}
+}
+
+function ensureSandboxMapMenuInteractions() {
+  const panel = document.getElementById("mapMenu")
+  if (!panel || panel.dataset.mapInteractionsBound === "1") return
+  panel.dataset.mapInteractionsBound = "1"
+  panel.addEventListener("click", function(event) {
+    const actionButton = event.target.closest("[data-map-action]")
+    if (!actionButton) return
+    event.preventDefault()
+    event.stopPropagation()
+    const action = String(actionButton.getAttribute("data-map-action") || "")
+    const mapKey = String(actionButton.getAttribute("data-map-key") || "")
+    if (!mapKey) return
+    if (action === "launch") launchSandboxMapByKey(mapKey)
+    if (action === "rename") renameSandboxMapByKey(mapKey)
+    if (action === "delete") deleteSandboxMapByKey(mapKey)
+  })
+  panel.addEventListener("dragstart", function(event) {
+    const card = event.target.closest("[data-map-card]")
+    if (!card) return
+    startSandboxMapDragByKey(card.getAttribute("data-map-key"))
+  })
+  panel.addEventListener("dragover", function(event) {
+    const card = event.target.closest("[data-map-card]")
+    if (!card) return
+    event.preventDefault()
+  })
+  panel.addEventListener("drop", function(event) {
+    const card = event.target.closest("[data-map-card]")
+    if (!card) return
+    event.preventDefault()
+    dropSandboxMapByKey(card.getAttribute("data-map-key"))
+  })
+  panel.addEventListener("dragend", function() {
+    endSandboxMapDrag()
+  })
+}
+
+function closeSandboxMapManagerV2() {
+  const overlay = document.getElementById("sandboxMapManagerOverlay")
+  if (overlay) overlay.style.display = "none"
+  return false
+}
+
+function createSandboxMapManagerCard(item, index) {
+  const label = String(item && item.label || "Sans titre")
+
+  const card = document.createElement("div")
+  card.style.cssText = "display:grid;gap:8px;padding:12px;background:rgba(0,0,0,0.18);border:1px solid rgba(214,180,106,0.18);border-radius:12px;"
+
+  const topRow = document.createElement("div")
+  topRow.style.cssText = "display:flex;gap:8px;align-items:center;"
+
+  const launchBtn = document.createElement("button")
+  launchBtn.type = "button"
+  launchBtn.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;"
+  launchBtn.innerHTML = `<span>${label}</span><span style="font-size:11px;color:#bfae8b;">Lancer</span>`
+  launchBtn.addEventListener("click", function(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    launchSandboxMap(index)
+  })
+
+  const dragHandle = document.createElement("span")
+  dragHandle.setAttribute("draggable", "true")
+  dragHandle.title = "Glisser pour reordonner"
+  dragHandle.style.cssText = "width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f0d087;font-size:16px;cursor:grab;"
+  dragHandle.textContent = "::"
+  dragHandle.addEventListener("dragstart", function(event) {
+    event.stopPropagation()
+    startSandboxMapDrag(index)
+  })
+
+  topRow.appendChild(launchBtn)
+  topRow.appendChild(dragHandle)
+
+  const actionsRow = document.createElement("div")
+  actionsRow.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;"
+
+  const renameBtn = document.createElement("button")
+  renameBtn.type = "button"
+  renameBtn.style.cssText = "padding:8px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+  renameBtn.textContent = "Renommer"
+  renameBtn.addEventListener("click", function(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    renameSandboxMap(index)
+    renderSandboxMapManagerOverlayV2()
+  })
+
+  const deleteBtn = document.createElement("button")
+  deleteBtn.type = "button"
+  deleteBtn.style.cssText = "padding:8px 10px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(214,110,110,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+  deleteBtn.textContent = "Supprimer"
+  deleteBtn.addEventListener("click", function(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    deleteSandboxMap(index)
+  })
+
+  actionsRow.appendChild(renameBtn)
+  actionsRow.appendChild(deleteBtn)
+
+  card.addEventListener("dragover", function(event) {
+    event.preventDefault()
+  })
+  card.addEventListener("drop", function(event) {
+    event.preventDefault()
+    dropSandboxMap(index)
+  })
+  card.addEventListener("dragend", function() {
+    endSandboxMapDrag()
+  })
+
+  card.appendChild(topRow)
+  card.appendChild(actionsRow)
+  return card
+}
+
+function renderSandboxMapManagerOverlayV2() {
+  try { ensureTutorialStartMapInSimpleMaps() } catch (_) {}
+  const overlay = document.getElementById("sandboxMapManagerOverlay")
+  if (!overlay) return
+  const content = overlay.querySelector("[data-map-manager-content]")
+  const debug = overlay.querySelector("[data-map-manager-debug]")
+  if (!content) return
+  const maps = getSimpleSandboxMaps()
+  if (debug) debug.textContent = "Maps : " + maps.length
+  content.innerHTML = ""
+  if (!maps.length) {
+    content.innerHTML = `<div style="font-size:12px;color:#bfae8b;padding:10px;background:rgba(0,0,0,0.18);border:1px dashed rgba(214,180,106,0.18);border-radius:10px;">Aucune map pour le moment.</div>`
+    return
+  }
+  maps.forEach((item, index) => {
+    content.appendChild(createSandboxMapManagerCard(item, index))
+  })
+}
+
+function openSandboxMapManager() {
+  try {
+    document.querySelectorAll(".gmSection").forEach(sec => {
+      sec.style.display = "none"
+    })
+    let overlay = document.getElementById("sandboxMapManagerOverlay")
+    if (!overlay) {
+      overlay = document.createElement("div")
+      overlay.id = "sandboxMapManagerOverlay"
+      overlay.style.cssText = "position:fixed;inset:0;z-index:10060;background:rgba(8,10,18,0.46);display:flex;align-items:center;justify-content:center;padding:24px;"
+      overlay.innerHTML =
+        `<div style="width:min(960px, 92vw);max-height:88vh;overflow:auto;display:grid;gap:14px;padding:22px;border-radius:22px;background:linear-gradient(180deg, rgba(38,52,88,0.96), rgba(16,22,36,0.98));border:1px solid rgba(214,180,106,0.28);box-shadow:0 24px 80px rgba(0,0,0,0.42);font-family:Cinzel,serif;">` +
+          `<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">` +
+            `<div style="display:grid;gap:6px;">` +
+              `<div style="font-size:14px;letter-spacing:2px;color:#e6c27a;">Maps et lieux</div>` +
+              `<div style="font-size:12px;line-height:1.6;color:rgba(255,240,210,0.82);">Ici ajoute tes maps et lieux. Nomme-les de facon claire pour t'y retrouver et donner une bonne scenerie aux joueurs.</div>` +
+            `</div>` +
+            `<button type="button" onclick="return closeSandboxMapManager()" style="padding:8px 12px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:10px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Fermer</button>` +
+          `</div>` +
+          `<div style="display:flex;flex-wrap:wrap;gap:8px;">` +
+            `<button type="button" onclick="return launchOnboardingStartMap()" style="padding:9px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Map de depart</button>` +
+            `<button type="button" onclick="return createSandboxMapFromPanel()" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Nouvelle map</button>` +
+          `</div>` +
+          `<div data-map-manager-debug style="font-size:11px;color:#bfae8b;"></div>` +
+          `<div data-map-manager-content style="display:grid;gap:10px;"></div>` +
+        `</div>`
+      document.body.appendChild(overlay)
+      overlay.addEventListener("click", function(event) {
+        if (event.target === overlay) closeSandboxMapManager()
+      })
+    }
+    overlay.style.display = "flex"
+    renderSandboxMapManagerOverlay()
+  } catch (_) {}
+  return false
 }
 
 function sanitizeLegacySandboxUI() {
@@ -4193,6 +4577,10 @@ function toggleGMSection(id) {
     openGMCharacterPicker()
     return
   }
+  if (id === "mapMenu") {
+    openSandboxMapManagerV2()
+    return
+  }
   const section = document.getElementById(id); if (!section) return
   const isOpen = section.style.display === "block"
   document.querySelectorAll(".gmSection").forEach(sec => {
@@ -4201,6 +4589,7 @@ function toggleGMSection(id) {
   if (!isOpen) {
     try { renderSandboxManagerPanelById(id) } catch (_) {}
     if (id === "mapMenu") {
+      try { forceRenderMapMenuPanelList() } catch (_) {}
       try { if (typeof syncOnboardingStartMapMenuButton === "function") syncOnboardingStartMapMenuButton() } catch (_) {}
     }
     section.style.display = "block"
@@ -4244,6 +4633,20 @@ function toggleCategory(id, button) {
     const arrow = button.querySelector(".arrow"); if (arrow) arrow.classList.remove("open")
   }
 }
+
+window.launchSandboxMapByKey = launchSandboxMapByKey
+window.renameSandboxMapByKey = renameSandboxMapByKey
+window.deleteSandboxMapByKey = deleteSandboxMapByKey
+window.startSandboxMapDragByKey = startSandboxMapDragByKey
+window.dropSandboxMapByKey = dropSandboxMapByKey
+window.createSandboxMapFromPanel = createSandboxMapFromPanel
+window.launchSandboxMap = launchSandboxMap
+window.renameSandboxMap = renameSandboxMap
+window.deleteSandboxMap = deleteSandboxMap
+window.startSandboxMapDrag = startSandboxMapDrag
+window.allowSandboxMapDrop = allowSandboxMapDrop
+window.dropSandboxMap = dropSandboxMap
+window.endSandboxMapDrag = endSandboxMapDrag
 
 function openPNJTab(id, el) {
   if (window.event) window.event.stopPropagation()
@@ -4608,6 +5011,549 @@ document.addEventListener("keydown", e => {
     showNotification("Choisissez un personnage")
   }
 })
+
+// Simple, single-source sandbox map manager.
+function getSimpleSandboxMaps() {
+  try {
+    const runtimeMaps = Array.isArray(window.__simpleSandboxMaps) ? window.__simpleSandboxMaps : []
+    if (typeof getCustomization !== "function") {
+      return runtimeMaps.map((item, index) => ({
+        id: String(item && item.id || ("map_" + index)),
+        label: String(item && item.label || "Sans titre"),
+        map: String(item && item.map || ""),
+        category: String(item && item.category || "Custom"),
+        section: String(item && item.section || "lieux"),
+        audio: String(item && item.audio || "")
+      }))
+    }
+    const data = getCustomization()
+    const content = data && data.content ? data.content : {}
+    const savedMaps = Array.isArray(content.maps) ? content.maps : []
+    const sourceMaps = savedMaps.length ? savedMaps : runtimeMaps
+    window.__simpleSandboxMaps = sourceMaps.map((item, index) => ({
+      id: String(item && item.id || ("map_" + index)),
+      label: String(item && item.label || "Sans titre"),
+      map: String(item && item.map || ""),
+      category: String(item && item.category || "Custom"),
+      section: String(item && item.section || "lieux"),
+      audio: String(item && item.audio || "")
+    }))
+    return window.__simpleSandboxMaps
+  } catch (_) {}
+  return []
+}
+
+function saveSimpleSandboxMaps(maps) {
+  try {
+    window.__simpleSandboxMaps = (Array.isArray(maps) ? maps : []).map((item, index) => ({
+      id: String(item && item.id || ("map_" + index)),
+      label: String(item && item.label || "Sans titre"),
+      map: String(item && item.map || ""),
+      category: String(item && item.category || "Custom"),
+      section: String(item && item.section || "lieux"),
+      audio: String(item && item.audio || "")
+    }))
+    if (typeof getCustomization !== "function" || typeof saveCustomization !== "function") return false
+    const next = getCustomization()
+    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+    next.content.maps = window.__simpleSandboxMaps.map((item, index) => ({
+      id: String(item && item.id || ("map_" + index)),
+      label: String(item && item.label || "Sans titre"),
+      map: String(item && item.map || ""),
+      category: String(item && item.category || "Custom"),
+      section: String(item && item.section || "lieux"),
+      audio: String(item && item.audio || "")
+    }))
+    saveCustomization(next)
+    window.__sandboxMapPanelState = null
+    if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
+    return true
+  } catch (_) {}
+  return Array.isArray(window.__simpleSandboxMaps)
+}
+
+function ensureTutorialStartMapInSimpleMaps() {
+  try {
+    const data = typeof getCustomization === "function" ? getCustomization() : {}
+    const project = data && data.project ? data.project : {}
+    const asset = String(project.startMapAsset || window.__onboardingStartMapAsset || "").trim()
+    if (!asset) return false
+    const mapId = String(project.startMapId || window.__onboardingStartMapId || "tutorial_start_map").trim() || "tutorial_start_map"
+    const label = String(project.startMapLabel || window.__onboardingStartMapLabel || "").trim() || "Map de depart"
+    const runtimeMaps = Array.isArray(window.__simpleSandboxMaps) ? window.__simpleSandboxMaps.map(item => ({ ...item })) : []
+    const savedMaps = data && data.content && Array.isArray(data.content.maps) ? data.content.maps.map(item => ({ ...item })) : []
+    const maps = savedMaps.length ? savedMaps : runtimeMaps
+    const exists = maps.some(item => String(item && item.id || "") === mapId)
+    if (!exists) {
+      maps.unshift({
+        id: mapId,
+        label: label,
+        category: "Tutoriel MJ",
+        map: asset,
+        section: "villes",
+        audio: ""
+      })
+      window.__simpleSandboxMaps = maps.map((item, index) => ({
+        id: String(item && item.id || ("map_" + index)),
+        label: String(item && item.label || "Sans titre"),
+        map: String(item && item.map || ""),
+        category: String(item && item.category || "Custom"),
+        section: String(item && item.section || "lieux"),
+        audio: String(item && item.audio || "")
+      }))
+      if (typeof getCustomization === "function" && typeof saveCustomization === "function") {
+        const next = getCustomization()
+        next.content = next.content || {}
+        next.content.maps = window.__simpleSandboxMaps.map(item => ({ ...item }))
+        saveCustomization(next)
+      }
+      return true
+    }
+    window.__simpleSandboxMaps = maps.map((item, index) => ({
+      id: String(item && item.id || ("map_" + index)),
+      label: String(item && item.label || "Sans titre"),
+      map: String(item && item.map || ""),
+      category: String(item && item.category || "Custom"),
+      section: String(item && item.section || "lieux"),
+      audio: String(item && item.audio || "")
+    }))
+    return true
+  } catch (_) {}
+  return false
+}
+
+function simpleRenderSandboxMap(label, asset) {
+  const safeAsset = String(asset || "").trim()
+  if (!safeAsset) return false
+  try {
+    const map = document.getElementById("map")
+    const layer = document.getElementById("sandboxStartMapLayer")
+    if (layer) {
+      layer.src = safeAsset
+      layer.style.display = "block"
+    }
+    if (map) {
+      map.style.backgroundImage = "url('" + safeAsset.replace(/'/g, "\\'") + "')"
+      map.style.backgroundSize = "cover"
+      map.style.backgroundPosition = "center center"
+      map.style.backgroundRepeat = "no-repeat"
+    }
+    if (typeof updateCamera === "function") updateCamera()
+    if (label && typeof showLocation === "function") {
+      setTimeout(function() {
+        try { showLocation(String(label)) } catch (_) {}
+      }, 80)
+    }
+    return true
+  } catch (_) {}
+  return false
+}
+
+function launchSandboxMap(index) {
+  const maps = getSimpleSandboxMaps()
+  const item = maps[index]
+  if (!item) return false
+  if (/^(data:|blob:|https?:|\/)/i.test(String(item.map || "").trim())) {
+    simpleRenderSandboxMap(item.label, item.map)
+    return false
+  }
+  if (typeof changeMap === "function") {
+    changeMap(String(item.map || "background.jpg"), String(item.audio || ""))
+    if (item.label && typeof showLocation === "function") {
+      setTimeout(function() {
+        try { showLocation(String(item.label)) } catch (_) {}
+      }, 2000)
+    }
+  }
+  return false
+}
+
+function launchSandboxMapFromManager(index) {
+  launchSandboxMap(index)
+  closeSandboxMapManagerV2()
+  return false
+}
+
+function renameSandboxMap(index) {
+  const maps = getSimpleSandboxMaps()
+  const item = maps[index]
+  if (!item) return false
+  const nextLabel = prompt("Nom de la map :", item.label || "")
+  if (nextLabel == null) return false
+  const trimmedLabel = String(nextLabel).trim()
+  if (!trimmedLabel) {
+    if (typeof showNotification === "function") showNotification("Nom obligatoire")
+    return false
+  }
+  maps[index].label = trimmedLabel
+  saveSimpleSandboxMaps(maps)
+  renderSandboxMapManagerOverlayV2()
+  return false
+}
+
+function deleteSandboxMap(index) {
+  const maps = getSimpleSandboxMaps()
+  if (index < 0 || index >= maps.length) return false
+  const item = maps[index]
+  const confirmed = typeof confirm === "function"
+    ? confirm(`Supprimer la map "${String(item && item.label || "Sans titre")}" ?`)
+    : true
+  if (!confirmed) return false
+  maps.splice(index, 1)
+  saveSimpleSandboxMaps(maps)
+  renderSandboxMapManagerOverlayV2()
+  return false
+}
+
+function startSandboxMapDrag(index) {
+  window.__simpleSandboxMapDragIndex = Number(index)
+}
+
+function dropSandboxMap(targetIndex) {
+  const sourceIndex = Number(window.__simpleSandboxMapDragIndex)
+  const destIndex = Number(targetIndex)
+  window.__simpleSandboxMapDragIndex = null
+  if (!Number.isFinite(sourceIndex) || !Number.isFinite(destIndex) || sourceIndex === destIndex) return false
+  const maps = getSimpleSandboxMaps()
+  if (sourceIndex < 0 || destIndex < 0 || sourceIndex >= maps.length || destIndex >= maps.length) return false
+  const moved = maps.splice(sourceIndex, 1)[0]
+  maps.splice(destIndex, 0, moved)
+  saveSimpleSandboxMaps(maps)
+  renderSandboxMapManagerOverlayV2()
+  return false
+}
+
+function endSandboxMapDrag() {
+  window.__simpleSandboxMapDragIndex = null
+}
+
+function closeSandboxMapManager() {
+  const overlay = document.getElementById("sandboxMapManagerOverlay")
+  if (overlay) overlay.style.display = "none"
+  return false
+}
+
+function createSimpleSandboxMapCard(item, index) {
+  const card = document.createElement("div")
+  card.className = "sandboxMapManagerCard"
+  card.style.cssText = "display:grid;gap:8px;padding:12px;background:rgba(0,0,0,0.18);border:1px solid rgba(214,180,106,0.18);border-radius:12px;"
+
+  const topRow = document.createElement("div")
+  topRow.className = "sandboxMapManagerCardTopRow"
+  topRow.style.cssText = "display:flex;gap:8px;align-items:center;"
+
+  const launchBtn = document.createElement("button")
+  launchBtn.type = "button"
+  launchBtn.className = "sandboxMapManagerLaunchButton"
+  launchBtn.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;"
+  launchBtn.innerHTML = `<span>${String(item.label || "Sans titre")}</span><span style="font-size:11px;color:#bfae8b;">Lancer</span>`
+  launchBtn.addEventListener("click", function(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    launchSandboxMapFromManager(index)
+  })
+
+  const dragHandle = document.createElement("span")
+  dragHandle.className = "sandboxMapManagerDragHandle"
+  dragHandle.setAttribute("draggable", "true")
+  dragHandle.title = "Glisser pour reordonner"
+  dragHandle.style.cssText = "width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f0d087;font-size:16px;cursor:grab;"
+  dragHandle.textContent = "::"
+  dragHandle.addEventListener("dragstart", function(event) {
+    event.stopPropagation()
+    startSandboxMapDrag(index)
+  })
+
+  const actionsRow = document.createElement("div")
+  actionsRow.className = "sandboxMapManagerActionsRow"
+  actionsRow.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;"
+
+  const renameBtn = document.createElement("button")
+  renameBtn.type = "button"
+  renameBtn.className = "sandboxMapManagerActionButton"
+  renameBtn.style.cssText = "padding:8px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+  renameBtn.textContent = "Renommer"
+  renameBtn.addEventListener("click", function(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    renameSandboxMap(index)
+  })
+
+  const deleteBtn = document.createElement("button")
+  deleteBtn.type = "button"
+  deleteBtn.className = "sandboxMapManagerDeleteButton"
+  deleteBtn.style.cssText = "padding:8px 10px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(214,110,110,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+  deleteBtn.textContent = "Supprimer"
+  deleteBtn.addEventListener("click", function(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    deleteSandboxMap(index)
+  })
+
+  card.addEventListener("dragover", function(event) {
+    event.preventDefault()
+  })
+  card.addEventListener("drop", function(event) {
+    event.preventDefault()
+    dropSandboxMap(index)
+  })
+  card.addEventListener("dragend", function() {
+    endSandboxMapDrag()
+  })
+
+  topRow.appendChild(launchBtn)
+  topRow.appendChild(dragHandle)
+  actionsRow.appendChild(renameBtn)
+  actionsRow.appendChild(deleteBtn)
+  card.appendChild(topRow)
+  card.appendChild(actionsRow)
+  return card
+}
+
+function renderSandboxMapManagerOverlay() {
+  const overlay = document.getElementById("sandboxMapManagerOverlay")
+  if (!overlay) return
+  const panel = overlay.querySelector(".sandboxMapManagerPanel")
+  const content = overlay.querySelector("[data-map-manager-content]")
+  const debug = overlay.querySelector("[data-map-manager-debug]")
+  const theme = String(overlay.getAttribute("data-map-theme") || "medieval_fantasy").trim() || "medieval_fantasy"
+  if (panel) panel.setAttribute("data-map-theme", theme)
+  if (!content) return
+  const maps = getSimpleSandboxMaps()
+  if (debug) debug.textContent = "Maps : " + maps.length
+  content.innerHTML = ""
+  if (!maps.length) {
+    content.innerHTML = `<div class="sandboxMapManagerEmptyState" style="font-size:12px;color:#bfae8b;padding:10px;background:rgba(0,0,0,0.18);border:1px dashed rgba(214,180,106,0.18);border-radius:10px;">Aucune map pour le moment.</div>`
+    return
+  }
+  maps.forEach(function(item, index) {
+    content.appendChild(createSimpleSandboxMapCard(item, index))
+  })
+}
+
+function closeSandboxMapCreateComposerV2() {
+  const overlay = document.getElementById("sandboxMapManagerOverlay")
+  if (!overlay) return false
+  const composer = overlay.querySelector("[data-map-manager-composer]")
+  const nameInput = overlay.querySelector("[data-map-manager-name]")
+  const fileInput = overlay.querySelector("[data-map-manager-file]")
+  if (composer) composer.style.display = "none"
+  if (nameInput) nameInput.value = ""
+  if (fileInput) fileInput.value = ""
+  return false
+}
+
+function openSandboxMapCreateComposerV2() {
+  const overlay = document.getElementById("sandboxMapManagerOverlay")
+  if (!overlay) return false
+  const composer = overlay.querySelector("[data-map-manager-composer]")
+  const nameInput = overlay.querySelector("[data-map-manager-name]")
+  const fileInput = overlay.querySelector("[data-map-manager-file]")
+  if (composer) composer.style.display = "grid"
+  if (fileInput && !fileInput.dataset.autofillBound) {
+    fileInput.dataset.autofillBound = "1"
+    fileInput.addEventListener("change", function() {
+      const file = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null
+      if (!file || !nameInput) return
+      if (String(nameInput.value || "").trim()) return
+      nameInput.value = String(file.name || "Nouvelle map").replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim() || "Nouvelle map"
+    })
+  }
+  if (nameInput) {
+    setTimeout(function() {
+      try { nameInput.focus() } catch (_) {}
+    }, 0)
+  }
+  return false
+}
+
+async function submitSandboxMapManagerCreateV2() {
+  try {
+    const overlay = document.getElementById("sandboxMapManagerOverlay")
+    if (!overlay) return false
+    const nameInput = overlay.querySelector("[data-map-manager-name]")
+    const fileInput = overlay.querySelector("[data-map-manager-file]")
+    let trimmedLabel = String(nameInput && nameInput.value || "").trim()
+    const file = fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0] : null
+    if (!file) {
+      if (typeof showNotification === "function") showNotification("Choisis une image")
+      return false
+    }
+    if (!trimmedLabel) {
+      trimmedLabel = String(file.name || "Nouvelle map").replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim() || "Nouvelle map"
+      if (nameInput) nameInput.value = trimmedLabel
+    }
+    let asset = typeof readNativeStudioFileAsDataURL === "function"
+      ? String(await readNativeStudioFileAsDataURL(file) || "").trim()
+      : ""
+    if (!asset && typeof URL !== "undefined" && typeof URL.createObjectURL === "function") {
+      asset = String(URL.createObjectURL(file) || "").trim()
+    }
+    if (!asset) {
+      if (typeof showNotification === "function") showNotification("Image invalide")
+      return false
+    }
+    const maps = getSimpleSandboxMaps()
+    maps.push({
+      id: "map_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 6),
+      label: trimmedLabel,
+      map: asset,
+      category: "Custom",
+      section: "lieux",
+      audio: ""
+    })
+    saveSimpleSandboxMaps(maps)
+    closeSandboxMapCreateComposerV2()
+    renderSandboxMapManagerOverlayV2()
+    if (typeof showNotification === "function") showNotification("Map ajoutee")
+  } catch (_) {}
+  return false
+}
+
+async function createSandboxMapFromPanel() {
+  try {
+    window.__sandboxMapFilePicking = true
+    const chooser = document.createElement("input")
+    chooser.type = "file"
+    chooser.accept = "image/*"
+    chooser.style.display = "none"
+    chooser.addEventListener("change", async function() {
+      const file = chooser.files && chooser.files[0] ? chooser.files[0] : null
+      if (!file) {
+        window.__sandboxMapFilePicking = false
+        if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+        return
+      }
+      const defaultLabel = String(file.name || "Nouvelle map").replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim() || "Nouvelle map"
+      const chosenLabel = prompt("Nom de la map :", defaultLabel)
+      if (chosenLabel == null) {
+        window.__sandboxMapFilePicking = false
+        if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+        return
+      }
+      const trimmedLabel = String(chosenLabel).trim()
+      if (!trimmedLabel) {
+        if (typeof showNotification === "function") showNotification("Nom obligatoire")
+        window.__sandboxMapFilePicking = false
+        if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+        return
+      }
+      const asset = typeof readNativeStudioFileAsDataURL === "function"
+        ? String(await readNativeStudioFileAsDataURL(file) || "").trim()
+        : ""
+      if (!asset) {
+        if (typeof showNotification === "function") showNotification("Image invalide")
+        window.__sandboxMapFilePicking = false
+        if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+        return
+      }
+      const maps = getSimpleSandboxMaps()
+      maps.push({
+        id: "map_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 6),
+        label: trimmedLabel,
+        map: asset,
+        category: "Custom",
+        section: "lieux",
+        audio: ""
+      })
+      saveSimpleSandboxMaps(maps)
+      renderSandboxMapManagerOverlayV2()
+      if (typeof showNotification === "function") showNotification("Map ajoutee")
+      window.__sandboxMapFilePicking = false
+      if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+    }, { once: true })
+    document.body.appendChild(chooser)
+    chooser.click()
+  } catch (_) {}
+  window.__sandboxMapFilePicking = false
+  return false
+}
+
+function openSandboxMapManagerV2() {
+  try {
+    try { ensureTutorialStartMapInSimpleMaps() } catch (_) {}
+    var currentTheme = "medieval_fantasy"
+    try {
+      currentTheme = String(
+        window.__currentProjectTheme
+        || document.body.getAttribute("data-project-theme")
+        || "medieval_fantasy"
+      ).trim() || "medieval_fantasy"
+    } catch (_) {}
+    document.querySelectorAll(".gmSection").forEach(function(sec) {
+      sec.style.display = "none"
+    })
+    let overlay = document.getElementById("sandboxMapManagerOverlay")
+    if (!overlay) {
+      overlay = document.createElement("div")
+      overlay.id = "sandboxMapManagerOverlay"
+      overlay.className = "sandboxMapManagerOverlay"
+      overlay.style.cssText = "position:fixed;inset:0;z-index:10060;background:rgba(8,10,18,0.46);display:flex;align-items:center;justify-content:center;padding:24px;"
+      overlay.innerHTML =
+        `<div class="sandboxMapManagerPanel" style="width:min(960px, 92vw);max-height:88vh;overflow:auto;display:grid;gap:14px;padding:22px;border-radius:22px;background:linear-gradient(180deg, rgba(38,52,88,0.96), rgba(16,22,36,0.98));border:1px solid rgba(214,180,106,0.28);box-shadow:0 24px 80px rgba(0,0,0,0.42);font-family:Cinzel,serif;">` +
+          `<div class="sandboxMapManagerHeader" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">` +
+            `<div class="sandboxMapManagerHeaderText" style="display:grid;gap:6px;">` +
+              `<div class="sandboxMapManagerTitle" style="font-size:14px;letter-spacing:2px;color:#e6c27a;">Maps et lieux</div>` +
+              `<div class="sandboxMapManagerSubtitle" style="font-size:12px;line-height:1.6;color:rgba(255,240,210,0.82);">Ajoute tes maps, donne-leur un nom, puis clique dessus pour les afficher.</div>` +
+            `</div>` +
+            `<button type="button" class="sandboxMapManagerActionButton sandboxMapManagerCloseButton" data-map-manager-action="close" style="padding:8px 12px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:10px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Fermer</button>` +
+          `</div>` +
+          `<div class="sandboxMapManagerToolbar" style="display:flex;flex-wrap:wrap;gap:8px;">` +
+            `<button type="button" class="sandboxMapManagerActionButton sandboxMapManagerPrimaryButton" data-map-manager-action="new-map" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Nouvelle map</button>` +
+          `</div>` +
+          `<div class="sandboxMapManagerComposer" data-map-manager-composer style="display:none;grid-template-columns:1fr;gap:10px;padding:12px;border-radius:14px;background:rgba(0,0,0,0.16);border:1px solid rgba(214,180,106,0.18);">` +
+            `<input type="text" class="sandboxMapManagerInput" data-map-manager-name placeholder="Nom de la map" style="padding:10px 12px;border-radius:10px;border:1px solid rgba(214,180,106,0.2);background:rgba(10,18,30,0.55);color:#f5e6c8;font-family:Cinzel,serif;">` +
+            `<input type="file" class="sandboxMapManagerFileInput" data-map-manager-file accept="image/*" style="color:#f5e6c8;font-family:Cinzel,serif;">` +
+            `<div class="sandboxMapManagerComposerActions" style="display:flex;gap:8px;flex-wrap:wrap;">` +
+              `<button type="button" class="sandboxMapManagerActionButton sandboxMapManagerPrimaryButton" data-map-manager-action="confirm-create" style="padding:9px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter</button>` +
+              `<button type="button" class="sandboxMapManagerActionButton" data-map-manager-action="cancel-create" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Annuler</button>` +
+            `</div>` +
+          `</div>` +
+          `<div class="sandboxMapManagerDebug" data-map-manager-debug style="font-size:11px;color:#bfae8b;"></div>` +
+          `<div class="sandboxMapManagerContent" data-map-manager-content style="display:grid;gap:10px;"></div>` +
+        `</div>`
+      document.body.appendChild(overlay)
+      overlay.addEventListener("click", function(event) {
+        const actionButton = event.target.closest("[data-map-manager-action]")
+        if (actionButton) {
+          event.preventDefault()
+          event.stopPropagation()
+          const action = String(actionButton.getAttribute("data-map-manager-action") || "")
+          if (action === "close") closeSandboxMapManagerV2()
+          if (action === "new-map") openSandboxMapCreateComposerV2()
+          if (action === "cancel-create") closeSandboxMapCreateComposerV2()
+          if (action === "confirm-create") submitSandboxMapManagerCreateV2()
+          return
+        }
+        if (event.target === overlay) closeSandboxMapManagerV2()
+      })
+    }
+    overlay.setAttribute("data-map-theme", currentTheme)
+    const panel = overlay.querySelector(".sandboxMapManagerPanel")
+    if (panel) panel.setAttribute("data-map-theme", currentTheme)
+    overlay.style.display = "flex"
+    renderSandboxMapManagerOverlayV2()
+  } catch (_) {}
+  return false
+}
+
+try {
+  openSandboxMapManager = openSandboxMapManagerV2
+  closeSandboxMapManager = closeSandboxMapManagerV2
+  renderSandboxMapManagerOverlay = renderSandboxMapManagerOverlayV2
+  window.openSandboxMapManagerV2 = openSandboxMapManagerV2
+  window.closeSandboxMapManagerV2 = closeSandboxMapManagerV2
+  window.submitSandboxMapManagerCreateV2 = submitSandboxMapManagerCreateV2
+  window.openSandboxMapManager = openSandboxMapManagerV2
+  window.closeSandboxMapManager = closeSandboxMapManagerV2
+  window.renderSandboxMapManagerOverlay = renderSandboxMapManagerOverlayV2
+  window.launchSandboxMap = launchSandboxMap
+  window.renameSandboxMap = renameSandboxMap
+  window.deleteSandboxMap = deleteSandboxMap
+  window.startSandboxMapDrag = startSandboxMapDrag
+  window.dropSandboxMap = dropSandboxMap
+  window.endSandboxMapDrag = endSandboxMapDrag
+} catch (_) {}
 
 
 

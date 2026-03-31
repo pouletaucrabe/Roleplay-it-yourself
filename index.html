@@ -492,7 +492,7 @@
 <!-- BARRE MJ -->
 <div id="gmBar">
   <button class="gmIcon" id="gmCharactersBtn" type="button" onclick="return openGMCharacterPickerInline(event)" title="Personnages (P)">ðŸŽ­</button>
-  <button class="gmIcon" id="gmMapsBtn" onclick="toggleGMSection('mapMenu')"      title="Maps (M)">ðŸ—º</button>
+  <button class="gmIcon" id="gmMapsBtn" onclick="return openSandboxMapManagerV2()"      title="Maps (M)">ðŸ—º</button>
   <button class="gmIcon" id="gmPnjBtn" onclick="toggleGMSection('pnjMenu')"      title="PNJ (R)">ðŸ‘¤</button>
   <button class="gmIcon" id="gmMobsBtn" onclick="toggleGMSection('mobMenu2')"     title="Mobs (T)">ðŸ‘¹</button>
   <button class="gmIcon" id="gmXpBtn" onclick="toggleGMSection('xpMenu')"       title="XP">â­</button>
@@ -1082,7 +1082,7 @@
 <script src="utils.js?v=14"></script>
 <script src="customization.js?v=57"></script>
 <!-- 4. Logique principale + Firebase listeners -->
-<script src="game.js?v=89"></script>
+<script src="game.js?v=125"></script>
 <!-- 5. Interface utilisateur -->
 <script src="ui.js?v=8"></script>
 <!-- 6. Combat -->
@@ -3297,14 +3297,29 @@ function applyMJSandboxOnboardingMapAsset(asset) {
       })
       if (safeAsset) {
         next.content.maps.unshift({
+          id: startMapId,
           label: safeLabel,
           category: "Tutoriel MJ",
-          map: startMapId,
+          map: safeAsset,
           section: "villes",
           audio: ""
         })
       }
       if (typeof saveCustomization === "function") saveCustomization(next)
+      try {
+        window.__simpleSandboxMaps = Array.isArray(next.content.maps)
+          ? next.content.maps.map(function(item, index) {
+              return {
+                id: String(item && item.id || ("map_" + index)),
+                label: String(item && item.label || "Sans titre"),
+                map: String(item && item.map || ""),
+                category: String(item && item.category || "Custom"),
+                section: String(item && item.section || "lieux"),
+                audio: String(item && item.audio || "")
+              }
+            })
+          : []
+      } catch (_) {}
       if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
     }
   } catch (e) {}
@@ -3655,6 +3670,37 @@ function finishMJSandboxOnboarding() {
   if (typeof applyProjectThemeToDocument === "function") applyProjectThemeToDocument(state.theme)
   state.playerCount = applyMJSandboxOnboardingPlayerCount(state.playerCount)
   applyMJSandboxOnboardingMapAsset(state.mapAsset)
+  try {
+    if (state.mapAsset && typeof getCustomization === "function" && typeof saveCustomization === "function") {
+      var mapsState = getCustomization()
+      mapsState.content = mapsState.content || {}
+      mapsState.content.maps = Array.isArray(mapsState.content.maps) ? mapsState.content.maps : []
+      mapsState.content.maps = mapsState.content.maps.filter(function(item) {
+        return String(item && item.id || "") !== getMJSandboxOnboardingStartMapId()
+      })
+      mapsState.content.maps.unshift({
+        id: getMJSandboxOnboardingStartMapId(),
+        label: String(state.mapLabel || "").trim() || "Map de depart",
+        category: "Tutoriel MJ",
+        map: String(state.mapAsset || "").trim(),
+        section: "villes",
+        audio: ""
+      })
+      saveCustomization(mapsState)
+      try {
+        window.__simpleSandboxMaps = mapsState.content.maps.map(function(item, index) {
+          return {
+            id: String(item && item.id || ("map_" + index)),
+            label: String(item && item.label || "Sans titre"),
+            map: String(item && item.map || ""),
+            category: String(item && item.category || "Custom"),
+            section: String(item && item.section || "lieux"),
+            audio: String(item && item.audio || "")
+          }
+        })
+      } catch (_) {}
+    }
+  } catch (e) {}
   if (typeof showNotification === "function") showNotification("Bac a sable configure : " + state.playerCount + " joueur" + (state.playerCount > 1 ? "s" : ""))
   closeMJSandboxOnboarding()
   setTimeout(function() {
