@@ -6462,6 +6462,9 @@ body.sandbox-studio-mode #diceLog {
   width: min(780px, 94vw);
   display: grid;
   gap: 22px;
+  max-height: min(90vh, 920px);
+  overflow: auto;
+  padding-right: 18px;
 }
 
 .mjSandboxOnboardingHeader {
@@ -6516,6 +6519,12 @@ body.sandbox-studio-mode #diceLog {
   justify-content: flex-end;
   gap: 12px;
   flex-wrap: wrap;
+  position: sticky;
+  bottom: 0;
+  padding-top: 10px;
+  padding-bottom: 2px;
+  background: linear-gradient(180deg, rgba(0,0,0,0), rgba(10,8,12,0.78) 28%, rgba(10,8,12,0.94));
+  z-index: 2;
 }
 
 body[data-project-theme="medieval_fantasy"] .mjSandboxOnboardingPanel,

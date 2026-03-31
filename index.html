@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English&family=Cormorant+SC:wght@500;700&family=Marcellus&family=Orbitron:wght@500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <title>Roleplay It Yourself</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='48'%3E%F0%9F%8E%B2%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css?v=143">
+  <link rel="stylesheet" href="style.css?v=144">
   <style>
     #playerCodeBtn, #playerCodeBtn * {
       color: #ffd700 !important;
@@ -815,6 +815,10 @@
     <button class="pnjTab" onclick="openPNJTab('mapMondeTab', this)">Mapmonde</button>
   </div>
 
+  <div id="mapStartStorySlot" style="display:none;margin:10px 0 14px;">
+    <button id="mapStartStoryBtn" onclick="return launchOnboardingStartMap()" class="map-simple-btn">Map de depart</button>
+  </div>
+
   <!-- VILLES -->
   <div id="mapVilles" class="pnjTabContent active">
     <button class="mapCategoryButton" onclick="toggleCategory('villageMaps', this)"><span class="arrow">â–¶</span> Rivebois</button>
@@ -1076,9 +1080,9 @@
 <script src="state.js?v=2"></script>
 <!-- 3. Utilitaires (pas de dÃ©pendances Firebase) -->
 <script src="utils.js?v=14"></script>
-<script src="customization.js?v=53"></script>
+<script src="customization.js?v=57"></script>
 <!-- 4. Logique principale + Firebase listeners -->
-<script src="game.js?v=81"></script>
+<script src="game.js?v=85"></script>
 <!-- 5. Interface utilisateur -->
 <script src="ui.js?v=8"></script>
 <!-- 6. Combat -->
@@ -3114,6 +3118,44 @@ function setRuntimeOnboardingStartMapState(mapId, mapAsset, mapLabel) {
   } catch (e) {}
 }
 
+function syncOnboardingStartMapMenuButton() {
+  try {
+    var slot = document.getElementById("mapStartStorySlot")
+    var button = document.getElementById("mapStartStoryBtn")
+    if (!slot || !button) return
+    var current = typeof getCustomization === "function" ? getCustomization() : null
+    var label = String(
+      window.__onboardingStartMapLabel
+      || (current && current.project ? current.project.startMapLabel : "")
+      || ""
+    ).trim() || "Map de depart"
+    var asset = String(
+      window.__onboardingStartMapAsset
+      || (current && current.project ? current.project.startMapAsset : "")
+      || ""
+    ).trim()
+    if (!asset) {
+      slot.style.display = "none"
+      return
+    }
+    slot.style.display = "block"
+    button.textContent = label
+  } catch (e) {}
+}
+
+function syncNativeStudioStartMapButton() {
+  try {
+    var button = document.getElementById("nativeStudioStartMapBtn")
+    if (!button) return
+    var customization = typeof getCustomization === "function" ? getCustomization() : null
+    var project = customization && customization.project ? customization.project : null
+    var startMapAsset = String((project && project.startMapAsset) || window.__onboardingStartMapAsset || "").trim()
+    var startMapLabel = String((project && project.startMapLabel) || window.__onboardingStartMapLabel || "").trim() || "Map de depart"
+    button.style.display = startMapAsset ? "inline-flex" : "none"
+    button.textContent = startMapLabel
+  } catch (e) {}
+}
+
 function launchOnboardingStartMap() {
   try {
     var launchButton = document.getElementById("sandboxStartMapBtn")
@@ -3148,6 +3190,8 @@ function launchOnboardingStartMap() {
       try { showLocation(startMapLabel) } catch (e) {}
     }
     setRuntimeOnboardingStartMapState(startMapId, startMapAsset, startMapLabel)
+    syncOnboardingStartMapMenuButton()
+    syncNativeStudioStartMapButton()
     if (launchButton) launchButton.textContent = startMapLabel || "Map de depart"
     if (typeof showNotification === "function") showNotification("Map de depart lancee")
     try {
@@ -3230,6 +3274,8 @@ function applyMJSandboxOnboardingMapAsset(asset) {
   var safeLabel = state ? (String(state.mapLabel || "").trim() || "Map de depart") : "Map de depart"
   var startMapId = getMJSandboxOnboardingStartMapId()
   setRuntimeOnboardingStartMapState(startMapId, safeAsset, safeLabel)
+  syncOnboardingStartMapMenuButton()
+  syncNativeStudioStartMapButton()
   try {
     var next = typeof getCustomization === "function" ? getCustomization() : null
     if (next) {
@@ -3496,10 +3542,6 @@ function renderMJSandboxOnboardingStep(state) {
         <input id="mjSandboxOnboardingMapLabel" type="text" value="${String(mapLabel || "").replace(/"/g, "&quot;")}" placeholder="Ex. Village embrume">
       </label>
       <div class="builderThemeChoices mjSandboxOnboardingThemeChoices">
-        <button type="button" class="builderChoiceCard${!mapAsset ? " active" : ""}" data-mj-onboarding-map-mode="empty">
-          <div class="builderChoiceCardTitle">Laisser vide</div>
-          <div class="builderChoiceCardDesc">Tu arrives sur un board neutre, pret a etre rempli plus tard.</div>
-        </button>
         <button type="button" class="builderChoiceCard" data-mj-onboarding-map-mode="later">
           <div class="builderChoiceCardTitle">Choisir plus tard</div>
           <div class="builderChoiceCardDesc">Tu pourras passer par le menu Maps du MJ quand tu voudras.</div>
@@ -3612,6 +3654,9 @@ function finishMJSandboxOnboarding() {
   if (typeof showNotification === "function") showNotification("Bac a sable configure : " + state.playerCount + " joueur" + (state.playerCount > 1 ? "s" : ""))
   closeMJSandboxOnboarding()
   setTimeout(function() {
+    try { launchOnboardingStartMap() } catch (e) {}
+  }, 80)
+  setTimeout(function() {
     try { openSandboxBoardHints() } catch (e) {}
   }, 180)
 }
@@ -3639,6 +3684,8 @@ function openMJSandboxOnboarding() {
     }
   } catch (e) {}
   setRuntimeOnboardingStartMapState(mapId || getMJSandboxOnboardingStartMapId(), mapAsset, mapLabel)
+  syncOnboardingStartMapMenuButton()
+  syncNativeStudioStartMapButton()
   try {
     var startMapBar = document.getElementById("sandboxStartMapBar")
     if (startMapBar) startMapBar.style.display = mapAsset ? "block" : "none"
@@ -4201,6 +4248,7 @@ function forceShowIntroHub() {
           <div style="font-size:14px;color:#f0d087;">Maps et lieux</div>
           <div style="font-size:12px;line-height:1.6;color:#cdbb96;">Ajoute les lieux importants et nomme-les de facon lisible pour preparer la scene.</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button id="nativeStudioStartMapBtn" type="button" onclick="return launchOnboardingStartMap()" style="display:none;padding:8px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Map de depart</button>
             <button type="button" onclick="triggerNativeStudioLocalAdd('map')" style="padding:8px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter un fichier local</button>
             <button type="button" onclick="openNativeStudioQuickCreate('map')" style="padding:8px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Editer</button>
           </div>

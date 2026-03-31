@@ -324,16 +324,19 @@
   function renderMapMenu() {
     const catalog = getCatalog()
     const customization = getExtendedCustomization()
-    const startMapId = String((customization.project && customization.project.startMapId) || window.__onboardingStartMapId || "").trim()
+    const startMapId = String((customization.project && customization.project.startMapId) || window.__onboardingStartMapId || "tutorial_start_map").trim()
+    const startMapAsset = String((customization.project && customization.project.startMapAsset) || window.__onboardingStartMapAsset || "").trim()
     const startMapLabel = String((customization.project && customization.project.startMapLabel) || window.__onboardingStartMapLabel || "").trim() || "Map de depart"
-    const startMapButton = startMapId
-      ? `<button onclick="changeMap('${esc(startMapId)}')" class="map-simple-btn">${esc(startMapLabel)}</button>`
+    const startMapButton = startMapAsset
+      ? `<button onclick="return launchOnboardingStartMap()" class="map-simple-btn">${esc(startMapLabel)}</button>`
       : ""
     const renderMapBtn = item => `<button onclick="changeMap('${esc(item[1])}'${item[2] ? `, '${esc(item[2])}'` : ""})">${esc(item[0])}</button>`
     const renderSection = (groups, prefix) => groups.map((group, index) => createCategoryBlock(`${prefix}_${index}`, group[0], group[1].map(renderMapBtn).join(""))).join("")
-    if (byId("mapVilles")) byId("mapVilles").innerHTML = catalog.maps.villes.length
-      ? (startMapButton ? `<div style="margin-bottom:10px;">${startMapButton}</div>` : "") + renderSection(catalog.maps.villes, "dynMapVilles")
-      : createStudioEmptyState("Aucune map de ville", "Ajoute tes premieres villes ou scenes dans le studio MJ.")
+    if (byId("mapVilles")) byId("mapVilles").innerHTML =
+      (startMapButton ? `<div style="margin-bottom:10px;">${startMapButton}</div>` : "") +
+      (catalog.maps.villes.length
+        ? renderSection(catalog.maps.villes, "dynMapVilles")
+        : createStudioEmptyState("Aucune map de ville", "Ajoute tes premieres villes ou scenes dans le studio MJ."))
     if (byId("mapLandscape")) {
       const landscapeItems = catalog.maps.landscape.flatMap(group => group[1]).map(item => `<button onclick="changeMap('${esc(item[1])}'${item[2] ? `, '${esc(item[2])}'` : ""})" class="map-simple-btn">${esc(item[0])}</button>`).join("")
       byId("mapLandscape").innerHTML = (startMapButton ? `<div style="margin-bottom:10px;">${startMapButton}</div>` : "") + (landscapeItems || createStudioEmptyState("Aucun paysage", "Ajoute tes plans larges, paysages ou ambiances de voyage dans le studio."))
@@ -347,6 +350,9 @@
         ? mondeItems + `<button onclick="toggleWorldMapFogTopLeft()" class="map-simple-btn">Fog haut-gauche</button>`
         : createStudioEmptyState("Aucune map monde", "Ajoute une carte globale ou une vue strategique depuis le studio MJ.")
     }
+    try {
+      if (typeof syncOnboardingStartMapMenuButton === "function") syncOnboardingStartMapMenuButton()
+    } catch (_) {}
   }
 
   function renderPNJMenu() {

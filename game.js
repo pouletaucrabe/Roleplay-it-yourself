@@ -3400,6 +3400,68 @@ function launchSandboxMap(index) {
   }
 }
 
+function renameSandboxMap(index) {
+  const maps = getSandboxContentItems("map")
+  const item = maps[index]
+  if (!item) return false
+  const nextLabel = prompt("Nom de la map :", String(item.label || ""))
+  if (nextLabel == null) return false
+  const trimmedLabel = String(nextLabel).trim()
+  if (!trimmedLabel) {
+    if (typeof showNotification === "function") showNotification("Nom obligatoire")
+    return false
+  }
+  updateSandboxCustomization(function(next) {
+    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+    next.content.maps = Array.isArray(next.content.maps) ? next.content.maps : []
+    if (!next.content.maps[index]) return
+    next.content.maps[index].label = trimmedLabel
+  })
+  return false
+}
+
+function deleteSandboxMap(index) {
+  return deleteNativeStudioItem("map", index)
+}
+
+function createSandboxMapFromPanel() {
+  try {
+    if (typeof triggerNativeStudioLocalAdd === "function") {
+      triggerNativeStudioLocalAdd("map")
+      return false
+    }
+  } catch (_) {}
+  return false
+}
+
+function startSandboxMapDrag(index) {
+  window.__sandboxDraggedMapIndex = Number(index)
+}
+
+function allowSandboxMapDrop(event) {
+  if (event) event.preventDefault()
+  return false
+}
+
+function dropSandboxMap(targetIndex) {
+  const sourceIndex = Number(window.__sandboxDraggedMapIndex)
+  const destIndex = Number(targetIndex)
+  window.__sandboxDraggedMapIndex = null
+  if (!Number.isFinite(sourceIndex) || !Number.isFinite(destIndex) || sourceIndex === destIndex) return false
+  updateSandboxCustomization(function(next) {
+    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+    next.content.maps = Array.isArray(next.content.maps) ? next.content.maps : []
+    if (sourceIndex < 0 || destIndex < 0 || sourceIndex >= next.content.maps.length || destIndex >= next.content.maps.length) return
+    const moved = next.content.maps.splice(sourceIndex, 1)[0]
+    next.content.maps.splice(destIndex, 0, moved)
+  })
+  return false
+}
+
+function endSandboxMapDrag() {
+  window.__sandboxDraggedMapIndex = null
+}
+
 function editSandboxItemSettings(type, index) {
   const info = getSandboxCollectionInfo(type)
   if (!info) return
@@ -3438,10 +3500,49 @@ function editSandboxItemSettings(type, index) {
 
 function buildSandboxManagerPanel(options) {
   const items = getSandboxContentItems(options.type)
+  const customization = typeof getCustomization === "function" ? getCustomization() : null
+  const project = customization && customization.project ? customization.project : null
+  const startMapAsset = options.type === "map"
+    ? String((project && project.startMapAsset) || window.__onboardingStartMapAsset || "").trim()
+    : ""
+  const startMapLabel = options.type === "map"
+    ? String((project && project.startMapLabel) || window.__onboardingStartMapLabel || "").trim() || "Map de depart"
+    : ""
+  const startMapLaunch = options.type === "map"
+    ? (
+        `<button type="button" onclick="return launchOnboardingStartMap()" ` +
+        `style="padding:9px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;${startMapAsset ? "" : "opacity:0.92;"}">` +
+          `${startMapLabel}` +
+        `</button>`
+      )
+    : ""
+  const mapActions = options.type === "map"
+    ? `<div style="display:flex;flex-wrap:wrap;gap:8px;">` +
+        startMapLaunch +
+        `<button type="button" onclick="return createSandboxMapFromPanel()" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Nouvelle map</button>` +
+      `</div>`
+    : ""
   const actions = items.length
     ? items.map((item, index) => {
         const label = String(item.label || "Sans titre")
         const category = String(item.category || "Custom")
+        if (options.type === "map") {
+          return (
+            `<div draggable="true" ondragstart="startSandboxMapDrag(${index})" ondragover="allowSandboxMapDrop(event)" ondrop="dropSandboxMap(${index})" ondragend="endSandboxMapDrag()" style="display:grid;gap:8px;padding:10px;background:rgba(0,0,0,0.18);border:1px solid rgba(214,180,106,0.18);border-radius:10px;cursor:grab;">` +
+              `<div style="display:flex;gap:8px;align-items:center;">` +
+                `<button type="button" onclick="launchSandboxMap(${index})" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;">` +
+                  `<span>${label}</span>` +
+                  `<span style="font-size:11px;color:#bfae8b;">Lancer</span>` +
+                `</button>` +
+                `<span title="Glisser pour reordonner" style="width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f0d087;font-size:16px;">::</span>` +
+              `</div>` +
+              `<div style="display:flex;flex-wrap:wrap;gap:6px;">` +
+                `<button type="button" onclick="return renameSandboxMap(${index})" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Renommer</button>` +
+                `<button type="button" onclick="return deleteSandboxMap(${index})" style="padding:7px 9px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(214,110,110,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Supprimer</button>` +
+              `</div>` +
+            `</div>`
+          )
+        }
         const launchButton = options.type === "map"
           ? `<button type="button" onclick="launchSandboxMap(${index})" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 10px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;">` +
               `<span style="text-align:left;">${label}</span>` +
@@ -3474,10 +3575,13 @@ function buildSandboxManagerPanel(options) {
         `<div style="font-size:14px;letter-spacing:2px;color:#e6c27a;">${options.title}</div>` +
         `<div style="font-size:12px;line-height:1.6;color:rgba(255,240,210,0.82);">${options.body}</div>` +
       `</div>` +
-      `<div style="display:flex;flex-wrap:wrap;gap:8px;">` +
-        `<button type="button" onclick="triggerNativeStudioLocalAdd('${options.type}')" style="padding:9px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter un fichier local</button>` +
-        `<button type="button" onclick="openNativeStudioQuickCreate('${options.type}')" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter manuellement</button>` +
-      `</div>` +
+      (options.type === "map"
+        ? mapActions
+        : `<div style="display:flex;flex-wrap:wrap;gap:8px;">` +
+            `<button type="button" onclick="triggerNativeStudioLocalAdd('${options.type}')" style="padding:9px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter un fichier local</button>` +
+            `<button type="button" onclick="openNativeStudioQuickCreate('${options.type}')" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter manuellement</button>` +
+          `</div>`
+      ) +
       `<div style="display:grid;gap:10px;">${actions}</div>` +
     `</div>`
   )
@@ -3993,6 +4097,11 @@ function toggleGMSection(id) {
     sec.style.display = "none"
   })
   if (!isOpen) {
+    if (id === "mapMenu") {
+      try {
+        if (typeof syncOnboardingStartMapMenuButton === "function") syncOnboardingStartMapMenuButton()
+      } catch (_) {}
+    }
     section.style.display = "block"
   }
 }
