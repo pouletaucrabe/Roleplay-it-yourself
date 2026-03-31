@@ -3536,6 +3536,18 @@ function dropSandboxMap(targetIndex) {
   const destIndex = Number(targetIndex)
   window.__sandboxDraggedMapIndex = null
   if (!Number.isFinite(sourceIndex) || !Number.isFinite(destIndex) || sourceIndex === destIndex) return false
+  const savedCount = getSavedSandboxMapCount()
+  if (sourceIndex >= savedCount || destIndex >= savedCount) {
+    const runtimeMaps = Array.isArray(window.__sandboxRuntimeMaps) ? window.__sandboxRuntimeMaps.slice() : []
+    const sourceRuntimeIndex = sourceIndex - savedCount
+    const destRuntimeIndex = destIndex - savedCount
+    if (sourceRuntimeIndex < 0 || destRuntimeIndex < 0 || sourceRuntimeIndex >= runtimeMaps.length || destRuntimeIndex >= runtimeMaps.length) return false
+    const moved = runtimeMaps.splice(sourceRuntimeIndex, 1)[0]
+    runtimeMaps.splice(destRuntimeIndex, 0, moved)
+    window.__sandboxRuntimeMaps = runtimeMaps
+    try { renderSandboxManagerPanelById("mapMenu") } catch (_) {}
+    return false
+  }
   updateSandboxCustomization(function(next) {
     next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
     next.content.maps = Array.isArray(next.content.maps) ? next.content.maps : []
