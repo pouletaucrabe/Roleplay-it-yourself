@@ -3358,6 +3358,10 @@ function updateSandboxCustomization(mutator) {
     saveCustomization(next)
     if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
     if (typeof renderNativeStudioContentList === "function") renderNativeStudioContentList()
+    try { renderSandboxManagerPanelById("mapMenu") } catch (_) {}
+    try { renderSandboxManagerPanelById("pnjMenu") } catch (_) {}
+    try { renderSandboxManagerPanelById("mobMenu2") } catch (_) {}
+    try { renderSandboxManagerPanelById("elementsMenu") } catch (_) {}
     sanitizeLegacySandboxUI()
     return true
   } catch (error) {
@@ -3587,6 +3591,44 @@ function buildSandboxManagerPanel(options) {
   )
 }
 
+function renderSandboxManagerPanelById(id) {
+  const panel = document.getElementById(id)
+  if (!panel) return
+  const panelFactories = {
+    mapMenu: function() {
+      return buildSandboxManagerPanel({
+        type: "map",
+        title: "Maps et lieux",
+        body: "Ici ajoute tes maps et lieux. Nomme-les de facon claire pour t'y retrouver et donner une bonne scenerie aux joueurs."
+      })
+    },
+    pnjMenu: function() {
+      return buildSandboxManagerPanel({
+        type: "pnj",
+        title: "PNJ",
+        body: "Ici ajoute tes PNJ. Donne-leur des noms clairs et des categories simples pour garder un casting lisible."
+      })
+    },
+    mobMenu2: function() {
+      return buildSandboxManagerPanel({
+        type: "mob",
+        title: "Mobs et ennemis",
+        body: "Ici ajoute tes mobs. Classe-les proprement pour retrouver vite tes menaces et tester tes combats."
+      })
+    },
+    elementsMenu: function() {
+      return buildSandboxManagerPanel({
+        type: "document",
+        title: "Documents et visuels",
+        body: "Ici ajoute tes documents, indices et images de narration. Donne-leur un nom clair pour les retrouver facilement en partie."
+      })
+    }
+  }
+  if (!panelFactories[id]) return
+  panel.innerHTML = panelFactories[id]()
+  panel.dataset.cleaned = "1"
+}
+
 function sanitizeLegacySandboxUI() {
   const gmSaveBtn = document.getElementById("gmSaveBtn")
   if (gmSaveBtn) gmSaveBtn.textContent = "Save"
@@ -3648,43 +3690,7 @@ function sanitizeLegacySandboxUI() {
     }
   }
 
-  const panelFactories = {
-    mapMenu: function() {
-      return buildSandboxManagerPanel({
-        type: "map",
-        title: "Maps et lieux",
-        body: "Ici ajoute tes maps et lieux. Nomme-les de facon claire pour t'y retrouver et donner une bonne scenerie aux joueurs."
-      })
-    },
-    pnjMenu: function() {
-      return buildSandboxManagerPanel({
-        type: "pnj",
-        title: "PNJ",
-        body: "Ici ajoute tes PNJ. Donne-leur des noms clairs et des categories simples pour garder un casting lisible."
-      })
-    },
-    mobMenu2: function() {
-      return buildSandboxManagerPanel({
-        type: "mob",
-        title: "Mobs et ennemis",
-        body: "Ici ajoute tes mobs. Classe-les proprement pour retrouver vite tes menaces et tester tes combats."
-      })
-    },
-    elementsMenu: function() {
-      return buildSandboxManagerPanel({
-        type: "document",
-        title: "Documents et visuels",
-        body: "Ici ajoute tes documents, indices et images de narration. Donne-leur un nom clair pour les retrouver facilement en partie."
-      })
-    }
-  }
-
-  Object.keys(panelFactories).forEach(id => {
-    const panel = document.getElementById(id)
-    if (!panel) return
-    panel.innerHTML = panelFactories[id]()
-    panel.dataset.cleaned = "1"
-  })
+  ;["mapMenu", "pnjMenu", "mobMenu2", "elementsMenu"].forEach(renderSandboxManagerPanelById)
 
   const mjLogTitle = document.querySelector("#mjLog .mjTitle span")
   if (mjLogTitle) mjLogTitle.textContent = "Journal du MJ"
@@ -4097,10 +4103,9 @@ function toggleGMSection(id) {
     sec.style.display = "none"
   })
   if (!isOpen) {
+    try { renderSandboxManagerPanelById(id) } catch (_) {}
     if (id === "mapMenu") {
-      try {
-        if (typeof syncOnboardingStartMapMenuButton === "function") syncOnboardingStartMapMenuButton()
-      } catch (_) {}
+      try { if (typeof syncOnboardingStartMapMenuButton === "function") syncOnboardingStartMapMenuButton() } catch (_) {}
     }
     section.style.display = "block"
   }
