@@ -3430,10 +3430,60 @@ function deleteSandboxMap(index) {
 
 function createSandboxMapFromPanel() {
   try {
-    if (typeof triggerNativeStudioLocalAdd === "function") {
-      triggerNativeStudioLocalAdd("map")
-      return false
-    }
+    const chooser = document.createElement("input")
+    chooser.type = "file"
+    chooser.accept = "image/*"
+    chooser.style.display = "none"
+    chooser.addEventListener("change", async function() {
+      const file = chooser.files && chooser.files[0] ? chooser.files[0] : null
+      if (!file) {
+        if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+        return
+      }
+      const defaultLabel = String(file.name || "Nouvelle map").replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim() || "Nouvelle map"
+      const chosenLabel = prompt("Nom de la map :", defaultLabel)
+      if (chosenLabel == null) {
+        if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+        return
+      }
+      const trimmedLabel = String(chosenLabel).trim()
+      if (!trimmedLabel) {
+        if (typeof showNotification === "function") showNotification("Nom obligatoire")
+        if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+        return
+      }
+      try {
+        const asset = typeof readNativeStudioFileAsDataURL === "function"
+          ? String(await readNativeStudioFileAsDataURL(file) || "").trim()
+          : ""
+        if (!asset) {
+          if (typeof showNotification === "function") showNotification("Image invalide")
+          if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+          return
+        }
+        updateSandboxCustomization(function(next) {
+          next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+          next.content.maps = Array.isArray(next.content.maps) ? next.content.maps : []
+          next.content.maps.push({
+            label: trimmedLabel,
+            category: "Custom",
+            map: asset,
+            section: "lieux",
+            audio: ""
+          })
+        })
+        try { renderSandboxManagerPanelById("mapMenu") } catch (_) {}
+        const panel = document.getElementById("mapMenu")
+        if (panel) panel.style.display = "block"
+        if (typeof showNotification === "function") showNotification("Map ajoutee")
+      } catch (_) {
+        if (typeof showNotification === "function") showNotification("Lecture du fichier impossible")
+      }
+      if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+    }, { once: true })
+    document.body.appendChild(chooser)
+    chooser.click()
+    return false
   } catch (_) {}
   return false
 }
