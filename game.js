@@ -3331,7 +3331,11 @@ function getSandboxContentItems(type) {
     if (typeof getCustomization !== "function") return []
     const data = getCustomization()
     const content = data && data.content ? data.content : {}
-    if (type === "map") return content.maps || []
+    if (type === "map") {
+      const savedMaps = Array.isArray(content.maps) ? content.maps : []
+      const runtimeMaps = Array.isArray(window.__sandboxRuntimeMaps) ? window.__sandboxRuntimeMaps : []
+      return savedMaps.concat(runtimeMaps)
+    }
     if (type === "pnj") return content.pnjs || []
     if (type === "mob") return content.mobs || []
     if (type === "document") return content.documents || []
@@ -3347,6 +3351,16 @@ function getSandboxCollectionInfo(type) {
     document: { key: "documents", label: "document" }
   }
   return map[String(type || "").toLowerCase()] || null
+}
+
+function getSavedSandboxMapCount() {
+  try {
+    if (typeof getCustomization !== "function") return 0
+    const data = getCustomization()
+    const content = data && data.content ? data.content : {}
+    return Array.isArray(content.maps) ? content.maps.length : 0
+  } catch (_) {}
+  return 0
 }
 
 function updateSandboxCustomization(mutator) {
@@ -3415,6 +3429,15 @@ function renameSandboxMap(index) {
     if (typeof showNotification === "function") showNotification("Nom obligatoire")
     return false
   }
+  const savedCount = getSavedSandboxMapCount()
+  if (index >= savedCount) {
+    const runtimeMaps = Array.isArray(window.__sandboxRuntimeMaps) ? window.__sandboxRuntimeMaps : []
+    const runtimeIndex = index - savedCount
+    if (runtimeMaps[runtimeIndex]) runtimeMaps[runtimeIndex].label = trimmedLabel
+    window.__sandboxRuntimeMaps = runtimeMaps
+    try { renderSandboxManagerPanelById("mapMenu") } catch (_) {}
+    return false
+  }
   updateSandboxCustomization(function(next) {
     next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
     next.content.maps = Array.isArray(next.content.maps) ? next.content.maps : []
@@ -3425,6 +3448,17 @@ function renameSandboxMap(index) {
 }
 
 function deleteSandboxMap(index) {
+  const savedCount = getSavedSandboxMapCount()
+  if (index >= savedCount) {
+    const runtimeMaps = Array.isArray(window.__sandboxRuntimeMaps) ? window.__sandboxRuntimeMaps : []
+    const runtimeIndex = index - savedCount
+    if (runtimeIndex >= 0 && runtimeIndex < runtimeMaps.length) {
+      runtimeMaps.splice(runtimeIndex, 1)
+      window.__sandboxRuntimeMaps = runtimeMaps
+      try { renderSandboxManagerPanelById("mapMenu") } catch (_) {}
+    }
+    return false
+  }
   return deleteNativeStudioItem("map", index)
 }
 
