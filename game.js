@@ -2384,21 +2384,8 @@ db.ref("game/allyAction").on("value", snap => {
 // â”€â”€â”€ mapAudio â€” musique spÃ©cifique Ã  la map â”€â”€â”€
 db.ref("game/mapAudio").on("value", snap => {
   const data = snap.val()
-  if (!data || !data.file) return
-  // Attendre que le fade de map soit terminÃ© (1.4s) puis jouer
-  setTimeout(() => {
-    _musicTransitioning = false; _pendingMusic = null
-    if (musicFadeInterval) { clearInterval(musicFadeInterval); musicFadeInterval = null }
-    stopAllMusic()
-    setTimeout(() => {
-      const audioFile = String(data.file || "")
-      const resolvedAudio = /^(https?:|data:|blob:|\/|audio\/)/i.test(audioFile) || /\.[a-z0-9]{2,5}$/i.test(audioFile)
-        ? audioFile
-        : (audioFile ? "audio/" + audioFile + ".mp3" : "")
-      if (resolvedAudio) crossfadeMusic(resolvedAudio)
-      _state._pendingMapAudio = false
-    }, 300)
-  }, 1400)
+  if (!data || !data.time) return
+  applyMapAudioSelection(String(data.file || ""), 1400)
   db.ref("game/mapAudio").remove()
 })
 
@@ -2675,6 +2662,99 @@ function playInitialMapMusic(mapName) {
   currentMusic = "A"
 }
 
+function fadeToResolvedMapAudio(resolvedAudio) {
+  const musicA = document.getElementById("musicA")
+  const musicB = document.getElementById("musicB")
+  if (!musicA || !musicB) return false
+
+  const targetVolume = (typeof getUserMusicVolume === "function") ? getUserMusicVolume() : 0.8
+  const active = currentMusic === "A" ? musicA : musicB
+  const next = currentMusic === "A" ? musicB : musicA
+  const normalizedTarget = String(resolvedAudio || "").trim()
+  const activeSrc = String(active && active.currentSrc || active && active.src || "")
+
+  if (!normalizedTarget) {
+    ;[musicA, musicB].forEach(function(audio) {
+      if (!audio) return
+      const iv = setInterval(function() {
+        if ((Number(audio.volume) || 0) > 0.04) {
+          audio.volume = Math.max(0, (Number(audio.volume) || 0) - 0.04)
+        } else {
+          clearInterval(iv)
+          try { audio.pause() } catch (_) {}
+          audio.volume = 0
+          try { audio.currentTime = 0 } catch (_) {}
+        }
+      }, 80)
+    })
+    return true
+  }
+
+  if (activeSrc === normalizedTarget && !active.paused) {
+    active.loop = true
+    active.__baseVolume = 1
+    active.__audioChannel = "music"
+    const iv = setInterval(function() {
+      if ((Number(active.volume) || 0) < targetVolume) {
+        active.volume = Math.min(targetVolume, (Number(active.volume) || 0) + 0.05)
+      } else {
+        clearInterval(iv)
+      }
+    }, 80)
+    return true
+  }
+
+  try { next.pause() } catch (_) {}
+  next.src = normalizedTarget
+  next.loop = true
+  next.currentTime = 0
+  next.volume = 0
+  next.__baseVolume = 1
+  next.__audioChannel = "music"
+  next.play().catch(() => {})
+
+  const fadeIv = setInterval(function() {
+    const activeVolume = Number(active.volume) || 0
+    const nextVolume = Number(next.volume) || 0
+    if (activeVolume > 0.04) active.volume = Math.max(0, activeVolume - 0.04)
+    else {
+      active.volume = 0
+      try { active.pause() } catch (_) {}
+    }
+    if (nextVolume < targetVolume) next.volume = Math.min(targetVolume, nextVolume + 0.04)
+    if ((Number(active.volume) || 0) <= 0.001 && (Number(next.volume) || 0) >= targetVolume - 0.001) {
+      clearInterval(fadeIv)
+      currentMusic = currentMusic === "A" ? "B" : "A"
+    }
+  }, 80)
+  return true
+}
+
+function applyMapAudioSelection(audioFile, delay = 0) {
+  const nextAudio = String(audioFile || "").trim()
+  setTimeout(() => {
+    try {
+      _musicTransitioning = false
+      _pendingMusic = null
+      if (musicFadeInterval) {
+        clearInterval(musicFadeInterval)
+        musicFadeInterval = null
+      }
+      if (nextAudio) {
+        const resolvedAudio = /^(https?:|data:|blob:|\/|audio\/)/i.test(nextAudio) || /\.[a-z0-9]{2,5}$/i.test(nextAudio)
+          ? nextAudio
+          : "audio/" + nextAudio + ".mp3"
+        fadeToResolvedMapAudio(resolvedAudio)
+      } else {
+        fadeToResolvedMapAudio("")
+      }
+    } catch (_) {
+    } finally {
+      _state._pendingMapAudio = false
+    }
+  }, Math.max(0, Number(delay) || 0))
+}
+
 function primeMapMusicChannels() {
   ;["musicA", "musicB"].forEach(id => {
     const el = document.getElementById(id)
@@ -2702,6 +2782,21 @@ function primeMapMusicChannels() {
   })
 }
 
+function getSandboxMapAudioForValue(mapValue, mapsSource) {
+  try {
+    const target = String(mapValue || "").trim()
+    if (!target) return ""
+    const maps = Array.isArray(mapsSource) ? mapsSource : getSimpleSandboxMaps()
+    const match = maps.find(function(item) {
+      const itemId = String(item && item.id || "").trim()
+      const itemMap = String(item && item.map || "").trim()
+      return !!item && (itemId === target || itemMap === target)
+    })
+    return String(match && match.audio || "").trim()
+  } catch (_) {}
+  return ""
+}
+
 function revivePlayer(playerId) {
   deadPlayers[playerId] = false
   db.ref("characters/" + playerId + "/hp").set(1)
@@ -2727,9 +2822,9 @@ function changeMap(mapName, customAudio) {
   // Un seul set â€” pas de set(null) puis set(valeur)
   db.ref("game/map").set(mapName)
   // Audio spÃ©cifique Ã  la map si fourni
-  if (customAudio) {
+  if (arguments.length > 1) {
     _state._pendingMapAudio = true
-    db.ref("game/mapAudio").set({ file: customAudio, time: Date.now() })
+    db.ref("game/mapAudio").set({ file: String(customAudio || ""), time: Date.now() })
   } else {
     _state._pendingMapAudio = false
   }
@@ -2916,7 +3011,8 @@ function collectSandboxLocalSaveData() {
         startMapLabel: String(customization && customization.project && customization.project.startMapLabel || window.__onboardingStartMapLabel || "").trim(),
         maps: runtimeMapsSnapshot.map(function(item) { return { ...item } }),
         pnjs: runtimePnjsSnapshot.map(function(item) { return { ...item } }),
-        currentMap: String(window.__latestMapValue || currentMap || "").trim()
+        currentMap: String(window.__latestMapValue || currentMap || "").trim(),
+        currentMapAudio: getSandboxMapAudioForValue(String(window.__latestMapValue || currentMap || "").trim(), runtimeMapsSnapshot)
       },
       characters: {},
       tokens: {},
@@ -3284,15 +3380,27 @@ function applySandboxLocalLoadSnapshot(data, options) {
       const startMapAsset = String(project.startMapAsset || "").trim()
       const startMapLabel = String(project.startMapLabel || "").trim() || "Map de depart"
       const visibleMapAsset = startMapAsset || String((safeData.game && safeData.game.map) || "").trim()
+      const restoredMapValue = String(
+        (safeData.sandboxState && safeData.sandboxState.currentMap)
+        || (safeData.game && safeData.game.map)
+        || ""
+      ).trim()
+      const restoredMapAudio = String(
+        (safeData.sandboxState && safeData.sandboxState.currentMapAudio)
+        || getSandboxMapAudioForValue(restoredMapValue, window.__simpleSandboxMaps)
+        || ""
+      ).trim()
       if (visibleMapAsset) {
         if (typeof simpleRenderSandboxMap === "function") {
-          simpleRenderSandboxMap(startMapLabel, visibleMapAsset)
+          simpleRenderSandboxMap(startMapLabel, visibleMapAsset, restoredMapAudio)
         } else {
           const map = document.getElementById("map")
           if (map) {
             map.style.setProperty("background", "url('" + visibleMapAsset.replace(/'/g, "\\'") + "') center / cover no-repeat", "important")
           }
         }
+      } else if (restoredMapAudio) {
+        applyMapAudioSelection(restoredMapAudio, 0)
       }
     } catch (_) {}
     try { ensureSandboxStudioChromeVisible() } catch (_) {}
@@ -3477,6 +3585,14 @@ function _applyLoadData(data, callback) {
   if (data.elements)            pushOp("elements", db.ref("elements").set(data.elements))
   else                          pushOp("elements", db.ref("elements").remove())
   if (data.game?.map)           pushOp("game/map", db.ref("game/map").set(data.game.map))
+  if (data.sandboxState?.currentMapAudio != null) {
+    pushOp("game/mapAudio", db.ref("game/mapAudio").set({
+      file: String(data.sandboxState.currentMapAudio || ""),
+      time: Date.now()
+    }))
+  } else {
+    pushOp("game/mapAudio", db.ref("game/mapAudio").remove())
+  }
   if (data.game?.wantedPosters) pushOp("game/wantedPosters", db.ref("game/wantedPosters").set(data.game.wantedPosters))
   else                          pushOp("game/wantedPosters", db.ref("game/wantedPosters").remove())
   if (data.game?.wantedOpen)    pushOp("game/wantedOpen", db.ref("game/wantedOpen").set(data.game.wantedOpen))
@@ -5693,6 +5809,7 @@ function openSandboxPnjManagerV2() {
 function createSandboxMapManagerCard(item, index) {
   const label = String(item && item.label || "Sans titre")
   const previewMode = !!(document.body && document.body.classList.contains("sandbox-preview-mode"))
+  const musicLabel = String(item && item.audio || "").trim()
 
   const card = document.createElement("div")
   card.className = "sandboxMapManagerCard"
@@ -5745,6 +5862,18 @@ function createSandboxMapManagerCard(item, index) {
     renderSandboxMapManagerOverlayV2()
   })
 
+  const musicBtn = document.createElement("button")
+  musicBtn.type = "button"
+  musicBtn.className = "sandboxMapManagerActionButton"
+  musicBtn.style.cssText = "padding:8px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+  musicBtn.textContent = musicLabel ? "Musique : OK" : "Musique"
+  musicBtn.title = musicLabel || "Ajouter une musique"
+  musicBtn.addEventListener("click", function(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    editSandboxMapMusic(index)
+  })
+
   const deleteBtn = document.createElement("button")
   deleteBtn.type = "button"
   deleteBtn.className = "sandboxMapManagerDeleteButton"
@@ -5769,6 +5898,7 @@ function createSandboxMapManagerCard(item, index) {
 
   if (!previewMode) {
     actionsRow.appendChild(renameBtn)
+    actionsRow.appendChild(musicBtn)
     actionsRow.appendChild(moveTabBtn)
     actionsRow.appendChild(deleteBtn)
   }
@@ -6921,7 +7051,7 @@ function ensureTutorialStartMapInSimpleMaps() {
   return false
 }
 
-function simpleRenderSandboxMap(label, asset) {
+function simpleRenderSandboxMap(label, asset, customAudio) {
   const safeAsset = String(asset || "").trim()
   if (!safeAsset) return false
   try {
@@ -6964,6 +7094,8 @@ function simpleRenderSandboxMap(label, asset) {
         }
       } catch (_) {}
     }, fade ? 1080 : 0)
+
+    applyMapAudioSelection(String(customAudio || ""), fade ? 1400 : 0)
 
     if (label) {
       setTimeout(function() {
@@ -7015,7 +7147,7 @@ function launchSandboxMap(index) {
   const item = maps[index]
   if (!item) return false
   if (/^(data:|blob:|https?:|\/)/i.test(String(item.map || "").trim())) {
-    simpleRenderSandboxMap(item.label, item.map)
+    simpleRenderSandboxMap(item.label, item.map, item.audio)
     return false
   }
   if (typeof changeMap === "function") {
@@ -7049,6 +7181,46 @@ function renameSandboxMap(index) {
   maps[index].label = trimmedLabel
   saveSimpleSandboxMaps(maps)
   closeSandboxMapManagerV2()
+  return false
+}
+
+function editSandboxMapMusic(index) {
+  try {
+    const maps = getSimpleSandboxMaps()
+    const item = maps[index]
+    if (!item) return false
+    const chooser = document.createElement("input")
+    chooser.type = "file"
+    chooser.accept = "audio/*"
+    chooser.style.display = "none"
+    chooser.addEventListener("change", async function() {
+      try {
+        const file = chooser.files && chooser.files[0] ? chooser.files[0] : null
+        if (!file) return
+        let audioAsset = typeof readNativeStudioFileAsDataURL === "function"
+          ? String(await readNativeStudioFileAsDataURL(file) || "").trim()
+          : ""
+        if (!audioAsset && typeof URL !== "undefined" && typeof URL.createObjectURL === "function") {
+          audioAsset = String(URL.createObjectURL(file) || "").trim()
+        }
+        if (!audioAsset) {
+          if (typeof showNotification === "function") showNotification("Audio invalide")
+          return
+        }
+        const nextMaps = getSimpleSandboxMaps()
+        if (!nextMaps[index]) return
+        nextMaps[index].audio = audioAsset
+        saveSimpleSandboxMaps(nextMaps)
+        renderSandboxMapManagerOverlayV2()
+        if (typeof showNotification === "function") showNotification("Musique mise a jour")
+      } catch (_) {
+      } finally {
+        if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+      }
+    }, { once: true })
+    document.body.appendChild(chooser)
+    chooser.click()
+  } catch (_) {}
   return false
 }
 
@@ -7130,6 +7302,23 @@ function createSimpleSandboxMapCard(item, index) {
   actionsRow.className = "sandboxMapManagerActionsRow"
   actionsRow.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;"
 
+  const metaRow = document.createElement("div")
+  metaRow.className = "sandboxMapManagerMetaRow"
+  metaRow.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:#bfae8b;"
+
+  const categoryBadge = document.createElement("span")
+  categoryBadge.style.cssText = "padding:4px 8px;border-radius:999px;background:rgba(255,255,255,0.04);border:1px solid rgba(214,180,106,0.16);"
+  categoryBadge.textContent = String(item.category || "Custom")
+  metaRow.appendChild(categoryBadge)
+
+  if (item.audio) {
+    const audioBadge = document.createElement("span")
+    audioBadge.style.cssText = "padding:4px 8px;border-radius:999px;background:rgba(255,255,255,0.04);border:1px solid rgba(214,180,106,0.16);"
+    audioBadge.textContent = "Musique perso"
+    audioBadge.title = String(item.audio)
+    metaRow.appendChild(audioBadge)
+  }
+
   const renameBtn = document.createElement("button")
   renameBtn.type = "button"
   renameBtn.className = "sandboxMapManagerActionButton"
@@ -7139,6 +7328,18 @@ function createSimpleSandboxMapCard(item, index) {
     event.preventDefault()
     event.stopPropagation()
     renameSandboxMap(index)
+  })
+
+  const musicBtn = document.createElement("button")
+  musicBtn.type = "button"
+  musicBtn.className = "sandboxMapManagerActionButton"
+  musicBtn.style.cssText = "padding:8px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+  musicBtn.textContent = item.audio ? "Musique : OK" : "Musique"
+  musicBtn.title = item.audio ? String(item.audio) : "Ajouter une musique"
+  musicBtn.addEventListener("click", function(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    editSandboxMapMusic(index)
   })
 
   const deleteBtn = document.createElement("button")
@@ -7167,7 +7368,9 @@ function createSimpleSandboxMapCard(item, index) {
 
   topRow.appendChild(launchBtn)
   if (!previewMode) topRow.appendChild(dragHandle)
+  card.appendChild(metaRow)
   if (!previewMode) actionsRow.appendChild(renameBtn)
+  if (!previewMode) actionsRow.appendChild(musicBtn)
   if (!previewMode) actionsRow.appendChild(deleteBtn)
   card.appendChild(topRow)
   if (!previewMode) card.appendChild(actionsRow)
@@ -7206,9 +7409,13 @@ function closeSandboxMapCreateComposerV2() {
   if (!overlay) return false
   const composer = overlay.querySelector("[data-map-manager-composer]")
   const nameInput = overlay.querySelector("[data-map-manager-name]")
+  const audioInput = overlay.querySelector("[data-map-manager-audio]")
+  const audioText = overlay.querySelector("[data-map-manager-audio-name]")
   const fileInput = overlay.querySelector("[data-map-manager-file]")
   if (composer) composer.style.display = "none"
   if (nameInput) nameInput.value = ""
+  if (audioInput) audioInput.value = ""
+  if (audioText) audioText.textContent = ""
   if (fileInput) fileInput.value = ""
   return false
 }
@@ -7219,6 +7426,8 @@ function openSandboxMapCreateComposerV2() {
   if (!overlay) return false
   const composer = overlay.querySelector("[data-map-manager-composer]")
   const nameInput = overlay.querySelector("[data-map-manager-name]")
+  const audioInput = overlay.querySelector("[data-map-manager-audio]")
+  const audioText = overlay.querySelector("[data-map-manager-audio-name]")
   const fileInput = overlay.querySelector("[data-map-manager-file]")
   if (composer) composer.style.display = "grid"
   if (fileInput && !fileInput.dataset.autofillBound) {
@@ -7228,6 +7437,13 @@ function openSandboxMapCreateComposerV2() {
       if (!file || !nameInput) return
       if (String(nameInput.value || "").trim()) return
       nameInput.value = String(file.name || "Nouvelle map").replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim() || "Nouvelle map"
+    })
+  }
+  if (audioInput && !audioInput.dataset.filenameBound) {
+    audioInput.dataset.filenameBound = "1"
+    audioInput.addEventListener("change", function() {
+      const audioFile = audioInput.files && audioInput.files[0] ? audioInput.files[0] : null
+      if (audioText) audioText.textContent = audioFile ? String(audioFile.name || "") : ""
     })
   }
   if (nameInput) {
@@ -7243,8 +7459,10 @@ async function submitSandboxMapManagerCreateV2() {
     const overlay = document.getElementById("sandboxMapManagerOverlay")
     if (!overlay) return false
     const nameInput = overlay.querySelector("[data-map-manager-name]")
+    const audioInput = overlay.querySelector("[data-map-manager-audio]")
     const fileInput = overlay.querySelector("[data-map-manager-file]")
     let trimmedLabel = String(nameInput && nameInput.value || "").trim()
+    const audioFile = audioInput && audioInput.files && audioInput.files[0] ? audioInput.files[0] : null
     const file = fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0] : null
     if (!file) {
       if (typeof showNotification === "function") showNotification("Choisis une image")
@@ -7265,6 +7483,19 @@ async function submitSandboxMapManagerCreateV2() {
       if (typeof showNotification === "function") showNotification("Image invalide")
       return false
     }
+    let audioAsset = ""
+    if (audioFile) {
+      audioAsset = typeof readNativeStudioFileAsDataURL === "function"
+        ? String(await readNativeStudioFileAsDataURL(audioFile) || "").trim()
+        : ""
+      if (!audioAsset && typeof URL !== "undefined" && typeof URL.createObjectURL === "function") {
+        audioAsset = String(URL.createObjectURL(audioFile) || "").trim()
+      }
+      if (!audioAsset) {
+        if (typeof showNotification === "function") showNotification("Audio invalide")
+        return false
+      }
+    }
     const maps = getSimpleSandboxMaps()
     maps.push({
       id: "map_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 6),
@@ -7273,7 +7504,7 @@ async function submitSandboxMapManagerCreateV2() {
       category: "Custom",
       section: "lieux",
       tab: activeTab !== "all" && activeTab !== "__untabbed__" ? activeTab : "",
-      audio: ""
+      audio: audioAsset
     })
     saveSimpleSandboxMaps(maps)
     closeSandboxMapCreateComposerV2()
@@ -7311,6 +7542,13 @@ async function createSandboxMapFromPanel() {
         if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
         return
       }
+      const chosenAudio = prompt("Musique de la map (nom de fichier, URL ou vide) :", "")
+      if (chosenAudio == null) {
+        window.__sandboxMapFilePicking = false
+        if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+        return
+      }
+      const trimmedAudio = String(chosenAudio).trim()
       const asset = typeof readNativeStudioFileAsDataURL === "function"
         ? String(await readNativeStudioFileAsDataURL(file) || "").trim()
         : ""
@@ -7320,6 +7558,7 @@ async function createSandboxMapFromPanel() {
         if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
         return
       }
+      const activeTab = getSandboxManagerActiveTab("map")
       const maps = getSimpleSandboxMaps()
       maps.push({
         id: "map_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 6),
@@ -7328,7 +7567,7 @@ async function createSandboxMapFromPanel() {
         category: "Custom",
         section: "lieux",
         tab: activeTab !== "all" && activeTab !== "__untabbed__" ? activeTab : "",
-        audio: ""
+        audio: trimmedAudio
       })
       saveSimpleSandboxMaps(maps)
       renderSandboxMapManagerOverlayV2()
@@ -7376,6 +7615,11 @@ function openSandboxMapManagerV2() {
           `<div data-map-manager-tabs style="display:flex;flex-wrap:wrap;gap:8px;"></div>` +
           `<div class="sandboxMapManagerComposer" data-map-manager-composer style="display:none;grid-template-columns:1fr;gap:10px;padding:12px;border-radius:14px;background:rgba(0,0,0,0.16);border:1px solid rgba(214,180,106,0.18);">` +
             `<input type="text" class="sandboxMapManagerInput" data-map-manager-name placeholder="Nom de la map" style="padding:10px 12px;border-radius:10px;border:1px solid rgba(214,180,106,0.2);background:rgba(10,18,30,0.55);color:#f5e6c8;font-family:Cinzel,serif;">` +
+            `<label style="display:grid;gap:6px;font-size:12px;color:#d9c08a;font-family:Cinzel,serif;">` +
+              `<span>Musique de la map (optionnel)</span>` +
+            `<input type="file" class="sandboxMapManagerFileInput" data-map-manager-audio accept="audio/*" style="color:#f5e6c8;font-family:Cinzel,serif;">` +
+            `<span data-map-manager-audio-name style="font-size:11px;color:#bfae8b;min-height:16px;"></span>` +
+            `</label>` +
             `<input type="file" class="sandboxMapManagerFileInput" data-map-manager-file accept="image/*" style="color:#f5e6c8;font-family:Cinzel,serif;">` +
             `<div class="sandboxMapManagerComposerActions" style="display:flex;gap:8px;flex-wrap:wrap;">` +
               `<button type="button" class="sandboxMapManagerActionButton sandboxMapManagerPrimaryButton" data-map-manager-action="confirm-create" style="padding:9px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter</button>` +
