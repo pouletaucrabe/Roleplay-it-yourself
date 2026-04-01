@@ -34,6 +34,15 @@ function setSandboxStudioMode(enabled) {
     document.body.classList.toggle("sandbox-studio-mode", !!enabled)
     if (!enabled) document.body.classList.remove("sandbox-preview-mode")
     updateSandboxPreviewButton()
+    try {
+      if (typeof applyProjectThemeToDocument === "function") {
+        applyProjectThemeToDocument(
+          window.__currentProjectTheme ||
+          (document.body && document.body.getAttribute("data-project-theme")) ||
+          "medieval_fantasy"
+        )
+      }
+    } catch (_) {}
     if (enabled) {
       isGM = true
       window.isGM = true
@@ -69,6 +78,23 @@ function ensureSandboxStudioChromeVisible() {
       var el = document.getElementById(id)
       if (el) el.style.display = chromeDisplayMap[id]
     })
+    try { ensureDiceBarDefaultOpen() } catch (_) {}
+  } catch (_) {}
+}
+
+function ensureDiceBarDefaultOpen() {
+  try {
+    if (!document.body || !document.body.classList.contains("sandbox-studio-mode")) return
+    const bar = document.getElementById("diceBar")
+    const toggle = document.getElementById("diceBarToggle")
+    const log = document.getElementById("diceLog")
+    if (!bar) return
+    bar.classList.remove("collapsed")
+    if (toggle) {
+      toggle.innerHTML = "&#9662;"
+      toggle.setAttribute("aria-label", "Replier les des")
+    }
+    if (log) log.style.display = "block"
   } catch (_) {}
 }
 
@@ -1524,6 +1550,7 @@ db.ref("diceRoll").on("child_added", snap => {
   const result = parseInt(roll.result)
   if (!Number.isInteger(dice) || !Number.isInteger(result)) return
   if (result < 1 || result > dice) return
+  if (document.body && document.body.classList.contains("sandbox-studio-mode")) return
   showDiceAnimation(roll.player, dice, result)
 })
 
@@ -3832,28 +3859,46 @@ function rollDice(max) {
     playerName = myToken.id
   }
   const result = Math.floor(Math.random() * max) + 1
+  try {
+    if (document.body && document.body.classList.contains("sandbox-studio-mode") && typeof showDiceAnimation === "function") {
+      showDiceAnimation(playerName, max, result)
+    }
+  } catch (_) {}
   db.ref("diceRoll").push({ player: playerName, dice: max, result, time: Date.now(), sender: playerName })
 }
 
 function gmRoll(max) {
   if (!isGM) return
   const result = Math.floor(Math.random() * max) + 1
+  try {
+    if (document.body && document.body.classList.contains("sandbox-studio-mode") && typeof showDiceAnimation === "function") {
+      showDiceAnimation("MJ", max, result)
+    }
+  } catch (_) {}
   db.ref("diceRoll").push({ player: "MJ", dice: max, result, time: Date.now(), sender: "MJ" })
 }
 
 function toggleDiceBar(forceState) {
   const bar = document.getElementById("diceBar")
   const toggle = document.getElementById("diceBarToggle")
+  const log = document.getElementById("diceLog")
   if (!bar || !toggle) return
   const collapsed = typeof forceState === "boolean" ? forceState : !bar.classList.contains("collapsed")
   bar.classList.toggle("collapsed", collapsed)
   toggle.innerHTML = collapsed ? "&#9656;" : "&#9662;"
   toggle.setAttribute("aria-label", collapsed ? "Deplier les des" : "Replier les des")
+  bar.dataset.userCollapsedChoice = "1"
+  if (log) log.style.display = collapsed ? "none" : "block"
 }
 
 function mobRoll(max) {
   if (!isGM || !combatActive) return
   const result = Math.floor(Math.random() * max) + 1
+  try {
+    if (document.body && document.body.classList.contains("sandbox-studio-mode") && typeof showDiceAnimation === "function") {
+      showDiceAnimation("MOB", max, result)
+    }
+  } catch (_) {}
   db.ref("diceRoll").push({ player: "MOB", dice: max, result, time: Date.now(), sender: "MJ" })
 }
 
@@ -3889,11 +3934,39 @@ function _buildDice3D(resultBox) {
   return { cube, label, resLabel }
 }
 
+function hideDiceResultNow() {
+  const resultBox = document.getElementById("diceResult")
+  if (!resultBox) return
+  if (window.__diceResultHideTimer) {
+    clearTimeout(window.__diceResultHideTimer)
+    window.__diceResultHideTimer = null
+  }
+  if (window.__diceResultFadeTimer) {
+    clearTimeout(window.__diceResultFadeTimer)
+    window.__diceResultFadeTimer = null
+  }
+  if (window.__diceResultAbsoluteHideTimer) {
+    clearTimeout(window.__diceResultAbsoluteHideTimer)
+    window.__diceResultAbsoluteHideTimer = null
+  }
+  resultBox.classList.remove("crit", "fail", "mjRoll", "fading-out")
+  resultBox.style.opacity = 0
+  resultBox.style.display = "none"
+  const cube = resultBox.querySelector(".dice-3d")
+  if (cube) cube.style.animation = ""
+}
+
 function showDiceAnimation(playerName, max, final) {
   const resultBox = document.getElementById("diceResult")
+  if (!resultBox) return
+  hideDiceResultNow()
+  const diceAnimSeq = (window.__diceAnimSeq || 0) + 1
+  window.__diceAnimSeq = diceAnimSeq
   resultBox.classList.remove("crit", "fail", "mjRoll")
+  resultBox.classList.remove("fading-out")
   resultBox.style.display = "flex"
   resultBox.style.transform = "translate(-50%, -50%)"
+  resultBox.style.transition = "opacity 0.5s ease"
   resultBox.offsetHeight
 
   const safeName = String(playerName).replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -3902,6 +3975,16 @@ function showDiceAnimation(playerName, max, final) {
   label.textContent = safeName + " — d" + max
   resLabel.textContent = ""
   resultBox.style.opacity = 1
+
+  window.__diceResultAbsoluteHideTimer = setTimeout(() => {
+    if (window.__diceAnimSeq !== diceAnimSeq) return
+    resultBox.classList.add("fading-out")
+    resultBox.style.opacity = 0
+    window.__diceResultFadeTimer = setTimeout(() => {
+      if (window.__diceAnimSeq !== diceAnimSeq) return
+      hideDiceResultNow()
+    }, 550)
+  }, 7100)
 
   // Rotation rapide pendant 1.8s
   let t = 0
@@ -3957,14 +4040,13 @@ function showDiceAnimation(playerName, max, final) {
       }, 500)
 
       // Disparition
-      setTimeout(() => {
+      window.__diceResultHideTimer = setTimeout(() => {
+        resultBox.classList.add("fading-out")
         resultBox.style.opacity = 0
-        setTimeout(() => {
-          resultBox.style.display = "none"
-          resultBox.classList.remove("crit","fail","mjRoll")
-          cube.style.animation = ""
-        }, 500)
-      }, 4000)
+        window.__diceResultFadeTimer = setTimeout(() => {
+          hideDiceResultNow()
+        }, 550)
+      }, 5000)
     }, 300)
   }, 1800)
 }
@@ -4427,9 +4509,6 @@ function buildSandboxManagerPanel(options) {
             `<button type="button" onclick="openNativeStudioQuickCreate('${options.type}')" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter manuellement</button>` +
           `</div>`
       ) +
-      (options.type === "map"
-        ? `<div data-sandbox-map-debug style="font-size:11px;color:#bfae8b;">Maps en memoire : ${items.length}</div>`
-        : ``) +
       `<div data-sandbox-map-list style="display:grid;gap:10px;">${actions}</div>` +
     `</div>`
   )
@@ -4479,12 +4558,8 @@ function forceRenderMapMenuPanelList() {
     const panel = document.getElementById("mapMenu")
     if (!panel) return
     const host = panel.querySelector("[data-sandbox-map-list]")
-    const debug = panel.querySelector("[data-sandbox-map-debug]")
     if (!host) return
     const maps = getSandboxContentItems("map")
-    if (debug) {
-      debug.textContent = "Maps en memoire : " + maps.length
-    }
     if (!maps.length) {
       host.innerHTML = `<div style="font-size:12px;color:#bfae8b;padding:10px;background:rgba(0,0,0,0.18);border:1px dashed rgba(214,180,106,0.18);border-radius:10px;">Aucun element pour le moment.</div>`
       return
@@ -4572,11 +4647,8 @@ function appendSandboxMapCardToVisiblePanel(item) {
     const panel = document.getElementById("mapMenu")
     if (!panel) return
     const host = panel.querySelector("[data-sandbox-map-list]")
-    const debug = panel.querySelector("[data-sandbox-map-debug]")
     if (!host) return
     const mapKey = String(item && item.__runtimeKey || "")
-    const maps = getSandboxContentItems("map")
-    if (debug) debug.textContent = "Maps en memoire : " + maps.length
     if (host.textContent && host.textContent.indexOf("Aucun element pour le moment.") !== -1) {
       host.innerHTML = ""
     }

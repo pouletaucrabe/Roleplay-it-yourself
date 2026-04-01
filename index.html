@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English&family=Cormorant+SC:wght@500;700&family=Marcellus&family=Orbitron:wght@500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <title>Roleplay It Yourself</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='48'%3E%F0%9F%8E%B2%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css?v=164">
+<link rel="stylesheet" href="style.css?v=187">
   <style>
     #playerCodeBtn, #playerCodeBtn * {
       color: #ffd700 !important;
@@ -86,6 +86,7 @@
 <div id="camera" tabindex="-1">
   <div id="map" tabindex="-1">
     <img id="sandboxStartMapLayer" alt="" style="display:none;">
+    <img id="sandboxThemeOverlayMed" alt="" aria-hidden="true" src="images/overlaymed.png">
 
     <div class="token" id="mobToken" style="left:500px;top:200px;display:none;">
       <div class="mobHP">
@@ -478,14 +479,6 @@
 
 <div id="sandboxPreviewBar">
   <button id="sandboxPreviewBtn" type="button" onclick="return toggleSandboxPreviewMode()">Apercu</button>
-</div>
-
-<div id="sandboxStartMapBar">
-  <button id="sandboxStartMapBtn" type="button" onclick="launchOnboardingStartMap()">Map de depart</button>
-</div>
-
-<div id="sandboxSheetsTestBar">
-  <button id="sandboxSheetsTestBtn" type="button" onclick="return openSimpleSheetTest(event)">Fiche test</button>
 </div>
 
 <!-- BARRE MJ -->
@@ -1081,7 +1074,7 @@
 <script src="utils.js?v=14"></script>
 <script src="customization.js?v=57"></script>
 <!-- 4. Logique principale + Firebase listeners -->
-<script src="game.js?v=161"></script>
+<script src="game.js?v=170"></script>
 <!-- 5. Interface utilisateur -->
 <script src="ui.js?v=8"></script>
 <!-- 6. Combat -->
@@ -1739,6 +1732,29 @@ function applyProjectThemeToDocument(themeValue) {
   try { window.__currentProjectTheme = nextTheme } catch (e) {}
   try { document.body.setAttribute("data-project-theme", nextTheme) } catch (e) {}
   try { document.documentElement.setAttribute("data-project-theme", nextTheme) } catch (e) {}
+  try {
+    var mapThemeOverlay = document.getElementById("sandboxThemeOverlayMed")
+    var showMedOverlay = !!(
+      mapThemeOverlay &&
+      document.body &&
+      document.body.classList.contains("sandbox-studio-mode") &&
+      nextTheme === "medieval_fantasy"
+    )
+    if (mapThemeOverlay) {
+      mapThemeOverlay.style.display = showMedOverlay ? "block" : "none"
+      mapThemeOverlay.style.position = "absolute"
+      mapThemeOverlay.style.inset = "0"
+      mapThemeOverlay.style.width = "100%"
+      mapThemeOverlay.style.height = "100%"
+      mapThemeOverlay.style.zIndex = "5"
+      mapThemeOverlay.style.pointerEvents = "none"
+      mapThemeOverlay.style.objectFit = "fill"
+      mapThemeOverlay.style.objectPosition = "center"
+      mapThemeOverlay.style.backgroundImage = "none"
+      mapThemeOverlay.style.opacity = showMedOverlay ? "0.96" : "0"
+      mapThemeOverlay.src = "images/overlaymed.png"
+    }
+  } catch (e) {}
   try {
     var overlay = document.getElementById("simpleSheetTestOverlay")
     if (overlay) overlay.setAttribute("data-sheet-theme", nextTheme)
@@ -3246,7 +3262,6 @@ function launchOnboardingStartMap() {
     if (!startMapLabel) startMapLabel = String(window.__onboardingStartMapLabel || "")
     if (!startMapAsset) {
       if (launchButton) launchButton.textContent = "Aucune map"
-      if (typeof showNotification === "function") showNotification("Aucune map de depart enregistree")
       return false
     }
     var startMapLayer = document.getElementById("sandboxStartMapLayer")
@@ -3270,7 +3285,6 @@ function launchOnboardingStartMap() {
     syncOnboardingStartMapMenuButton()
     syncNativeStudioStartMapButton()
     if (launchButton) launchButton.textContent = startMapLabel || "Map de depart"
-    if (typeof showNotification === "function") showNotification("Map de depart lancee")
     try {
       if (typeof updateCamera === "function") updateCamera()
     } catch (e) {}
