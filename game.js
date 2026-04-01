@@ -32,6 +32,8 @@ function tryAutoSelectAuthenticatedPlayer() { return false }
 function setSandboxStudioMode(enabled) {
   try {
     document.body.classList.toggle("sandbox-studio-mode", !!enabled)
+    if (!enabled) document.body.classList.remove("sandbox-preview-mode")
+    updateSandboxPreviewButton()
     if (enabled) {
       isGM = true
       window.isGM = true
@@ -47,6 +49,50 @@ function setSandboxStudioMode(enabled) {
       }
     }
   } catch (e) {}
+}
+
+function updateSandboxPreviewButton() {
+  try {
+    const button = document.getElementById("sandboxPreviewBtn")
+    if (!button) return
+    const active = document.body.classList.contains("sandbox-preview-mode")
+    button.textContent = active ? "Retour studio" : "Apercu"
+    button.setAttribute("aria-pressed", active ? "true" : "false")
+  } catch (_) {}
+}
+
+function toggleSandboxPreviewMode(forceState) {
+  try {
+    if (!document.body || !document.body.classList.contains("sandbox-studio-mode")) return false
+    const nextState = typeof forceState === "boolean"
+      ? !!forceState
+      : !document.body.classList.contains("sandbox-preview-mode")
+    if (nextState) {
+      try {
+        if (typeof closeSimpleSheet === "function") closeSimpleSheet()
+      } catch (_) {}
+      document.querySelectorAll(".gmSection").forEach(function(sec) {
+        sec.style.display = "none"
+      })
+      try { closeStudioSaveMenu() } catch (_) {}
+      try {
+        const playersMenu = document.getElementById("sandboxPlayersMenu")
+        if (playersMenu) playersMenu.removeAttribute("open")
+      } catch (_) {}
+      try {
+        const styleMenu = document.getElementById("sandboxStyleMenu")
+        if (styleMenu) styleMenu.removeAttribute("open")
+      } catch (_) {}
+      try { closeSandboxMapManagerV2() } catch (_) {}
+      try {
+        const inlinePicker = document.getElementById("gmCharacterPickerInline")
+        if (inlinePicker) inlinePicker.remove()
+      } catch (_) {}
+    }
+    document.body.classList.toggle("sandbox-preview-mode", nextState)
+    updateSandboxPreviewButton()
+  } catch (_) {}
+  return false
 }
 
 function updatePlayerAuthMenuState() {
@@ -3980,17 +4026,23 @@ function closeSandboxMapManagerV2() {
 
 function createSandboxMapManagerCard(item, index) {
   const label = String(item && item.label || "Sans titre")
+  const previewMode = !!(document.body && document.body.classList.contains("sandbox-preview-mode"))
 
   const card = document.createElement("div")
+  card.className = "sandboxMapManagerCard"
   card.style.cssText = "display:grid;gap:8px;padding:12px;background:rgba(0,0,0,0.18);border:1px solid rgba(214,180,106,0.18);border-radius:12px;"
 
   const topRow = document.createElement("div")
+  topRow.className = "sandboxMapManagerCardTopRow"
   topRow.style.cssText = "display:flex;gap:8px;align-items:center;"
 
   const launchBtn = document.createElement("button")
   launchBtn.type = "button"
+  launchBtn.className = "sandboxMapManagerLaunchButton"
   launchBtn.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;"
-  launchBtn.innerHTML = `<span>${label}</span><span style="font-size:11px;color:#bfae8b;">Lancer</span>`
+  launchBtn.innerHTML = previewMode
+    ? `<span>${label}</span>`
+    : `<span>${label}</span><span style="font-size:11px;color:#bfae8b;">Lancer</span>`
   launchBtn.addEventListener("click", function(event) {
     event.preventDefault()
     event.stopPropagation()
@@ -3998,6 +4050,7 @@ function createSandboxMapManagerCard(item, index) {
   })
 
   const dragHandle = document.createElement("span")
+  dragHandle.className = "sandboxMapManagerDragHandle"
   dragHandle.setAttribute("draggable", "true")
   dragHandle.title = "Glisser pour reordonner"
   dragHandle.style.cssText = "width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f0d087;font-size:16px;cursor:grab;"
@@ -4008,13 +4061,15 @@ function createSandboxMapManagerCard(item, index) {
   })
 
   topRow.appendChild(launchBtn)
-  topRow.appendChild(dragHandle)
+  if (!previewMode) topRow.appendChild(dragHandle)
 
   const actionsRow = document.createElement("div")
+  actionsRow.className = "sandboxMapManagerActionsRow"
   actionsRow.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;"
 
   const renameBtn = document.createElement("button")
   renameBtn.type = "button"
+  renameBtn.className = "sandboxMapManagerActionButton"
   renameBtn.style.cssText = "padding:8px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
   renameBtn.textContent = "Renommer"
   renameBtn.addEventListener("click", function(event) {
@@ -4026,6 +4081,7 @@ function createSandboxMapManagerCard(item, index) {
 
   const deleteBtn = document.createElement("button")
   deleteBtn.type = "button"
+  deleteBtn.className = "sandboxMapManagerDeleteButton"
   deleteBtn.style.cssText = "padding:8px 10px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(214,110,110,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
   deleteBtn.textContent = "Supprimer"
   deleteBtn.addEventListener("click", function(event) {
@@ -4034,22 +4090,26 @@ function createSandboxMapManagerCard(item, index) {
     deleteSandboxMap(index)
   })
 
-  actionsRow.appendChild(renameBtn)
-  actionsRow.appendChild(deleteBtn)
+  if (!previewMode) {
+    actionsRow.appendChild(renameBtn)
+    actionsRow.appendChild(deleteBtn)
+  }
 
-  card.addEventListener("dragover", function(event) {
-    event.preventDefault()
-  })
-  card.addEventListener("drop", function(event) {
-    event.preventDefault()
-    dropSandboxMap(index)
-  })
-  card.addEventListener("dragend", function() {
-    endSandboxMapDrag()
-  })
+  if (!previewMode) {
+    card.addEventListener("dragover", function(event) {
+      event.preventDefault()
+    })
+    card.addEventListener("drop", function(event) {
+      event.preventDefault()
+      dropSandboxMap(index)
+    })
+    card.addEventListener("dragend", function() {
+      endSandboxMapDrag()
+    })
+  }
 
   card.appendChild(topRow)
-  card.appendChild(actionsRow)
+  if (!previewMode) card.appendChild(actionsRow)
   return card
 }
 
@@ -4057,8 +4117,15 @@ function renderSandboxMapManagerOverlayV2() {
   try { ensureTutorialStartMapInSimpleMaps() } catch (_) {}
   const overlay = document.getElementById("sandboxMapManagerOverlay")
   if (!overlay) return
+  const panel = overlay.querySelector(".sandboxMapManagerPanel")
+  const title = overlay.querySelector(".sandboxMapManagerTitle")
+  const subtitle = overlay.querySelector(".sandboxMapManagerSubtitle")
   const content = overlay.querySelector("[data-map-manager-content]")
   const debug = overlay.querySelector("[data-map-manager-debug]")
+  const previewMode = !!(document.body && document.body.classList.contains("sandbox-preview-mode"))
+  if (panel) panel.classList.toggle("sandboxMapManagerPanel--preview", previewMode)
+  if (title) title.textContent = "Maps et lieux"
+  if (subtitle) subtitle.style.display = previewMode ? "none" : ""
   if (!content) return
   const maps = getSimpleSandboxMaps()
   if (debug) debug.textContent = "Maps : " + maps.length
@@ -4951,6 +5018,34 @@ document.addEventListener("keydown", e => {
   }
 
   if (key === "escape") {
+    if (document.body.classList.contains("sandbox-preview-mode")) {
+      toggleSandboxPreviewMode(false)
+      return
+    }
+    const mapManagerOverlay = document.getElementById("sandboxMapManagerOverlay")
+    if (mapManagerOverlay && mapManagerOverlay.style.display !== "none") {
+      if (typeof closeSandboxMapManagerV2 === "function") closeSandboxMapManagerV2()
+      else mapManagerOverlay.style.display = "none"
+      return
+    }
+    const onboardingOverlay = document.getElementById("mjSandboxOnboardingOverlay")
+    if (onboardingOverlay) {
+      if (typeof closeMJSandboxOnboarding === "function") closeMJSandboxOnboarding()
+      else onboardingOverlay.remove()
+      return
+    }
+    const inlinePicker = document.getElementById("gmCharacterPickerInline")
+    if (inlinePicker) { inlinePicker.remove(); return }
+    const legacyPicker = document.getElementById("gmCharacterPickerOverlay")
+    if (legacyPicker) { legacyPicker.remove(); return }
+    const nativeStudioDialog = document.getElementById("nativeStudioDialog")
+    if (nativeStudioDialog && nativeStudioDialog.open) { nativeStudioDialog.close(); return }
+    const nativeStudioDraftDialog = document.getElementById("nativeStudioDraftDialog")
+    if (nativeStudioDraftDialog && nativeStudioDraftDialog.open) {
+      nativeStudioDraftDialog.close()
+      try { window.__nativeStudioDraft = null } catch (_) {}
+      return
+    }
     const savePanel = document.getElementById("savePanel"); if (savePanel) { savePanel.remove(); return }
     const wantedEditor = document.getElementById("wantedEditor"); if (wantedEditor && wantedEditor.style.display !== "none") { wantedEditor.style.display = "none"; return }
     const mobSelectionMenu = document.getElementById("mobSelectionMenu"); if (mobSelectionMenu && mobSelectionMenu.style.display !== "none") { mobSelectionMenu.style.display = "none"; return }
@@ -5128,22 +5223,84 @@ function simpleRenderSandboxMap(label, asset) {
   try {
     const map = document.getElementById("map")
     const layer = document.getElementById("sandboxStartMapLayer")
-    if (layer) {
-      layer.src = safeAsset
-      layer.style.display = "block"
+    const fade = document.getElementById("fadeScreen")
+    try {
+      currentMap = safeAsset
+      window.__latestMapValue = safeAsset
+    } catch (_) {}
+
+    if (fade) {
+      fade.style.transition = "opacity 0.75s ease"
+      fade.style.opacity = "1"
+      fade.style.pointerEvents = "none"
     }
-    if (map) {
-      map.style.backgroundImage = "url('" + safeAsset.replace(/'/g, "\\'") + "')"
-      map.style.backgroundSize = "cover"
-      map.style.backgroundPosition = "center center"
-      map.style.backgroundRepeat = "no-repeat"
-    }
-    if (typeof updateCamera === "function") updateCamera()
-    if (label && typeof showLocation === "function") {
+
+    setTimeout(function() {
+      try {
+        if (layer) {
+          layer.src = safeAsset
+          layer.style.display = "block"
+        }
+        if (map) {
+          map.style.backgroundImage = "url('" + safeAsset.replace(/'/g, "\\'") + "')"
+          map.style.backgroundSize = "cover"
+          map.style.backgroundPosition = "center center"
+          map.style.backgroundRepeat = "no-repeat"
+        }
+        if (typeof updateCamera === "function") updateCamera()
+      } catch (_) {}
+    }, fade ? 700 : 0)
+
+    setTimeout(function() {
+      try {
+        if (fade) {
+          fade.style.transition = "opacity 0.95s ease"
+          fade.style.opacity = "0"
+          fade.style.pointerEvents = "none"
+        }
+      } catch (_) {}
+    }, fade ? 1080 : 0)
+
+    if (label) {
       setTimeout(function() {
-        try { showLocation(String(label)) } catch (_) {}
-      }, 80)
+        try { showSandboxMapTitle(String(label)) } catch (_) {}
+      }, fade ? 1750 : 80)
     }
+    return true
+  } catch (_) {}
+  return false
+}
+
+function showSandboxMapTitle(label) {
+  const safeLabel = String(label || "").trim()
+  if (!safeLabel) return false
+  try {
+    if (typeof showLocation === "function") {
+      showLocation(safeLabel)
+      return true
+    }
+  } catch (_) {}
+  try {
+    const banner = document.getElementById("locationBanner")
+    const paper = document.getElementById("locationPaper")
+    const text = document.getElementById("locationText")
+    if (!banner || !paper || !text) return false
+    banner.style.display = "flex"
+    banner.classList.add("visible")
+    banner.style.opacity = "1"
+    banner.style.zIndex = "1000001"
+    paper.classList.add("open")
+    text.classList.add("show")
+    text.textContent = safeLabel
+    setTimeout(function() {
+      banner.style.opacity = "0"
+      setTimeout(function() {
+        banner.style.display = "none"
+        banner.classList.remove("visible")
+        paper.classList.remove("open")
+        text.classList.remove("show")
+      }, 900)
+    }, 3200)
     return true
   } catch (_) {}
   return false
@@ -5234,6 +5391,7 @@ function closeSandboxMapManager() {
 }
 
 function createSimpleSandboxMapCard(item, index) {
+  const previewMode = !!(document.body && document.body.classList.contains("sandbox-preview-mode"))
   const card = document.createElement("div")
   card.className = "sandboxMapManagerCard"
   card.style.cssText = "display:grid;gap:8px;padding:12px;background:rgba(0,0,0,0.18);border:1px solid rgba(214,180,106,0.18);border-radius:12px;"
@@ -5246,7 +5404,9 @@ function createSimpleSandboxMapCard(item, index) {
   launchBtn.type = "button"
   launchBtn.className = "sandboxMapManagerLaunchButton"
   launchBtn.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;"
-  launchBtn.innerHTML = `<span>${String(item.label || "Sans titre")}</span><span style="font-size:11px;color:#bfae8b;">Lancer</span>`
+  launchBtn.innerHTML = previewMode
+    ? `<span>${String(item.label || "Sans titre")}</span>`
+    : `<span>${String(item.label || "Sans titre")}</span><span style="font-size:11px;color:#bfae8b;">Lancer</span>`
   launchBtn.addEventListener("click", function(event) {
     event.preventDefault()
     event.stopPropagation()
@@ -5290,23 +5450,25 @@ function createSimpleSandboxMapCard(item, index) {
     deleteSandboxMap(index)
   })
 
-  card.addEventListener("dragover", function(event) {
-    event.preventDefault()
-  })
-  card.addEventListener("drop", function(event) {
-    event.preventDefault()
-    dropSandboxMap(index)
-  })
-  card.addEventListener("dragend", function() {
-    endSandboxMapDrag()
-  })
+  if (!previewMode) {
+    card.addEventListener("dragover", function(event) {
+      event.preventDefault()
+    })
+    card.addEventListener("drop", function(event) {
+      event.preventDefault()
+      dropSandboxMap(index)
+    })
+    card.addEventListener("dragend", function() {
+      endSandboxMapDrag()
+    })
+  }
 
   topRow.appendChild(launchBtn)
-  topRow.appendChild(dragHandle)
-  actionsRow.appendChild(renameBtn)
-  actionsRow.appendChild(deleteBtn)
+  if (!previewMode) topRow.appendChild(dragHandle)
+  if (!previewMode) actionsRow.appendChild(renameBtn)
+  if (!previewMode) actionsRow.appendChild(deleteBtn)
   card.appendChild(topRow)
-  card.appendChild(actionsRow)
+  if (!previewMode) card.appendChild(actionsRow)
   return card
 }
 
@@ -5314,10 +5476,16 @@ function renderSandboxMapManagerOverlay() {
   const overlay = document.getElementById("sandboxMapManagerOverlay")
   if (!overlay) return
   const panel = overlay.querySelector(".sandboxMapManagerPanel")
+  const title = overlay.querySelector(".sandboxMapManagerTitle")
+  const subtitle = overlay.querySelector(".sandboxMapManagerSubtitle")
   const content = overlay.querySelector("[data-map-manager-content]")
   const debug = overlay.querySelector("[data-map-manager-debug]")
   const theme = String(overlay.getAttribute("data-map-theme") || "medieval_fantasy").trim() || "medieval_fantasy"
+  const previewMode = !!(document.body && document.body.classList.contains("sandbox-preview-mode"))
   if (panel) panel.setAttribute("data-map-theme", theme)
+  if (panel) panel.classList.toggle("sandboxMapManagerPanel--preview", previewMode)
+  if (title) title.textContent = "Maps et lieux"
+  if (subtitle) subtitle.style.display = previewMode ? "none" : ""
   if (!content) return
   const maps = getSimpleSandboxMaps()
   if (debug) debug.textContent = "Maps : " + maps.length
@@ -5344,6 +5512,7 @@ function closeSandboxMapCreateComposerV2() {
 }
 
 function openSandboxMapCreateComposerV2() {
+  if (document.body && document.body.classList.contains("sandbox-preview-mode")) return false
   const overlay = document.getElementById("sandboxMapManagerOverlay")
   if (!overlay) return false
   const composer = overlay.querySelector("[data-map-manager-composer]")
@@ -5531,6 +5700,7 @@ function openSandboxMapManagerV2() {
     overlay.setAttribute("data-map-theme", currentTheme)
     const panel = overlay.querySelector(".sandboxMapManagerPanel")
     if (panel) panel.setAttribute("data-map-theme", currentTheme)
+    overlay.classList.toggle("sandboxMapManagerOverlay--preview", !!(document.body && document.body.classList.contains("sandbox-preview-mode")))
     overlay.style.display = "flex"
     renderSandboxMapManagerOverlayV2()
   } catch (_) {}

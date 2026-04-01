@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English&family=Cormorant+SC:wght@500;700&family=Marcellus&family=Orbitron:wght@500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <title>Roleplay It Yourself</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='48'%3E%F0%9F%8E%B2%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css?v=144">
+  <link rel="stylesheet" href="style.css?v=159">
   <style>
     #playerCodeBtn, #playerCodeBtn * {
       color: #ffd700 !important;
@@ -23,15 +23,25 @@
 <div id="builderAppShell">
   <div id="builderShellBackdrop"></div>
   <div id="builderShellPanel">
-    <div class="builderShellHeader">
-      <div class="builderShellEyebrow">ROLEPLAY IT YOURSELF</div>
-      <h1 class="builderShellTitle">Cree ton propre board RPG</h1>
-      <p class="builderShellLead">Une base propre pour ouvrir un bac a sable, construire ton board dans le studio MJ, puis lancer la partie.</p>
+    <div class="builderLandingIntro">
+      <div class="builderLandingIntroEyebrow">ROLEPLAY IT YOURSELF</div>
+      <div class="builderLandingIntroLead">Outil de creation d'un boardgame RPG en ligne pour maitres de jeu audacieux en tout genre.</div>
     </div>
-    <div class="builderShellActions">
-      <button type="button" class="builderShellPrimary" onclick="forceOpenSandboxFromClick(true)">Nouveau bac a sable</button>
-      <button type="button" class="builderShellSecondary" onclick="forceOpenSandboxFromClick(false)">Charger le bac a sable</button>
-      <button type="button" class="builderShellSecondary" onclick="openPlayerStudio()">Rejoindre une partie</button>
+    <div class="builderLandingFrame">
+      <img class="builderLandingFrameImage" src="images/cadre1.png" alt="">
+      <div class="builderLandingContent">
+        <div class="builderLandingBlock">
+          <div class="builderLandingSectionLabel">OUTIL POUR MJ</div>
+          <button type="button" class="builderLandingButton" onclick="forceOpenSandboxFromClick(true)">NOUVEAU BAC A SABLE</button>
+          <button type="button" class="builderLandingButton" onclick="forceOpenSandboxFromClick(false)">CHARGER BAC A SABLE</button>
+        </div>
+        <div class="builderLandingDivider" aria-hidden="true"></div>
+        <div class="builderLandingBlock">
+          <div class="builderLandingSectionLabel">LANCER UNE PARTIE</div>
+          <button type="button" class="builderLandingButton" onclick="if (typeof launchSessionFromLatestExport === 'function') { launchSessionFromLatestExport() } else { forceOpenSandboxFromClick(false) }">OUVRIR PARTIE MJ</button>
+          <button type="button" class="builderLandingButton" onclick="openPlayerStudio()">REJOINDRE PARTIE JOUEURS</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -479,6 +489,10 @@
       <button class="sandboxPlayersAction" type="button" onclick="event.preventDefault();event.stopPropagation();applySandboxStyleTheme('contemporain');return false;">Moderne</button>
     </div>
   </details>
+</div>
+
+<div id="sandboxPreviewBar">
+  <button id="sandboxPreviewBtn" type="button" onclick="return toggleSandboxPreviewMode()">Apercu</button>
 </div>
 
 <div id="sandboxStartMapBar">
@@ -1082,7 +1096,7 @@
 <script src="utils.js?v=14"></script>
 <script src="customization.js?v=57"></script>
 <!-- 4. Logique principale + Firebase listeners -->
-<script src="game.js?v=125"></script>
+<script src="game.js?v=135"></script>
 <!-- 5. Interface utilisateur -->
 <script src="ui.js?v=8"></script>
 <!-- 6. Combat -->
@@ -2185,8 +2199,10 @@ function openSimpleCharacterSheet(playerId, event) {
   var panel = document.createElement("div")
   panel.className = "simpleSheetPanel"
   var canCustomizeSheet = false
+  var canStructureCustomize = false
   try {
     canCustomizeSheet = !!isGM || document.body.classList.contains("sandbox-studio-mode")
+    canStructureCustomize = canCustomizeSheet && !document.body.classList.contains("sandbox-preview-mode")
   } catch (e) {}
 
   var sheetTheme = ""
@@ -2203,9 +2219,10 @@ function openSimpleCharacterSheet(playerId, event) {
   try { document.body.setAttribute("data-project-theme", sheetTheme) } catch (e) {}
   overlay.setAttribute("data-sheet-theme", sheetTheme)
   panel.setAttribute("data-sheet-theme", sheetTheme)
+  panel.setAttribute("data-sheet-preview", canStructureCustomize ? "false" : "true")
 
   function renderBaseSectionHeader(fallbackTitle) {
-    if (canCustomizeSheet) {
+    if (canStructureCustomize) {
       return `
         <div class="simpleSheetSectionHeader">
           <div class="simpleSheetSectionDragHandle" title="Glisser-deposer">::</div>
@@ -2273,8 +2290,8 @@ function openSimpleCharacterSheet(playerId, event) {
     } else {
       inner = `<label class="simpleSheetFieldGroup"><span>Contenu</span><textarea class="simpleSheetTextarea" data-block-text>${String(safe.text || "").replace(/</g, "&lt;")}</textarea></label>`
     }
-    return `
-      <div class="simpleSheetCustomBlock" data-simple-custom-block draggable="true">
+    var headerMarkup = canStructureCustomize
+      ? `
         <div class="simpleSheetCustomHeader">
           <div class="simpleSheetSectionDragHandle" title="Glisser-deposer">::</div>
           <select class="simpleSheetCustomType" data-block-type>
@@ -2289,6 +2306,11 @@ function openSimpleCharacterSheet(playerId, event) {
             <button type="button" class="simpleSheetBlockClose" data-block-remove title="Supprimer le bloc">×</button>
           </div>
         </div>
+      `
+      : `<div class="simpleSheetSectionTitle">${title.replace(/</g, "&lt;") || "Bloc"}</div>`
+    return `
+      <div class="simpleSheetCustomBlock" data-simple-custom-block${canStructureCustomize ? ' draggable="true"' : ""}>
+        ${headerMarkup}
         <label class="simpleSheetFieldGroup"><span>Titre</span><input class="simpleSheetField" data-block-title type="text" value="${title.replace(/"/g, "&quot;")}"></label>
         <div data-block-body>${inner}</div>
       </div>
@@ -2352,6 +2374,10 @@ function openSimpleCharacterSheet(playerId, event) {
     var container = panel.querySelector("[data-simple-custom-blocks]")
     if (!container) return
     var source = Array.isArray(blocks) && blocks.length ? blocks : []
+    var customSection = panel.querySelector('[data-base-block-id="custom"]')
+    if (customSection && !canStructureCustomize) {
+      customSection.style.display = source.length ? "" : "none"
+    }
     container.innerHTML = source.map(function(block, index) {
       return createCustomBlockMarkup(block, index)
     }).join("")
@@ -2377,25 +2403,27 @@ function openSimpleCharacterSheet(playerId, event) {
     var draggedCustomBlock = null
     var customBlockPlaceholder = null
 
-    container.addEventListener("click", function(blockEvent) {
-      var removeButton = blockEvent.target && blockEvent.target.closest ? blockEvent.target.closest("[data-block-remove]") : null
-      if (!removeButton) return
-      var block = removeButton.closest("[data-simple-custom-block]")
-      if (!block) return
-      block.remove()
-      renderSimpleCustomBlocks(collectSimpleSheetData(panel).customBlocks)
-      queueAutoSave()
-    })
+    if (canStructureCustomize) {
+      container.addEventListener("click", function(blockEvent) {
+        var removeButton = blockEvent.target && blockEvent.target.closest ? blockEvent.target.closest("[data-block-remove]") : null
+        if (!removeButton) return
+        var block = removeButton.closest("[data-simple-custom-block]")
+        if (!block) return
+        block.remove()
+        renderSimpleCustomBlocks(collectSimpleSheetData(panel).customBlocks)
+        queueAutoSave()
+      })
 
-    container.addEventListener("change", function(blockEvent) {
-      var typeSelect = blockEvent.target && blockEvent.target.matches ? (blockEvent.target.matches("[data-block-type]") ? blockEvent.target : null) : null
-      if (!typeSelect) return
-      var block = typeSelect.closest("[data-simple-custom-block]")
-      if (!block) return
-      var current = collectSimpleSheetData(panel).customBlocks
-      renderSimpleCustomBlocks(current)
-      queueAutoSave()
-    })
+      container.addEventListener("change", function(blockEvent) {
+        var typeSelect = blockEvent.target && blockEvent.target.matches ? (blockEvent.target.matches("[data-block-type]") ? blockEvent.target : null) : null
+        if (!typeSelect) return
+        var block = typeSelect.closest("[data-simple-custom-block]")
+        if (!block) return
+        var current = collectSimpleSheetData(panel).customBlocks
+        renderSimpleCustomBlocks(current)
+        queueAutoSave()
+      })
+    }
 
     container.addEventListener("input", function(blockEvent) {
       var block = blockEvent.target && blockEvent.target.closest ? blockEvent.target.closest("[data-simple-custom-block]") : null
@@ -2403,6 +2431,8 @@ function openSimpleCharacterSheet(playerId, event) {
       refreshCustomBlockGauge(block)
       queueAutoSave()
     })
+
+    if (!canStructureCustomize) return
 
     container.addEventListener("dragstart", function(blockEvent) {
       var block = blockEvent.target && blockEvent.target.closest ? blockEvent.target.closest("[data-simple-custom-block]") : null
@@ -2483,6 +2513,7 @@ function openSimpleCharacterSheet(playerId, event) {
   }
 
   function bindBaseBlocks() {
+    if (!canStructureCustomize) return
     panel.addEventListener("click", function(baseEvent) {
       var removeButton = baseEvent.target && baseEvent.target.closest ? baseEvent.target.closest("[data-base-block-remove]") : null
       if (!removeButton) return
@@ -2498,8 +2529,6 @@ function openSimpleCharacterSheet(playerId, event) {
       input.addEventListener("input", queueAutoSave)
       input.addEventListener("change", queueAutoSave)
     })
-
-    if (!canCustomizeSheet) return
 
     var draggedBaseBlock = null
     var baseBlockPlaceholder = null
@@ -2596,7 +2625,7 @@ function openSimpleCharacterSheet(playerId, event) {
     </div>
     <div class="simpleSheetGrid">
       <div class="simpleSheetSidebar">
-        <div class="simpleSheetSection" data-base-block data-base-block-id="identity" data-base-region="sidebar"${canCustomizeSheet ? ' draggable="true"' : ""}>
+        <div class="simpleSheetSection" data-base-block data-base-block-id="identity" data-base-region="sidebar"${canStructureCustomize ? ' draggable="true"' : ""}>
           ${renderBaseSectionHeader("Identite")}
           <div class="simpleSheetPortrait">
             <img src="${String(portrait).replace(/"/g, "&quot;")}" alt="Portrait">
@@ -2617,7 +2646,7 @@ function openSimpleCharacterSheet(playerId, event) {
           ${field("Classe", "characterClass", defaults.characterClass)}
           ${field("Origine", "origin", defaults.origin)}
         </div>
-        <div class="simpleSheetSection" data-base-block data-base-block-id="resources" data-base-region="sidebar"${canCustomizeSheet ? ' draggable="true"' : ""}>
+        <div class="simpleSheetSection" data-base-block data-base-block-id="resources" data-base-region="sidebar"${canStructureCustomize ? ' draggable="true"' : ""}>
           ${renderBaseSectionHeader("Ressources")}
           <div class="simpleSheetFields two">
             ${field("Niveau", "lvl", defaults.lvl, "number")}
@@ -2631,7 +2660,7 @@ function openSimpleCharacterSheet(playerId, event) {
         </div>
       </div>
       <div class="simpleSheetMain">
-        <div class="simpleSheetSection" data-base-block data-base-block-id="stats" data-base-region="main"${canCustomizeSheet ? ' draggable="true"' : ""}>
+        <div class="simpleSheetSection" data-base-block data-base-block-id="stats" data-base-region="main"${canStructureCustomize ? ' draggable="true"' : ""}>
           ${renderBaseSectionHeader("Caracteristiques")}
           <div class="simpleSheetFields three">
             ${field("Force", "force", defaults.force, "number")}
@@ -2642,7 +2671,7 @@ function openSimpleCharacterSheet(playerId, event) {
             ${field("Initiative", "initiative", defaults.initiative, "number")}
           </div>
         </div>
-        <div class="simpleSheetSection" data-base-block data-base-block-id="equipment" data-base-region="main"${canCustomizeSheet ? ' draggable="true"' : ""}>
+        <div class="simpleSheetSection" data-base-block data-base-block-id="equipment" data-base-region="main"${canStructureCustomize ? ' draggable="true"' : ""}>
           ${renderBaseSectionHeader("Equipement")}
           <div class="simpleSheetFields two">
             ${field("Arme principale", "weaponMain", defaults.weaponMain)}
@@ -2652,7 +2681,7 @@ function openSimpleCharacterSheet(playerId, event) {
           </div>
           ${textarea("Inventaire", "inventaire", defaults.inventaire, false)}
         </div>
-        <div class="simpleSheetSection" data-base-block data-base-block-id="relations" data-base-region="main"${canCustomizeSheet ? ' draggable="true"' : ""}>
+        <div class="simpleSheetSection" data-base-block data-base-block-id="relations" data-base-region="main"${canStructureCustomize ? ' draggable="true"' : ""}>
           ${renderBaseSectionHeader("Relations et objectifs")}
           <div class="simpleSheetFields">
             ${textarea("Background", "background", defaults.background, true, true)}
@@ -2662,16 +2691,16 @@ function openSimpleCharacterSheet(playerId, event) {
             ${textarea("Quetes / objectifs", "quests", defaults.quests, false)}
           </div>
         </div>
-        <div class="simpleSheetSection" data-base-block data-base-block-id="personality" data-base-region="main"${canCustomizeSheet ? ' draggable="true"' : ""}>
+        <div class="simpleSheetSection" data-base-block data-base-block-id="personality" data-base-region="main"${canStructureCustomize ? ' draggable="true"' : ""}>
           ${renderBaseSectionHeader("Personnalite et notes")}
           <div class="simpleSheetFields two">
             ${textarea("Traits / defauts", "traits", defaults.traits, false)}
             ${textarea("Notes", "notes", defaults.notes, true)}
           </div>
         </div>
-        <div class="simpleSheetSection" data-base-block data-base-block-id="custom" data-base-region="main"${canCustomizeSheet ? ' draggable="true"' : ""}>
+        <div class="simpleSheetSection" data-base-block data-base-block-id="custom" data-base-region="main"${canStructureCustomize ? ' draggable="true"' : ""}>
           ${renderBaseSectionHeader("Blocs personnalises")}
-          ${canCustomizeSheet ? `
+          ${canStructureCustomize ? `
             <div class="simpleSheetCustomToolbar">
               <select class="simpleSheetCustomType" data-new-custom-block-type>
                 <option value="note">Note</option>
