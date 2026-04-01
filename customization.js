@@ -155,7 +155,12 @@
   }
 
   function buildSandboxCharacterButtonsMarkup(count) {
-    const visibleCount = getSandboxVisiblePlayerCount(count)
+    let sourceCount = count
+    try {
+      const runtimeCount = document.body && document.body.getAttribute("data-sandbox-player-count")
+      if (runtimeCount) sourceCount = runtimeCount
+    } catch (_) {}
+    const visibleCount = getSandboxVisiblePlayerCount(sourceCount)
     let markup = ""
     for (let slotIndex = 1; slotIndex <= visibleCount; slotIndex += 1) {
       const playerKey = getSandboxPlayerKey(slotIndex)

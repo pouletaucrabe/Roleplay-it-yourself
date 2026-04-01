@@ -2868,7 +2868,16 @@ function collectSandboxLocalSaveData() {
     }
   } catch (_) {}
   const playerIds = Object.keys((customization && customization.players) || {}).filter(Boolean)
-  const basePlayerIds = playerIds.length ? playerIds : ["greg", "ju", "elo", "bibi"]
+  const visiblePlayerCount = Math.max(1, Math.min(12, parseInt(customization && customization.project && customization.project.playerCount, 10) || 4))
+  const visiblePlayerIds = Array.from({ length: visiblePlayerCount }, function(_, index) {
+    const slotIndex = index + 1
+    if (slotIndex === 1) return "greg"
+    if (slotIndex === 2) return "ju"
+    if (slotIndex === 3) return "elo"
+    if (slotIndex === 4) return "bibi"
+    return "slot_" + slotIndex
+  })
+  const basePlayerIds = Array.from(new Set((playerIds.length ? playerIds : ["greg", "ju", "elo", "bibi"]).concat(visiblePlayerIds)))
   const refs = [
     { key: "elements", ref: "elements", fallback: null },
     { key: "game.map", ref: "game/map", fallback: function() { return window.__latestMapValue || currentMap || "" } },
@@ -3040,6 +3049,36 @@ function resolveLoadedSandboxCustomization(data) {
     customization.project.theme = savedTheme
     customization.project.playerCount = savedPlayerCount
     customization.project.title = savedTitle
+    customization.players = customization.players && typeof customization.players === "object" ? customization.players : {}
+
+    for (let slotIndex = 1; slotIndex <= savedPlayerCount; slotIndex += 1) {
+      const playerId = slotIndex === 1
+        ? "greg"
+        : slotIndex === 2
+          ? "ju"
+          : slotIndex === 3
+            ? "elo"
+            : slotIndex === 4
+              ? "bibi"
+              : ("slot_" + slotIndex)
+      customization.players[playerId] = customization.players[playerId] && typeof customization.players[playerId] === "object"
+        ? customization.players[playerId]
+        : {}
+      const loadedSheet = safeData.characters && safeData.characters[playerId] && typeof safeData.characters[playerId] === "object"
+        ? safeData.characters[playerId]
+        : {}
+      const loadedName = String(loadedSheet.characterName || "").trim()
+      const loadedImage = String(loadedSheet.profileImage || "").trim()
+      if (loadedName) {
+        customization.players[playerId].name = loadedName
+      }
+      if (loadedImage) {
+        customization.players[playerId].image = loadedImage
+      }
+      if (typeof customization.players[playerId].enabled === "undefined") {
+        customization.players[playerId].enabled = true
+      }
+    }
 
     const startMapId = String(
       sandboxState.startMapId
@@ -3134,6 +3173,36 @@ function applySandboxLocalLoadSnapshot(data, options) {
   try {
     const safeData = data && typeof data === "object" ? data : {}
     const customization = resolveLoadedSandboxCustomization(safeData)
+    const syncLoadedSheetsToTokens = function() {
+      try {
+        const project = customization && customization.project ? customization.project : {}
+        const count = Math.max(1, Math.min(12, parseInt(project.playerCount, 10) || 4))
+        for (let slotIndex = 1; slotIndex <= count; slotIndex += 1) {
+          const playerId = slotIndex === 1
+            ? "greg"
+            : slotIndex === 2
+              ? "ju"
+              : slotIndex === 3
+                ? "elo"
+                : slotIndex === 4
+                  ? "bibi"
+                  : ("slot_" + slotIndex)
+          const data = safeData.characters && safeData.characters[playerId] && typeof safeData.characters[playerId] === "object"
+            ? safeData.characters[playerId]
+            : (typeof loadSimpleSheetLocal === "function" ? (loadSimpleSheetLocal(playerId) || {}) : {})
+          try {
+            if (typeof syncSimpleSheetIdentityToToken === "function") {
+              syncSimpleSheetIdentityToToken(playerId, data || {})
+            }
+          } catch (_) {}
+          try {
+            if (typeof syncSimpleSheetVitalsToToken === "function") {
+              syncSimpleSheetVitalsToToken(playerId, data || {})
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }
     if (typeof saveCustomization === "function") {
       saveCustomization(customization)
     }
@@ -3205,6 +3274,7 @@ function applySandboxLocalLoadSnapshot(data, options) {
       if (typeof renderPNJMenu === "function") renderPNJMenu()
       if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
     } catch (_) {}
+    syncLoadedSheetsToTokens()
     try {
       const project = customization && customization.project ? customization.project : {}
       const startMapAsset = String(project.startMapAsset || "").trim()
@@ -3233,8 +3303,12 @@ function applySandboxLocalLoadSnapshot(data, options) {
         try {
           if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
           ensureSandboxStudioChromeVisible()
+          syncLoadedSheetsToTokens()
         } catch (_) {}
       }, 80)
+    } catch (_) {}
+    try {
+      setTimeout(syncLoadedSheetsToTokens, 220)
     } catch (_) {}
     return true
   } catch (error) {

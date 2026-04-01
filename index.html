@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English&family=Cormorant+SC:wght@500;700&family=Marcellus&family=Orbitron:wght@500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <title>Roleplay It Yourself</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='48'%3E%F0%9F%8E%B2%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?v=187">
+<link rel="stylesheet" href="style.css?v=193">
   <style>
     #playerCodeBtn, #playerCodeBtn * {
       color: #ffd700 !important;
@@ -86,8 +86,6 @@
 <div id="camera" tabindex="-1">
   <div id="map" tabindex="-1">
     <img id="sandboxStartMapLayer" alt="" style="display:none;">
-    <img id="sandboxThemeOverlayMed" alt="" aria-hidden="true" src="images/overlaymed.png">
-
     <div class="token" id="mobToken" style="left:500px;top:200px;display:none;">
       <div class="mobHP">
         <div class="mobHPBarContainer"><div id="mobTokenHPBar"></div></div>
@@ -1072,9 +1070,9 @@
 <script src="state.js?v=2"></script>
 <!-- 3. Utilitaires (pas de dÃ©pendances Firebase) -->
 <script src="utils.js?v=14"></script>
-<script src="customization.js?v=57"></script>
+<script src="customization.js?v=58"></script>
 <!-- 4. Logique principale + Firebase listeners -->
-<script src="game.js?v=170"></script>
+<script src="game.js?v=175"></script>
 <!-- 5. Interface utilisateur -->
 <script src="ui.js?v=8"></script>
 <!-- 6. Combat -->
@@ -1733,29 +1731,6 @@ function applyProjectThemeToDocument(themeValue) {
   try { document.body.setAttribute("data-project-theme", nextTheme) } catch (e) {}
   try { document.documentElement.setAttribute("data-project-theme", nextTheme) } catch (e) {}
   try {
-    var mapThemeOverlay = document.getElementById("sandboxThemeOverlayMed")
-    var showMedOverlay = !!(
-      mapThemeOverlay &&
-      document.body &&
-      document.body.classList.contains("sandbox-studio-mode") &&
-      nextTheme === "medieval_fantasy"
-    )
-    if (mapThemeOverlay) {
-      mapThemeOverlay.style.display = showMedOverlay ? "block" : "none"
-      mapThemeOverlay.style.position = "absolute"
-      mapThemeOverlay.style.inset = "0"
-      mapThemeOverlay.style.width = "100%"
-      mapThemeOverlay.style.height = "100%"
-      mapThemeOverlay.style.zIndex = "5"
-      mapThemeOverlay.style.pointerEvents = "none"
-      mapThemeOverlay.style.objectFit = "fill"
-      mapThemeOverlay.style.objectPosition = "center"
-      mapThemeOverlay.style.backgroundImage = "none"
-      mapThemeOverlay.style.opacity = showMedOverlay ? "0.96" : "0"
-      mapThemeOverlay.src = "images/overlaymed.png"
-    }
-  } catch (e) {}
-  try {
     var overlay = document.getElementById("simpleSheetTestOverlay")
     if (overlay) overlay.setAttribute("data-sheet-theme", nextTheme)
     var panel = overlay ? overlay.querySelector(".simpleSheetPanel") : null
@@ -1915,7 +1890,10 @@ function openGMCharacterPickerInline(event) {
 
   var count = 4
   try {
-    if (typeof getCustomization === "function") {
+    var runtimeCount = document.body && document.body.getAttribute("data-sandbox-player-count")
+    if (runtimeCount) {
+      count = Math.max(1, Math.min(12, parseInt(runtimeCount, 10) || 4))
+    } else if (typeof getCustomization === "function") {
       var data = getCustomization()
       if (data && data.project && data.project.playerCount) count = Math.max(1, parseInt(data.project.playerCount, 10) || 4)
     }
