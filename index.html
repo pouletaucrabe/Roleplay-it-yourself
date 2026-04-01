@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English&family=Cormorant+SC:wght@500;700&family=Marcellus&family=Orbitron:wght@500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <title>Roleplay It Yourself</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='48'%3E%F0%9F%8E%B2%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css?v=159">
+  <link rel="stylesheet" href="style.css?v=163">
   <style>
     #playerCodeBtn, #playerCodeBtn * {
       color: #ffd700 !important;
@@ -25,7 +25,7 @@
   <div id="builderShellPanel">
     <div class="builderLandingIntro">
       <div class="builderLandingIntroEyebrow">ROLEPLAY IT YOURSELF</div>
-      <div class="builderLandingIntroLead">Outil de creation d'un boardgame RPG en ligne pour maitres de jeu audacieux en tout genre.</div>
+      <div class="builderLandingIntroLead">Bienvenue voyageur. Es-tu d'humeur a forger une aventure, ou a rejoindre une histoire deja en marche ?</div>
     </div>
     <div class="builderLandingFrame">
       <img class="builderLandingFrameImage" src="images/cadre1.png" alt="">
@@ -43,6 +43,7 @@
         </div>
       </div>
     </div>
+    <div class="builderLandingCredit">Credit image: IanGoodPhotography</div>
   </div>
 </div>
 
@@ -51,40 +52,7 @@
 
   <div id="intro">
     <div id="gameTitle" class="visible">Roleplay It Yourself</div>
-    <div id="introBox">
-      <div class="entryHub">
-        <div class="entryHubHeader">
-          <div class="entryHubEyebrow" id="entryHubEyebrow">CREATEUR DE BOARD RPG</div>
-          <div class="entryHubLead" id="entryHubLead">Choisis ton espace. Le mode MJ sert a construire, regler et piloter ton board. Le mode joueur sert a rejoindre une partie.</div>
-        </div>
-        <div class="entryHubGrid">
-          <section class="entryCard entryCardMJ" id="entryMjCard">
-            <img class="entryCardFrame" src="images/cadre.png" alt="">
-            <div class="entryCardContent">
-              <div class="entryCardBadge">MJ</div>
-              <h2 id="entryMjTitle">Espace creation</h2>
-              <p id="entryMjDescription">Configure le bac a sable, ajoute tes maps, PNJ, mobs, documents et images, puis ouvre les outils MJ.</p>
-              <div class="entryCardActions">
-                <button type="button" id="entryNewProjectBtn" class="hubButton" onclick="forceOpenSandboxFromClick(true)"><span class="btn-inner">NOUVEAU BAC A SABLE</span></button>
-                <button type="button" id="entryLoadProjectBtn" class="hubButton" onclick="forceOpenSandboxFromClick(false)"><span class="btn-inner">CHARGER LE BAC A SABLE</span></button>
-              </div>
-            </div>
-          </section>
-          <section class="entryCard entryCardPlayer">
-            <img class="entryCardFrame" src="images/cadre.png" alt="">
-            <div class="entryCardContent">
-              <div class="entryCardBadge">JOUEUR</div>
-              <h2 id="entryPlayerTitle">Rejoindre la table</h2>
-              <p id="entryPlayerDescription">Entre avec un code, choisis ton slot et rejoins la partie sans passer par les outils de creation.</p>
-              <div class="entryCardActions">
-                <button type="button" id="entryPlayerOpenBtn" class="hubButton" onclick="openPlayerStudio()"><span class="btn-inner">ENTRER COTE JOUEUR</span></button>
-                <button type="button" id="entryPlayerLoginBtn" class="hubButton" onclick="openPlayerStudio()"><span class="btn-inner">ENTRER LE CODE</span></button>
-              </div>
-            </div>
-          </section>
-        </div>
-      </div>
-    </div>
+    <div id="introBox"></div>
   </div>
   <div id="dialogueBox">
     <img id="dialoguePortrait">
@@ -507,7 +475,7 @@
 <div id="gmBar">
   <button class="gmIcon" id="gmCharactersBtn" type="button" onclick="return openGMCharacterPickerInline(event)" title="Personnages (P)">ðŸŽ­</button>
   <button class="gmIcon" id="gmMapsBtn" onclick="return openSandboxMapManagerV2()"      title="Maps (M)">ðŸ—º</button>
-  <button class="gmIcon" id="gmPnjBtn" onclick="toggleGMSection('pnjMenu')"      title="PNJ (R)">ðŸ‘¤</button>
+  <button class="gmIcon" id="gmPnjBtn" onclick="return openSandboxPnjManagerV2()"      title="PNJ (R)">ðŸ‘¤</button>
   <button class="gmIcon" id="gmMobsBtn" onclick="toggleGMSection('mobMenu2')"     title="Mobs (T)">ðŸ‘¹</button>
   <button class="gmIcon" id="gmXpBtn" onclick="toggleGMSection('xpMenu')"       title="XP">â­</button>
   <button class="gmIcon" id="gmElementsBtn" onclick="toggleGMSection('elementsMenu')" title="Ã‰lÃ©ments (E)">ðŸ—</button>
@@ -1096,7 +1064,7 @@
 <script src="utils.js?v=14"></script>
 <script src="customization.js?v=57"></script>
 <!-- 4. Logique principale + Firebase listeners -->
-<script src="game.js?v=135"></script>
+<script src="game.js?v=147"></script>
 <!-- 5. Interface utilisateur -->
 <script src="ui.js?v=8"></script>
 <!-- 6. Combat -->
@@ -4188,37 +4156,14 @@ function openCreatorStudioEntry() {
 }
 
 function safeStartIntro(event) {
-  if (window.__skipIntroHub) return
   if (event) {
     event.preventDefault()
     event.stopPropagation()
   }
-  if (window.__introBooted) return
-  window.__introBooted = true
-  window.__introClickLockUntil = Date.now() + 800
-  const start = document.getElementById("startScreen")
-  const intro = document.getElementById("intro")
-  if (start) {
-    start.style.pointerEvents = "none"
-    start.style.zIndex = "999999999"
-  }
-  if (intro) intro.style.pointerEvents = "none"
-  try {
-    if (typeof startIntro === "function") {
-      startIntro()
-      setTimeout(playMenuMusicIfPossible, 250)
-    } else {
-      throw new Error("startIntro introuvable")
-    }
-  } catch (error) {
-    console.error("safeStartIntro fallback:", error)
-    forceShowIntroHub()
-    setTimeout(playMenuMusicIfPossible, 60)
-  }
+  return false
 }
 
 function forceShowIntroHub() {
-  if (window.__skipIntroHub) return
   const start = document.getElementById("startScreen")
   const intro = document.getElementById("intro")
   if (start) {
@@ -4228,11 +4173,10 @@ function forceShowIntroHub() {
     start.style.pointerEvents = "none"
   }
   if (intro) {
-    intro.style.display = "flex"
-    intro.style.opacity = "1"
-    intro.style.visibility = "visible"
-    intro.style.pointerEvents = "auto"
-    intro.style.zIndex = "15"
+    intro.style.display = "none"
+    intro.style.opacity = "0"
+    intro.style.visibility = "hidden"
+    intro.style.pointerEvents = "none"
   }
 }
 
@@ -4243,27 +4187,6 @@ function forceShowIntroHub() {
     start.style.pointerEvents = "none"
   }
   setBuilderShellVisible(true)
-  const bindClick = (id, handler) => {
-    const el = document.getElementById(id)
-    if (!el || typeof handler !== "function") return
-    el.addEventListener("click", function(event) {
-      event.preventDefault()
-      event.stopPropagation()
-      handler()
-    })
-  }
-  bindClick("entryNewProjectBtn", function() {
-    if (typeof forceOpenSandboxFromClick === "function") forceOpenSandboxFromClick(true)
-  })
-  bindClick("entryLoadProjectBtn", function() {
-    if (typeof forceOpenSandboxFromClick === "function") forceOpenSandboxFromClick(false)
-  })
-  bindClick("entryPlayerOpenBtn", function() {
-    if (typeof openPlayerStudio === "function") openPlayerStudio()
-  })
-  bindClick("entryPlayerLoginBtn", function() {
-    if (typeof openPlayerStudio === "function") openPlayerStudio()
-  })
   document.addEventListener("click", function(event) {
     var menu = document.getElementById("studioSaveDropdown")
     var wrap = document.querySelector(".studioSaveMenu")
@@ -4280,18 +4203,7 @@ function forceShowIntroHub() {
   document.addEventListener("visibilitychange", function() {
     if (document.visibilityState === "visible") playMenuMusicIfPossible()
   }, true)
-  setTimeout(() => {
-    if (!window.__skipIntroHub) safeStartIntro()
-  }, 60)
-  setTimeout(() => {
-    if (window.__skipIntroHub) return
-    const intro = document.getElementById("intro")
-    const start = document.getElementById("startScreen")
-    const introHidden = !intro || intro.style.display === "none" || intro.style.visibility === "hidden"
-    const startVisible = !!start && start.style.display !== "none"
-    if (introHidden || startVisible) forceShowIntroHub()
-    playMenuMusicIfPossible()
-  }, 1800)
+  forceShowIntroHub()
 })
 </script>
 

@@ -4024,6 +4024,521 @@ function closeSandboxMapManagerV2() {
   return false
 }
 
+function getSimpleSandboxPnjs() {
+  try {
+    if (Array.isArray(window.__simpleSandboxPnjs)) {
+      window.__simpleSandboxPnjs = window.__simpleSandboxPnjs.map((item, index) => ({
+        id: String(item && item.id || ("pnj_" + index)),
+        label: String(item && item.label || "PNJ"),
+        image: String(item && item.image || ""),
+        category: String(item && item.category || "Custom")
+      }))
+      return window.__simpleSandboxPnjs
+    }
+    if (typeof getCustomization !== "function") {
+      window.__simpleSandboxPnjs = []
+      return window.__simpleSandboxPnjs
+    }
+    const data = getCustomization()
+    const content = data && data.content ? data.content : {}
+    window.__simpleSandboxPnjs = Array.isArray(content.pnjs) ? content.pnjs.map((item, index) => ({
+      id: String(item && item.id || ("pnj_" + index)),
+      label: String(item && item.label || "PNJ"),
+      image: String(item && item.image || ""),
+      category: String(item && item.category || "Custom")
+    })) : []
+    return window.__simpleSandboxPnjs
+  } catch (_) {}
+  window.__simpleSandboxPnjs = Array.isArray(window.__simpleSandboxPnjs) ? window.__simpleSandboxPnjs : []
+  return window.__simpleSandboxPnjs
+}
+
+function saveSimpleSandboxPnjs(items) {
+  try {
+    const safeItems = Array.isArray(items) ? items.map((item, index) => ({
+      id: String(item && item.id || ("pnj_" + index)),
+      label: String(item && item.label || "PNJ"),
+      image: String(item && item.image || ""),
+      category: String(item && item.category || "Custom")
+    })) : []
+    window.__simpleSandboxPnjs = safeItems
+    if (typeof getCustomization === "function" && typeof saveCustomization === "function") {
+      const next = getCustomization()
+      next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+      next.content.pnjs = safeItems.map(item => ({
+        id: item.id,
+        label: item.label,
+        image: item.image,
+        category: item.category
+      }))
+      saveCustomization(next)
+      try { if (typeof applyCustomizationToUI === "function") applyCustomizationToUI() } catch (_) {}
+    }
+    return true
+  } catch (_) {}
+  return false
+}
+
+function launchSandboxPnj(index) {
+  try {
+    const items = getSimpleSandboxPnjs()
+    const item = items[Number(index)]
+    if (!item || !item.image) return false
+    const preferredSlot = (typeof currentPNJSlot !== "undefined" && Number(currentPNJSlot) > 0)
+      ? Number(currentPNJSlot)
+      : 1
+    if (typeof openPNJ === "function") {
+      openPNJ(String(item.image || ""), { slot: preferredSlot, name: String(item.label || "PNJ") })
+    }
+    try {
+      if (preferredSlot === 1 && typeof showStoryImage === "function") {
+        showStoryImage(String(item.image || ""))
+      } else {
+        const boxId = preferredSlot === 2 ? "storyImage2" : "storyImage3"
+        const imgId = preferredSlot === 2 ? "storyImageContent2" : "storyImageContent3"
+        const box = document.getElementById(boxId)
+        const img = document.getElementById(imgId)
+        if (box && img) {
+          img.src = typeof resolvePNJImageSrc === "function"
+            ? resolvePNJImageSrc(String(item.image || ""))
+            : String(item.image || "")
+          box.style.opacity = "0"
+          box.style.display = "flex"
+          if (typeof pnjSlotOrder !== "undefined" && Array.isArray(pnjSlotOrder) && !pnjSlotOrder.includes(preferredSlot)) {
+            pnjSlotOrder.push(preferredSlot)
+          }
+          if (typeof updatePNJPositions === "function") setTimeout(updatePNJPositions, 50)
+          setTimeout(function() { box.style.opacity = "1" }, 60)
+        }
+      }
+      if (item.label) {
+        document.querySelectorAll("[id^='pnjNameTag']").forEach(function(el) { el.remove() })
+        const tag = document.createElement("div")
+        tag.id = "pnjNameTag_custom_" + String(index)
+        tag.innerText = String(item.label)
+        tag.style.cssText = "position:fixed;bottom:12%;left:50%;transform:translateX(-50%);font-family:'Cinzel Decorative','Cinzel',serif;font-size:20px;color:#f0e8c8;letter-spacing:3px;text-shadow:0 0 8px rgba(30,160,180,0.6),1px 1px 4px black;pointer-events:none;z-index:2147483647;opacity:0;transition:opacity 0.6s ease;background:rgba(8,20,24,0.9);border:1px solid rgba(30,90,102,0.5);border-radius:3px;padding:6px 20px;white-space:nowrap;"
+        document.body.appendChild(tag)
+        setTimeout(function() { tag.style.opacity = "1" }, 100)
+      }
+    } catch (_) {}
+    try {
+      if (typeof showNotification === "function") showNotification("PNJ affiche")
+    } catch (_) {}
+    try {
+      const overlay = document.getElementById("sandboxPnjManagerOverlay")
+      if (overlay) overlay.style.display = "flex"
+      const content = overlay ? overlay.querySelector("[data-sandbox-pnj-list]") : null
+      if (content) content.scrollTop = 0
+    } catch (_) {}
+    try {
+      if (typeof renderSandboxPnjManagerOverlayV2 === "function") renderSandboxPnjManagerOverlayV2()
+    }
+    catch (_) {}
+    return false
+  } catch (_) {}
+  return false
+}
+
+function renameSandboxPnj(index) {
+  try {
+    const items = getSimpleSandboxPnjs().slice()
+    const item = items[Number(index)]
+    if (!item) return false
+    const nextLabel = prompt("Nom du PNJ :", String(item.label || "PNJ"))
+    if (nextLabel == null) return false
+    const trimmedLabel = String(nextLabel).trim()
+    if (!trimmedLabel) {
+      if (typeof showNotification === "function") showNotification("Nom obligatoire")
+      return false
+    }
+    item.label = trimmedLabel
+    saveSimpleSandboxPnjs(items)
+    closeSandboxPnjManagerV2()
+    return false
+  } catch (_) {}
+  return false
+}
+
+function deleteSandboxPnj(index) {
+  try {
+    const items = getSimpleSandboxPnjs().slice()
+    const item = items[Number(index)]
+    if (!item) return false
+    if (!confirm("Supprimer ce PNJ ?")) return false
+    items.splice(Number(index), 1)
+    saveSimpleSandboxPnjs(items)
+    closeSandboxPnjManagerV2()
+    if (typeof showNotification === "function") showNotification("PNJ supprime")
+    return false
+  } catch (_) {}
+  return false
+}
+
+function startSandboxPnjDrag(index) {
+  window.__sandboxDraggedPnjIndex = Number(index)
+}
+
+function dropSandboxPnj(targetIndex) {
+  const sourceIndex = Number(window.__sandboxDraggedPnjIndex)
+  const destIndex = Number(targetIndex)
+  window.__sandboxDraggedPnjIndex = null
+  if (!Number.isFinite(sourceIndex) || !Number.isFinite(destIndex) || sourceIndex === destIndex) return false
+  const items = getSimpleSandboxPnjs().slice()
+  if (sourceIndex < 0 || destIndex < 0 || sourceIndex >= items.length || destIndex >= items.length) return false
+  const moved = items.splice(sourceIndex, 1)[0]
+  items.splice(destIndex, 0, moved)
+  saveSimpleSandboxPnjs(items)
+  renderSandboxPnjManagerOverlayV2()
+  return false
+}
+
+function endSandboxPnjDrag() {
+  window.__sandboxDraggedPnjIndex = null
+}
+
+function closeSandboxPnjCreateComposerV2() {
+  const overlay = document.getElementById("sandboxPnjManagerOverlay")
+  if (!overlay) return false
+  const composer = overlay.querySelector("[data-pnj-manager-composer]")
+  if (composer) composer.style.display = "none"
+  return false
+}
+
+function openSandboxPnjCreateComposerV2() {
+  const overlay = document.getElementById("sandboxPnjManagerOverlay")
+  if (!overlay) return false
+  const composer = overlay.querySelector("[data-pnj-manager-composer]")
+  const nameInput = overlay.querySelector("[data-pnj-manager-name]")
+  const fileInput = overlay.querySelector("[data-pnj-manager-file]")
+  if (composer) composer.style.display = "grid"
+  if (nameInput) nameInput.value = ""
+  if (fileInput) fileInput.value = ""
+  return false
+}
+
+function submitSandboxPnjManagerCreateV2() {
+  try {
+    const overlay = document.getElementById("sandboxPnjManagerOverlay")
+    if (!overlay) return false
+    const nameInput = overlay.querySelector("[data-pnj-manager-name]")
+    const fileInput = overlay.querySelector("[data-pnj-manager-file]")
+    const fallbackName = fileInput && fileInput.files && fileInput.files[0]
+      ? String(fileInput.files[0].name || "PNJ").replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim()
+      : "PNJ"
+    const nextLabel = String(nameInput && nameInput.value || fallbackName).trim()
+    const file = fileInput && fileInput.files ? fileInput.files[0] : null
+    if (!nextLabel) {
+      if (typeof showNotification === "function") showNotification("Nom obligatoire")
+      return false
+    }
+    if (!file) {
+      if (typeof showNotification === "function") showNotification("Image obligatoire")
+      return false
+    }
+    Promise.resolve(
+      typeof readNativeStudioFileAsDataURL === "function"
+        ? readNativeStudioFileAsDataURL(file)
+        : ""
+    ).then(function(asset) {
+      const image = String(asset || "").trim()
+      if (!image) {
+        if (typeof showNotification === "function") showNotification("Image invalide")
+        return
+      }
+      const items = getSimpleSandboxPnjs().slice()
+      items.push({
+        id: "pnj_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 6),
+        label: nextLabel,
+        image: image,
+        category: "Custom"
+      })
+      saveSimpleSandboxPnjs(items)
+      closeSandboxPnjCreateComposerV2()
+      try { renderSandboxPnjManagerOverlayV2() } catch (_) {}
+      if (typeof showNotification === "function") showNotification("PNJ ajoute")
+    }).catch(function() {
+      if (typeof showNotification === "function") showNotification("Lecture du fichier impossible")
+    })
+  } catch (_) {}
+  return false
+}
+
+function createSandboxPnjManagerCard(item, index) {
+  const label = String(item && item.label || "PNJ")
+  const previewMode = !!(document.body && document.body.classList.contains("sandbox-preview-mode"))
+  const card = document.createElement("div")
+  card.className = "sandboxMapManagerCard"
+  card.style.cssText = "display:grid;gap:8px;padding:12px;background:rgba(0,0,0,0.18);border:1px solid rgba(214,180,106,0.18);border-radius:12px;"
+
+  const topRow = document.createElement("div")
+  topRow.className = "sandboxMapManagerCardTopRow"
+  topRow.style.cssText = "display:flex;gap:8px;align-items:center;"
+
+  const launchBtn = document.createElement("button")
+  launchBtn.type = "button"
+  launchBtn.className = "sandboxMapManagerLaunchButton"
+  launchBtn.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;"
+  launchBtn.innerHTML = previewMode
+    ? `<span>${label}</span>`
+    : `<span>${label}</span><span style="font-size:11px;color:#bfae8b;">Afficher</span>`
+  launchBtn.addEventListener("click", function(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    launchSandboxPnj(index)
+  })
+  topRow.appendChild(launchBtn)
+
+  const dragHandle = document.createElement("span")
+  dragHandle.className = "sandboxMapManagerDragHandle"
+  dragHandle.setAttribute("draggable", "true")
+  dragHandle.title = "Glisser pour reordonner"
+  dragHandle.style.cssText = "width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f0d087;font-size:16px;cursor:grab;"
+  dragHandle.textContent = "::"
+  dragHandle.addEventListener("dragstart", function(event) {
+    event.stopPropagation()
+    startSandboxPnjDrag(index)
+  })
+  if (!previewMode) topRow.appendChild(dragHandle)
+
+  const actionsRow = document.createElement("div")
+  actionsRow.className = "sandboxMapManagerActionsRow"
+  actionsRow.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;"
+
+  const renameBtn = document.createElement("button")
+  renameBtn.type = "button"
+  renameBtn.className = "sandboxMapManagerActionButton"
+  renameBtn.style.cssText = "padding:8px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+  renameBtn.textContent = "Renommer"
+  renameBtn.addEventListener("click", function(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    renameSandboxPnj(index)
+  })
+
+  const deleteBtn = document.createElement("button")
+  deleteBtn.type = "button"
+  deleteBtn.className = "sandboxMapManagerDeleteButton"
+  deleteBtn.style.cssText = "padding:8px 10px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(214,110,110,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+  deleteBtn.textContent = "Supprimer"
+  deleteBtn.addEventListener("click", function(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    deleteSandboxPnj(index)
+  })
+
+  if (!previewMode) {
+    actionsRow.appendChild(renameBtn)
+    actionsRow.appendChild(deleteBtn)
+    card.addEventListener("dragover", function(event) {
+      event.preventDefault()
+    })
+    card.addEventListener("drop", function(event) {
+      event.preventDefault()
+      dropSandboxPnj(index)
+    })
+    card.addEventListener("dragend", function() {
+      endSandboxPnjDrag()
+    })
+  }
+
+  card.appendChild(topRow)
+  if (!previewMode) card.appendChild(actionsRow)
+  return card
+}
+
+function renderSandboxPnjManagerOverlayV2() {
+  const overlay = document.getElementById("sandboxPnjManagerOverlay")
+  if (!overlay) return
+  const panel = overlay.querySelector(".sandboxMapManagerPanel")
+  const title = overlay.querySelector(".sandboxMapManagerTitle")
+  const subtitle = overlay.querySelector(".sandboxMapManagerSubtitle")
+  const content = overlay.querySelector("[data-pnj-manager-content]")
+  const debug = overlay.querySelector("[data-pnj-manager-debug]")
+  const previewMode = !!(document.body && document.body.classList.contains("sandbox-preview-mode"))
+  if (panel) panel.classList.toggle("sandboxMapManagerPanel--preview", previewMode)
+  if (title) title.textContent = "PNJ"
+  if (subtitle) subtitle.style.display = previewMode ? "none" : ""
+  if (!content) return
+  const items = getSimpleSandboxPnjs()
+  if (debug) debug.textContent = "PNJ : " + items.length
+  content.innerHTML = ""
+  if (!items.length) {
+    content.innerHTML = `<div style="font-size:12px;color:#bfae8b;padding:10px;background:rgba(0,0,0,0.18);border:1px dashed rgba(214,180,106,0.18);border-radius:10px;">Aucun PNJ pour le moment.</div>`
+    return
+  }
+  items.forEach(function(item, index) {
+    content.appendChild(createSandboxPnjManagerCard(item, index))
+  })
+}
+
+function closeSandboxPnjManagerV2() {
+  const overlay = document.getElementById("sandboxPnjManagerOverlay")
+  if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay)
+  try {
+    const legacy = document.getElementById("pnjMenu")
+    if (legacy) legacy.style.display = "none"
+  } catch (_) {}
+  try {
+    if (window.__sandboxPnjEscapeHandlerAttached) {
+      window.removeEventListener("keydown", window.__sandboxPnjEscapeHandlerAttached, true)
+      window.__sandboxPnjEscapeHandlerAttached = null
+    }
+    if (window.__sandboxPnjEscapeHandlerKeyupAttached) {
+      window.removeEventListener("keyup", window.__sandboxPnjEscapeHandlerKeyupAttached, true)
+      window.__sandboxPnjEscapeHandlerKeyupAttached = null
+    }
+  } catch (_) {}
+  return false
+}
+
+function closeVisibleSandboxPnjLocal() {
+  try {
+    const ids = [
+      ["storyImage", "storyImageContent"],
+      ["storyImage2", "storyImageContent2"],
+      ["storyImage3", "storyImageContent3"]
+    ]
+    let closed = false
+    ids.forEach(function(pair) {
+      const box = document.getElementById(pair[0])
+      const img = document.getElementById(pair[1])
+      if (!box || box.style.display === "none") return
+      closed = true
+      box.style.opacity = "0"
+      box.style.display = "none"
+      box.style.left = ""
+      box.style.right = ""
+      box.style.transform = ""
+      if (img) img.removeAttribute("src")
+    })
+    document.querySelectorAll("[id^='pnjNameTag']").forEach(function(tag) {
+      tag.remove()
+    })
+    try {
+      if (typeof pnjSlotOrder !== "undefined" && Array.isArray(pnjSlotOrder)) pnjSlotOrder.length = 0
+    } catch (_) {}
+    try {
+      if (typeof updatePNJPositions === "function") updatePNJPositions()
+    } catch (_) {}
+    try {
+      if (closed && typeof db !== "undefined" && db && typeof db.ref === "function") {
+        db.ref("game/storyImage").remove().catch(function() {})
+        db.ref("game/storyImage2").remove().catch(function() {})
+        db.ref("game/storyImage3").remove().catch(function() {})
+        db.ref("game/highPNJName").remove().catch(function() {})
+      }
+    } catch (_) {}
+    return closed
+  } catch (_) {}
+  return false
+}
+
+function openSandboxPnjManagerV2() {
+  try {
+    const previewMode = !!(document.body && document.body.classList.contains("sandbox-preview-mode"))
+    document.querySelectorAll(".gmSection").forEach(function(sec) {
+      sec.style.display = "none"
+    })
+    let overlay = document.getElementById("sandboxPnjManagerOverlay")
+    if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay)
+    overlay = document.createElement("div")
+    overlay.id = "sandboxPnjManagerOverlay"
+    overlay.className = "sandboxMapManagerOverlay"
+    overlay.tabIndex = -1
+    overlay.style.cssText = "position:fixed;inset:0;z-index:10060;background:rgba(8,10,18,0.46);display:flex;align-items:center;justify-content:center;padding:24px;"
+    overlay.innerHTML =
+        `<div class="sandboxMapManagerPanel" style="width:min(960px, 92vw);max-height:88vh;overflow:auto;display:grid;gap:14px;padding:22px;border-radius:22px;background:linear-gradient(180deg, rgba(38,52,88,0.96), rgba(16,22,36,0.98));border:1px solid rgba(214,180,106,0.28);box-shadow:0 24px 80px rgba(0,0,0,0.42);font-family:Cinzel,serif;">` +
+          `<div class="sandboxMapManagerHeader" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">` +
+            `<div class="sandboxMapManagerHeaderText" style="display:grid;gap:6px;">` +
+              `<div class="sandboxMapManagerTitle" style="font-size:14px;letter-spacing:2px;color:#e6c27a;">PNJ</div>` +
+              `<div class="sandboxMapManagerSubtitle" style="font-size:12px;line-height:1.6;color:rgba(255,240,210,0.82);">Ajoute tes PNJ, donne-leur un nom, puis clique dessus pour les afficher sur le board.</div>` +
+            `</div>` +
+            `<button type="button" class="sandboxMapManagerActionButton sandboxMapManagerCloseButton" data-pnj-manager-action="close" style="padding:8px 12px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:10px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Fermer</button>` +
+          `</div>` +
+          (previewMode ? `` : `<div class="sandboxMapManagerToolbar" style="display:flex;flex-wrap:wrap;gap:8px;">` +
+            `<button type="button" class="sandboxMapManagerActionButton sandboxMapManagerPrimaryButton" data-pnj-manager-action="new-pnj" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Nouveau PNJ</button>` +
+          `</div>`) +
+          `<div class="sandboxMapManagerComposer" data-pnj-manager-composer style="display:none;grid-template-columns:1fr;gap:10px;padding:12px;border-radius:14px;background:rgba(0,0,0,0.16);border:1px solid rgba(214,180,106,0.18);">` +
+            `<input type="text" class="sandboxMapManagerInput" data-pnj-manager-name placeholder="Nom du PNJ" style="padding:10px 12px;border-radius:10px;border:1px solid rgba(214,180,106,0.2);background:rgba(10,18,30,0.55);color:#f5e6c8;font-family:Cinzel,serif;">` +
+            `<input type="file" class="sandboxMapManagerFileInput" data-pnj-manager-file accept="image/*" style="color:#f5e6c8;font-family:Cinzel,serif;">` +
+            `<div class="sandboxMapManagerComposerActions" style="display:flex;gap:8px;flex-wrap:wrap;">` +
+              `<button type="button" class="sandboxMapManagerActionButton sandboxMapManagerPrimaryButton" data-pnj-manager-action="confirm-create" style="padding:9px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter</button>` +
+              `<button type="button" class="sandboxMapManagerActionButton" data-pnj-manager-action="cancel-create" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Annuler</button>` +
+            `</div>` +
+          `</div>` +
+          `<div class="sandboxMapManagerDebug" data-pnj-manager-debug style="font-size:11px;color:#bfae8b;"></div>` +
+          `<div class="sandboxMapManagerContent" data-pnj-manager-content style="display:grid;gap:10px;"></div>` +
+        `</div>`
+    document.body.appendChild(overlay)
+    overlay.addEventListener("click", function(event) {
+      const actionButton = event.target.closest("[data-pnj-manager-action]")
+      if (actionButton) {
+        event.preventDefault()
+        event.stopPropagation()
+        const action = String(actionButton.getAttribute("data-pnj-manager-action") || "")
+        if (action === "close") closeSandboxPnjManagerV2()
+        if (action === "new-pnj") openSandboxPnjCreateComposerV2()
+        if (action === "cancel-create") closeSandboxPnjCreateComposerV2()
+        if (action === "confirm-create") submitSandboxPnjManagerCreateV2()
+        return
+      }
+      if (event.target === overlay) closeSandboxPnjManagerV2()
+    })
+    overlay.addEventListener("keydown", function(event) {
+      if (String(event.key || "").toLowerCase() !== "escape") return
+      event.preventDefault()
+      event.stopPropagation()
+      closeSandboxPnjManagerV2()
+    })
+    var currentTheme = "medieval_fantasy"
+    try {
+      currentTheme = String(
+        window.__currentProjectTheme
+        || document.body.getAttribute("data-project-theme")
+        || "medieval_fantasy"
+      ).trim() || "medieval_fantasy"
+    } catch (_) {}
+    overlay.setAttribute("data-map-theme", currentTheme)
+    const panel = overlay.querySelector(".sandboxMapManagerPanel")
+    if (panel) panel.setAttribute("data-map-theme", currentTheme)
+    overlay.classList.toggle("sandboxMapManagerOverlay--preview", !!(document.body && document.body.classList.contains("sandbox-preview-mode")))
+    overlay.style.display = "flex"
+    try { overlay.focus() } catch (_) {}
+    try {
+      if (!window.__sandboxPnjEscapeHandlerAttached) {
+        window.__sandboxPnjEscapeHandlerAttached = function(event) {
+          if (String(event.key || "").toLowerCase() !== "escape") return
+          const visibleOverlay = document.getElementById("sandboxPnjManagerOverlay")
+          const legacy = document.getElementById("pnjMenu")
+          if ((!visibleOverlay || visibleOverlay.style.display === "none") && (!legacy || legacy.style.display === "none")) return
+          event.preventDefault()
+          event.stopPropagation()
+          if (typeof closeSandboxPnjManagerV2 === "function") closeSandboxPnjManagerV2()
+          else {
+            if (visibleOverlay && visibleOverlay.parentNode) visibleOverlay.parentNode.removeChild(visibleOverlay)
+            if (legacy) legacy.style.display = "none"
+          }
+        }
+        window.addEventListener("keydown", window.__sandboxPnjEscapeHandlerAttached, true)
+      }
+      if (!window.__sandboxPnjEscapeHandlerKeyupAttached) {
+        window.__sandboxPnjEscapeHandlerKeyupAttached = function(event) {
+          if (String(event.key || "").toLowerCase() !== "escape") return
+          const visibleOverlay = document.getElementById("sandboxPnjManagerOverlay")
+          const legacy = document.getElementById("pnjMenu")
+          if ((!visibleOverlay || visibleOverlay.style.display === "none") && (!legacy || legacy.style.display === "none")) return
+          event.preventDefault()
+          event.stopPropagation()
+          if (typeof closeSandboxPnjManagerV2 === "function") closeSandboxPnjManagerV2()
+        }
+        window.addEventListener("keyup", window.__sandboxPnjEscapeHandlerKeyupAttached, true)
+      }
+    } catch (_) {}
+    renderSandboxPnjManagerOverlayV2()
+  } catch (_) {}
+  return false
+}
+
 function createSandboxMapManagerCard(item, index) {
   const label = String(item && item.label || "Sans titre")
   const previewMode = !!(document.body && document.body.classList.contains("sandbox-preview-mode"))
@@ -4648,6 +5163,10 @@ function toggleGMSection(id) {
     openSandboxMapManagerV2()
     return
   }
+  if (id === "pnjMenu") {
+    openSandboxPnjManagerV2()
+    return
+  }
   const section = document.getElementById(id); if (!section) return
   const isOpen = section.style.display === "block"
   document.querySelectorAll(".gmSection").forEach(sec => {
@@ -4723,6 +5242,18 @@ function openPNJTab(id, el) {
   if (target) { target.style.display = "block"; target.classList.add("active") }
   el.classList.add("active")
 }
+
+document.addEventListener("click", function(event) {
+  const button = event.target && event.target.closest ? event.target.closest(".gmSection button") : null
+  if (!button) return
+  if (button.classList.contains("pnjTab")) return
+  if (button.classList.contains("mapCategoryButton")) return
+  const panel = button.closest(".gmSection")
+  if (!panel) return
+  setTimeout(function() {
+    if (panel && panel.style.display === "block") panel.style.display = "none"
+  }, 40)
+}, true)
 
 function watchFreePoints(playerId) {
   db.ref("characters/" + playerId + "/freePoints").on("value", snap => {
@@ -5018,14 +5549,25 @@ document.addEventListener("keydown", e => {
   }
 
   if (key === "escape") {
-    if (document.body.classList.contains("sandbox-preview-mode")) {
-      toggleSandboxPreviewMode(false)
+    const pnjManagerOverlay = document.getElementById("sandboxPnjManagerOverlay")
+    if (pnjManagerOverlay && pnjManagerOverlay.style.display !== "none") {
+      if (typeof closeSandboxPnjManagerV2 === "function") closeSandboxPnjManagerV2()
+      else pnjManagerOverlay.style.display = "none"
       return
     }
     const mapManagerOverlay = document.getElementById("sandboxMapManagerOverlay")
     if (mapManagerOverlay && mapManagerOverlay.style.display !== "none") {
       if (typeof closeSandboxMapManagerV2 === "function") closeSandboxMapManagerV2()
       else mapManagerOverlay.style.display = "none"
+      return
+    }
+    try {
+      if (closeVisibleSandboxPnjLocal()) {
+        return
+      }
+    } catch (_) {}
+    if (document.body.classList.contains("sandbox-preview-mode")) {
+      toggleSandboxPreviewMode(false)
       return
     }
     const onboardingOverlay = document.getElementById("mjSandboxOnboardingOverlay")
@@ -5344,7 +5886,7 @@ function renameSandboxMap(index) {
   }
   maps[index].label = trimmedLabel
   saveSimpleSandboxMaps(maps)
-  renderSandboxMapManagerOverlayV2()
+  closeSandboxMapManagerV2()
   return false
 }
 
@@ -5358,7 +5900,7 @@ function deleteSandboxMap(index) {
   if (!confirmed) return false
   maps.splice(index, 1)
   saveSimpleSandboxMaps(maps)
-  renderSandboxMapManagerOverlayV2()
+  closeSandboxMapManagerV2()
   return false
 }
 
@@ -5572,8 +6114,7 @@ async function submitSandboxMapManagerCreateV2() {
       audio: ""
     })
     saveSimpleSandboxMaps(maps)
-    closeSandboxMapCreateComposerV2()
-    renderSandboxMapManagerOverlayV2()
+    closeSandboxMapManagerV2()
     if (typeof showNotification === "function") showNotification("Map ajoutee")
   } catch (_) {}
   return false
@@ -5723,6 +6264,16 @@ try {
   window.startSandboxMapDrag = startSandboxMapDrag
   window.dropSandboxMap = dropSandboxMap
   window.endSandboxMapDrag = endSandboxMapDrag
+  window.openSandboxPnjManagerV2 = openSandboxPnjManagerV2
+  window.closeSandboxPnjManagerV2 = closeSandboxPnjManagerV2
+  window.openSandboxPnjCreateComposerV2 = openSandboxPnjCreateComposerV2
+  window.submitSandboxPnjManagerCreateV2 = submitSandboxPnjManagerCreateV2
+  window.launchSandboxPnj = launchSandboxPnj
+  window.renameSandboxPnj = renameSandboxPnj
+  window.deleteSandboxPnj = deleteSandboxPnj
+  window.startSandboxPnjDrag = startSandboxPnjDrag
+  window.dropSandboxPnj = dropSandboxPnj
+  window.endSandboxPnjDrag = endSandboxPnjDrag
 } catch (_) {}
 
 

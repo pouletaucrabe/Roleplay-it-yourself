@@ -2777,22 +2777,23 @@ body[data-project-theme="contemporain"] .gmCharacterPickerClose {
   justify-content: center;
   padding: 24px;
   z-index: 10060;
+  background: transparent !important;
 }
 
 .sandboxMapManagerPanel {
-  width: min(960px, 92vw);
-  max-height: 88vh;
+  width: min(720px, 74vw) !important;
+  max-height: 72vh !important;
   overflow: auto;
   display: grid;
   gap: 14px;
-  padding: 22px;
-  border-radius: 22px;
+  padding: 18px !important;
+  border-radius: 18px !important;
   position: relative;
 }
 
 .sandboxMapManagerPanel--preview {
-  width: min(560px, 64vw);
-  max-height: 72vh;
+  width: min(520px, 52vw) !important;
+  max-height: 62vh !important;
 }
 
 .sandboxMapManagerHeader {
@@ -6640,6 +6641,19 @@ body {
   animation: builderSparkleDrift 16s linear infinite, builderSparklePulse 4.8s ease-in-out infinite;
 }
 
+.builderLandingCredit {
+  position: relative;
+  margin: -2px auto 12px;
+  z-index: 1;
+  pointer-events: none;
+  font-family: "Marcellus", serif;
+  font-size: 14px;
+  line-height: 1;
+  color: rgba(238, 222, 188, 0.92);
+  text-shadow: 0 2px 8px rgba(0,0,0,0.65);
+  text-align: center;
+}
+
 #builderAppShell ~ #gameWrapper #intro,
 #builderAppShell ~ #gameWrapper #gameTitle,
 #builderAppShell ~ #gameWrapper #introBox {
@@ -6995,14 +7009,13 @@ body.sandbox-preview-mode .sandboxMapManagerOverlay--preview .sandboxMapManagerS
 }
 
 .builderLandingButton {
+  position: relative;
+  isolation: isolate;
   width: min(360px, 84%);
   min-height: 64px;
   padding: 16px 26px;
   border: none;
-  background:
-    linear-gradient(180deg, rgba(58,31,10,0.44), rgba(12,7,4,0.36)),
-    url("images/bouton1.png") center/100% 100% no-repeat;
-  background-blend-mode: multiply, normal;
+  background: url("images/bouton1.png") center/100% 100% no-repeat;
   color: #f4e1b5;
   font-family: "Cinzel", serif;
   font-size: clamp(11px, 1.02vw, 14px);
@@ -7011,6 +7024,16 @@ body.sandbox-preview-mode .sandboxMapManagerOverlay--preview .sandboxMapManagerS
   text-shadow: 0 2px 8px rgba(0,0,0,0.7);
   cursor: pointer;
   transition: transform 0.18s ease, filter 0.18s ease;
+}
+
+.builderLandingButton::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, rgba(78, 42, 14, 0.54), rgba(18, 10, 4, 0.5));
+  mix-blend-mode: multiply;
+  pointer-events: none;
 }
 
 .builderLandingButton:hover,
