@@ -78,6 +78,7 @@ function ensureSandboxStudioChromeVisible() {
       var el = document.getElementById(id)
       if (el) el.style.display = chromeDisplayMap[id]
     })
+    try { initializeSharedNotebook() } catch (_) {}
     try { ensureDiceBarDefaultOpen() } catch (_) {}
   } catch (_) {}
 }
@@ -106,6 +107,343 @@ function updateSandboxPreviewButton() {
     button.textContent = active ? "Retour studio" : "Apercu"
     button.setAttribute("aria-pressed", active ? "true" : "false")
   } catch (_) {}
+}
+
+function getSharedNotebookProjectState() {
+  try {
+    const storageKey = "rpg_shared_notebook_v1"
+    let fallback = null
+    try {
+      fallback = JSON.parse(localStorage.getItem(storageKey) || "null")
+    } catch (_) {}
+    const customization = typeof getCustomization === "function" ? getCustomization() : null
+    const project = customization && customization.project ? customization.project : {}
+    const fallbackUpdatedAt = fallback && typeof fallback === "object" ? Number(fallback.updatedAt) || 0 : 0
+    const projectUpdatedAt = project ? Number(project.sharedNotebookUpdatedAt) || 0 : 0
+    const hasFallbackPages = fallback && typeof fallback === "object" && Array.isArray(fallback.pages) && fallback.pages.length
+    const hasProjectPages = project && Array.isArray(project.sharedNotebookPages) && project.sharedNotebookPages.length
+    const source = hasFallbackPages && fallbackUpdatedAt >= projectUpdatedAt
+      ? fallback
+      : (hasProjectPages || typeof project.sharedNotebookText === "string"
+          ? project
+          : (fallback && typeof fallback === "object" ? fallback : {}))
+    const pages = Array.isArray(source.sharedNotebookPages)
+      ? source.sharedNotebookPages.map(function(page) { return String(page || "") })
+      : Array.isArray(source.pages)
+        ? source.pages.map(function(page) { return String(page || "") })
+        : [String(source.sharedNotebookText || source.text || "")]
+    return {
+      pages: pages.length ? pages : [""],
+      updatedAt: Number(source.updatedAt || source.sharedNotebookUpdatedAt) || 0
+    }
+  } catch (_) {}
+  return { pages: [""], updatedAt: 0 }
+}
+
+function applySharedNotebookState(state) {
+  try {
+    const safeState = state && typeof state === "object" ? state : {}
+    const nextPages = Array.isArray(safeState.pages)
+      ? safeState.pages.map(function(page) { return String(page || "") })
+      : [String(safeState.text || "")]
+    window.__sharedNotebookState = {
+      pages: nextPages.length ? nextPages : [""],
+      updatedAt: Number(safeState.updatedAt) || 0
+    }
+    const panel = document.getElementById("sharedNotebookPanel")
+    const textarea = document.getElementById("sharedNotebookTextarea")
+    const indicator = document.getElementById("sharedNotebookPageIndicator")
+    const removeBtn = document.getElementById("sharedNotebookRemovePage")
+    const addBtn = document.getElementById("sharedNotebookAddPage")
+    const prevBtn = document.getElementById("sharedNotebookPrev")
+    const nextBtn = document.getElementById("sharedNotebookNext")
+    const pages = window.__sharedNotebookState.pages
+    const pageCount = pages.length || 1
+    const currentIndex = Math.max(0, Math.min(pageCount - 1, parseInt(window.__sharedNotebookPageIndex, 10) || 0))
+    window.__sharedNotebookPageIndex = currentIndex
+    if (panel) {
+      panel.classList.remove("sharedNotebookPanel--editable")
+    }
+    if (textarea) {
+      textarea.value = String(pages[currentIndex] || "")
+      textarea.readOnly = !isGM
+      textarea.placeholder = isGM ? "Notes du MJ..." : "Notes du MJ"
+    }
+    if (indicator) indicator.textContent = "Page " + (currentIndex + 1) + " / " + pageCount
+    if (removeBtn) removeBtn.style.display = isGM ? "inline-flex" : "none"
+    if (addBtn) addBtn.style.display = isGM ? "inline-flex" : "none"
+    if (prevBtn) prevBtn.disabled = currentIndex <= 0
+    if (nextBtn) nextBtn.disabled = !isGM && currentIndex >= pageCount - 1
+  } catch (_) {}
+}
+
+function syncCurrentSharedNotebookPageFromTextarea() {
+  try {
+    const textarea = document.getElementById("sharedNotebookTextarea")
+    const currentPages = window.__sharedNotebookState && Array.isArray(window.__sharedNotebookState.pages)
+      ? window.__sharedNotebookState.pages.slice()
+      : [""]
+    const currentIndex = Math.max(0, Math.min(currentPages.length - 1, parseInt(window.__sharedNotebookPageIndex, 10) || 0))
+    currentPages[currentIndex] = String(textarea && textarea.value || "")
+    window.__sharedNotebookState = {
+      pages: currentPages.length ? currentPages : [""],
+      updatedAt: window.__sharedNotebookState && Number(window.__sharedNotebookState.updatedAt) || 0
+    }
+  } catch (_) {}
+}
+
+function persistSharedNotebookState(skipTextareaSync) {
+  try {
+    const storageKey = "rpg_shared_notebook_v1"
+    if (!skipTextareaSync) syncCurrentSharedNotebookPageFromTextarea()
+    const currentPages = window.__sharedNotebookState && Array.isArray(window.__sharedNotebookState.pages)
+      ? window.__sharedNotebookState.pages.slice()
+      : [""]
+    const updatedAt = Date.now()
+    const nextState = {
+      pages: currentPages.length ? currentPages : [""],
+      updatedAt: updatedAt
+    }
+    window.__sharedNotebookState = nextState
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({
+        pages: nextState.pages.slice(),
+        text: String(nextState.pages[0] || ""),
+        updatedAt: updatedAt
+      }))
+    } catch (_) {}
+    if (typeof getCustomization === "function" && typeof saveCustomization === "function" && isGM) {
+      const next = getCustomization()
+      next.project = next.project || {}
+      next.project.sharedNotebookPages = nextState.pages.slice()
+      next.project.sharedNotebookText = String(nextState.pages[0] || "")
+      next.project.sharedNotebookUpdatedAt = updatedAt
+      saveCustomization(next)
+    }
+    if (typeof db !== "undefined" && db && isGM) {
+      db.ref("game/sharedNotebook").set({
+        pages: nextState.pages.slice(),
+        text: String(nextState.pages[0] || ""),
+        updatedAt: updatedAt
+      }).catch(() => {})
+    }
+  } catch (_) {}
+}
+
+function initializeSharedNotebook() {
+  try {
+    applySharedNotebookState(getSharedNotebookProjectState())
+    if (!window.__sharedNotebookBound && typeof db !== "undefined" && db) {
+      window.__sharedNotebookBound = true
+      db.ref("game/sharedNotebook").on("value", function(snap) {
+        const data = snap.val()
+        const visiblePanel = document.getElementById("sharedNotebookPanel")
+        const isEditingLocally = !!(isGM && visiblePanel && visiblePanel.style.display !== "none")
+        if (isEditingLocally) return
+        if (data && typeof data === "object" && (Array.isArray(data.pages) || typeof data.text === "string")) {
+          const localUpdatedAt = window.__sharedNotebookState && Number(window.__sharedNotebookState.updatedAt) || 0
+          const incomingUpdatedAt = Number(data.updatedAt) || 0
+          if (localUpdatedAt > incomingUpdatedAt) return
+          applySharedNotebookState(data)
+        }
+        else applySharedNotebookState(getSharedNotebookProjectState())
+      })
+    }
+    const textarea = document.getElementById("sharedNotebookTextarea")
+    const panel = document.getElementById("sharedNotebookPanel")
+    const playerNotesTextarea = document.getElementById("playerNotesTextarea")
+    if (textarea && !textarea.dataset.boundSharedNotebook) {
+      textarea.dataset.boundSharedNotebook = "1"
+      textarea.addEventListener("input", function() {
+        if (!isGM) return
+        syncCurrentSharedNotebookPageFromTextarea()
+        if (window.__sharedNotebookSaveTimer) clearTimeout(window.__sharedNotebookSaveTimer)
+        window.__sharedNotebookSaveTimer = setTimeout(persistSharedNotebookState, 180)
+      })
+    }
+    if (playerNotesTextarea && !playerNotesTextarea.dataset.boundPlayerNotes) {
+      playerNotesTextarea.dataset.boundPlayerNotes = "1"
+      playerNotesTextarea.addEventListener("input", function() {
+        persistPlayerNotes()
+      })
+    }
+    if (!window.__sharedNotebookEscapeBound) {
+      window.__sharedNotebookEscapeBound = true
+      window.addEventListener("keydown", function(event) {
+        if (String(event.key || "").toLowerCase() !== "escape") return
+        const visiblePanel = document.getElementById("sharedNotebookPanel")
+        if (!visiblePanel || visiblePanel.style.display === "none") return
+        event.preventDefault()
+        event.stopPropagation()
+        closeSharedNotebookPanel()
+      }, true)
+    }
+    if (panel) applySharedNotebookState(window.__sharedNotebookState || getSharedNotebookProjectState())
+    updatePlayerNotesVisibility()
+  } catch (_) {}
+}
+
+function toggleSharedNotebookPanel() {
+  try {
+    initializeSharedNotebook()
+    const panel = document.getElementById("sharedNotebookPanel")
+    if (!panel) return false
+    const shouldOpen = panel.style.display === "none" || !panel.style.display
+    if (shouldOpen) panel.style.display = "block"
+    else closeSharedNotebookPanel()
+  } catch (_) {}
+  return false
+}
+
+function closeSharedNotebookPanel() {
+  try {
+    if (window.__sharedNotebookSaveTimer) {
+      clearTimeout(window.__sharedNotebookSaveTimer)
+      window.__sharedNotebookSaveTimer = null
+    }
+    if (isGM) persistSharedNotebookState()
+    const panel = document.getElementById("sharedNotebookPanel")
+    if (panel) panel.style.display = "none"
+  } catch (_) {}
+  return false
+}
+
+function getPlayerNotesStorageKey() {
+  try {
+    const joinCode = String(window.__activeJoinCode || "offline").trim().toUpperCase() || "offline"
+    const slotId = String((myToken && myToken.id) || "spectator").trim().toLowerCase() || "spectator"
+    return "rpg_player_notes_v1_" + joinCode + "_" + slotId
+  } catch (_) {}
+  return "rpg_player_notes_v1_default"
+}
+
+function updatePlayerNotesVisibility() {
+  try {
+    const sharedDock = document.getElementById("sharedNotebookDock")
+    if (sharedDock) sharedDock.style.display = isGM ? "block" : "none"
+    const dock = document.getElementById("playerNotesDock")
+    if (!dock) return
+    const shouldShow = !isGM && !!(myToken && myToken.id) && !!window.__activeJoinCode
+    dock.style.display = shouldShow ? "block" : "none"
+    if (!shouldShow) {
+      const panel = document.getElementById("playerNotesPanel")
+      if (panel) panel.style.display = "none"
+    }
+  } catch (_) {}
+}
+
+function loadPlayerNotesIntoPanel() {
+  try {
+    const textarea = document.getElementById("playerNotesTextarea")
+    if (!textarea) return
+    textarea.value = String(localStorage.getItem(getPlayerNotesStorageKey()) || "")
+  } catch (_) {}
+}
+
+function persistPlayerNotes() {
+  try {
+    const textarea = document.getElementById("playerNotesTextarea")
+    if (!textarea) return false
+    localStorage.setItem(getPlayerNotesStorageKey(), String(textarea.value || ""))
+    return true
+  } catch (_) {}
+  return false
+}
+
+function togglePlayerNotesPanel() {
+  try {
+    const panel = document.getElementById("playerNotesPanel")
+    if (!panel) return false
+    const shouldOpen = panel.style.display === "none" || !panel.style.display
+    if (shouldOpen) {
+      loadPlayerNotesIntoPanel()
+      panel.style.display = "block"
+    } else {
+      persistPlayerNotes()
+      panel.style.display = "none"
+    }
+  } catch (_) {}
+  return false
+}
+
+function closePlayerNotesPanel() {
+  try {
+    persistPlayerNotes()
+    const panel = document.getElementById("playerNotesPanel")
+    if (panel) panel.style.display = "none"
+  } catch (_) {}
+  return false
+}
+
+function turnSharedNotebookPage(direction) {
+  try {
+    const step = Number(direction) < 0 ? -1 : 1
+    const pages = window.__sharedNotebookState && Array.isArray(window.__sharedNotebookState.pages)
+      ? window.__sharedNotebookState.pages.slice()
+      : [""]
+    const count = Math.max(1, pages.length)
+    const currentIndex = Math.max(0, Math.min(count - 1, parseInt(window.__sharedNotebookPageIndex, 10) || 0))
+    if (isGM) persistSharedNotebookState()
+    if (step > 0 && currentIndex >= count - 1) {
+      pages.push("")
+      window.__sharedNotebookState = { pages: pages }
+      window.__sharedNotebookPageIndex = pages.length - 1
+      persistSharedNotebookState(true)
+      applySharedNotebookState(window.__sharedNotebookState)
+      return false
+    }
+    const nextIndex = Math.max(0, Math.min(count - 1, currentIndex + step))
+    if (nextIndex === currentIndex) return false
+    window.__sharedNotebookPageIndex = nextIndex
+    applySharedNotebookState(window.__sharedNotebookState || getSharedNotebookProjectState())
+  } catch (_) {}
+  return false
+}
+
+function addSharedNotebookPage() {
+  try {
+    if (!isGM) return false
+    persistSharedNotebookState()
+    const pages = window.__sharedNotebookState && Array.isArray(window.__sharedNotebookState.pages)
+      ? window.__sharedNotebookState.pages.slice()
+      : [""]
+    pages.push("")
+    window.__sharedNotebookState = { pages: pages }
+    window.__sharedNotebookPageIndex = pages.length - 1
+    persistSharedNotebookState(true)
+    applySharedNotebookState(window.__sharedNotebookState)
+  } catch (_) {}
+  return false
+}
+
+function removeSharedNotebookPage() {
+  try {
+    if (!isGM) return false
+    persistSharedNotebookState()
+    const pages = window.__sharedNotebookState && Array.isArray(window.__sharedNotebookState.pages)
+      ? window.__sharedNotebookState.pages.slice()
+      : [""]
+    if (pages.length <= 1) return false
+    const currentIndex = Math.max(0, Math.min(pages.length - 1, parseInt(window.__sharedNotebookPageIndex, 10) || 0))
+    pages.splice(currentIndex, 1)
+    window.__sharedNotebookState = { pages: pages.length ? pages : [""] }
+    window.__sharedNotebookPageIndex = Math.max(0, Math.min(window.__sharedNotebookState.pages.length - 1, currentIndex - 1))
+    persistSharedNotebookState(true)
+    applySharedNotebookState(window.__sharedNotebookState)
+  } catch (_) {}
+  return false
+}
+
+function clearSharedNotebook() {
+  try {
+    if (!isGM) return false
+    if (!window.confirm("Vider tout le carnet et supprimer toutes les pages ?")) return false
+    window.__sharedNotebookState = { pages: [""] }
+    window.__sharedNotebookPageIndex = 0
+    persistSharedNotebookState(true)
+    applySharedNotebookState(window.__sharedNotebookState)
+  } catch (_) {}
+  return false
 }
 
 function toggleSandboxPreviewMode(forceState) {
@@ -162,6 +500,7 @@ function requestPlayerAuth() {
   }
   const menu = document.getElementById("playerMenu")
   if (menu) menu.classList.add("open")
+  updatePlayerNotesVisibility()
   showNotification("Choisis un slot pour rejoindre la partie")
 }
 
@@ -223,11 +562,190 @@ function exportSandbox(label) {
   }
   const exportEntry = createSandboxExport(typeof getCustomization === "function" ? getCustomization() : null, label)
   const summary = exportEntry && exportEntry.summary ? exportEntry.summary : getCurrentSandboxSummary()
-  showNotification("Version jouable exportee")
+  try {
+    const payload = JSON.stringify({
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      exportId: exportEntry.id,
+      label: exportEntry.label,
+      summary: summary,
+      mjSandbox: exportEntry.mjSandbox || exportEntry.sandbox || null,
+      playerSandbox: exportEntry.playerSandbox || null
+    }, null, 2)
+    const fileName = sanitizeSandboxSaveFileName(summary.title || exportEntry.label || "session") + "-export-" + new Date().toISOString().slice(0, 10) + ".json"
+    if (typeof Blob !== "undefined" && typeof URL !== "undefined" && typeof URL.createObjectURL === "function") {
+      const blob = new Blob([payload], { type: "application/json;charset=utf-8" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = fileName
+      link.style.display = "none"
+      document.body.appendChild(link)
+      link.click()
+      setTimeout(function() {
+        try { URL.revokeObjectURL(url) } catch (_) {}
+        if (link.parentNode) link.parentNode.removeChild(link)
+      }, 120)
+    } else {
+      const fallbackLink = document.createElement("a")
+      fallbackLink.href = "data:application/json;charset=utf-8," + encodeURIComponent(payload)
+      fallbackLink.download = fileName
+      fallbackLink.style.display = "none"
+      document.body.appendChild(fallbackLink)
+      fallbackLink.click()
+      setTimeout(function() {
+        if (fallbackLink.parentNode) fallbackLink.parentNode.removeChild(fallbackLink)
+      }, 120)
+    }
+  } catch (error) {
+    console.warn("exportSandbox download failed:", error)
+    if (typeof showNotification === "function") showNotification("Export impossible")
+    return null
+  }
+  showNotification("Export MJ/Joueur telecharge")
   return {
     ...exportEntry,
     summary
   }
+}
+
+function downloadSandboxExportPayload(payload, fileName) {
+  try {
+    const raw = typeof payload === "string" ? payload : JSON.stringify(payload, null, 2)
+    const safeName = String(fileName || "export.json").trim() || "export.json"
+    if (typeof Blob !== "undefined" && typeof URL !== "undefined" && typeof URL.createObjectURL === "function") {
+      const blob = new Blob([raw], { type: "application/json;charset=utf-8" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = safeName
+      link.style.display = "none"
+      document.body.appendChild(link)
+      link.click()
+      setTimeout(function() {
+        try { URL.revokeObjectURL(url) } catch (_) {}
+        if (link.parentNode) link.parentNode.removeChild(link)
+      }, 120)
+      return true
+    }
+    const fallbackLink = document.createElement("a")
+    fallbackLink.href = "data:application/json;charset=utf-8," + encodeURIComponent(raw)
+    fallbackLink.download = safeName
+    fallbackLink.style.display = "none"
+    document.body.appendChild(fallbackLink)
+    fallbackLink.click()
+    setTimeout(function() {
+      if (fallbackLink.parentNode) fallbackLink.parentNode.removeChild(fallbackLink)
+    }, 120)
+    return true
+  } catch (error) {
+    console.warn("downloadSandboxExportPayload failed:", error)
+  }
+  return false
+}
+
+function openSandboxExportOverlay(exportEntry) {
+  try {
+    if (!exportEntry) return false
+    const existing = document.getElementById("sandboxExportOverlay")
+    if (existing) existing.remove()
+    const summary = exportEntry.summary || getCurrentSandboxSummary()
+    const safeTitle = sanitizeSandboxSaveFileName(summary.title || exportEntry.label || "session")
+    const combinedPayload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      exportId: exportEntry.id,
+      label: exportEntry.label,
+      summary: summary,
+      mjSandbox: exportEntry.mjSandbox || exportEntry.sandbox || null,
+      playerSandbox: exportEntry.playerSandbox || null
+    }
+    const overlay = document.createElement("div")
+    overlay.id = "sandboxExportOverlay"
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.84);display:flex;align-items:center;justify-content:center;z-index:1000000300;padding:18px;"
+    overlay.addEventListener("mousedown", function(event) {
+      if (event.target === overlay) overlay.remove()
+    })
+    const panel = document.createElement("div")
+    panel.style.cssText = "width:min(760px,94vw);max-height:90vh;overflow:auto;padding:24px;border-radius:18px;background:linear-gradient(180deg,rgba(18,14,10,0.98),rgba(7,7,7,0.98));border:1px solid rgba(214,180,106,0.42);box-shadow:0 24px 60px rgba(0,0,0,0.78);color:#f3e7cf;font-family:Cinzel,serif;"
+    panel.innerHTML =
+      `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px;">` +
+        `<div>` +
+          `<div style="font-size:24px;letter-spacing:2px;color:#f0d087;">Export de partie</div>` +
+          `<div style="margin-top:8px;font-size:13px;line-height:1.6;color:#cdbb96;">L’export a bien ete prepare. Tu peux telecharger la version combinee, la version MJ seule ou la version Joueur seule.</div>` +
+        `</div>` +
+        `<button type="button" id="sandboxExportClose" style="padding:10px 14px;background:#222;color:#f3e7cf;border:1px solid #555;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Fermer</button>` +
+      `</div>` +
+      `<div style="display:grid;gap:12px;">` +
+        `<div style="padding:14px 16px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(214,180,106,0.16);">` +
+          `<div style="font-size:14px;color:#f0d087;">${String(summary.title || "Roleplay It Yourself")}</div>` +
+          `<div style="margin-top:6px;font-size:12px;color:#bfae8b;">${String(summary.theme || "medieval_fantasy")} · ${String(summary.playerCount || 4)} joueurs</div>` +
+          `<div style="margin-top:6px;font-size:11px;color:#97886c;">${String(exportEntry.label || "Version jouable")}</div>` +
+        `</div>` +
+        `<div style="display:flex;flex-wrap:wrap;gap:10px;">` +
+          `<button type="button" id="sandboxExportCombined" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Telecharger export complet</button>` +
+          `<button type="button" id="sandboxExportMJ" style="padding:10px 16px;background:rgba(15,40,56,0.72);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Telecharger version MJ</button>` +
+          `<button type="button" id="sandboxExportPlayer" style="padding:10px 16px;background:rgba(15,40,56,0.72);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Telecharger version Joueur</button>` +
+        `</div>` +
+        `<textarea readonly style="width:100%;min-height:220px;padding:12px 14px;box-sizing:border-box;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.3);border-radius:10px;color:#f5e6c8;font-family:Consolas,monospace;font-size:12px;line-height:1.5;">${JSON.stringify(combinedPayload, null, 2).replace(/</g, "&lt;")}</textarea>` +
+      `</div>`
+    overlay.appendChild(panel)
+    document.body.appendChild(overlay)
+
+    const combinedName = safeTitle + "-export-" + new Date().toISOString().slice(0, 10) + ".json"
+    const mjName = safeTitle + "-mj-" + new Date().toISOString().slice(0, 10) + ".json"
+    const playerName = safeTitle + "-joueur-" + new Date().toISOString().slice(0, 10) + ".json"
+
+    document.getElementById("sandboxExportClose").onclick = function() { overlay.remove() }
+    document.getElementById("sandboxExportCombined").onclick = function() {
+      if (downloadSandboxExportPayload(combinedPayload, combinedName)) showNotification("Export complet telecharge")
+      else showNotification("Telechargement impossible")
+    }
+    document.getElementById("sandboxExportMJ").onclick = function() {
+      if (downloadSandboxExportPayload(exportEntry.mjSandbox || exportEntry.sandbox || {}, mjName)) showNotification("Version MJ telechargee")
+      else showNotification("Telechargement impossible")
+    }
+    document.getElementById("sandboxExportPlayer").onclick = function() {
+      if (downloadSandboxExportPayload(exportEntry.playerSandbox || {}, playerName)) showNotification("Version Joueur telechargee")
+      else showNotification("Telechargement impossible")
+    }
+    return true
+  } catch (error) {
+    console.warn("openSandboxExportOverlay failed:", error)
+  }
+  return false
+}
+
+function triggerSandboxExport(label) {
+  try {
+    const exportEntry = exportSandbox(label)
+    if (!exportEntry) return null
+    openSandboxExportOverlay(exportEntry)
+    return exportEntry
+  } catch (error) {
+    console.warn("triggerSandboxExport failed:", error)
+    if (typeof showNotification === "function") showNotification("Export impossible")
+  }
+  return null
+}
+
+function applySessionExportSnapshot(role, sessionData) {
+  try {
+    const wantedRole = String(role || "").trim().toLowerCase() === "player" ? "player" : "mj"
+    const source = sessionData && typeof sessionData === "object" ? sessionData : {}
+    const snapshot = wantedRole === "player"
+      ? (source.playerExportSnapshot || source.exportSnapshot || null)
+      : (source.mjExportSnapshot || source.exportSnapshot || null)
+    if (!snapshot || typeof applySandboxLocalLoadSnapshot !== "function") return false
+    applySandboxLocalLoadSnapshot({ customization: snapshot }, { openSandboxAfterLoad: true })
+    try {
+      if (wantedRole === "mj" && typeof activateGM === "function") activateGM(true)
+    } catch (_) {}
+    return true
+  } catch (error) {
+    console.warn("applySessionExportSnapshot failed:", error)
+  }
+  return false
 }
 
 function launchSessionFromExport(exportEntry) {
@@ -241,17 +759,27 @@ function launchSessionFromExport(exportEntry) {
     exportId: exportEntry.id,
     exportLabel: String(exportEntry.label || "Version jouable"),
     exportCreatedAt: Number(exportEntry.createdAt) || Date.now(),
-    exportSnapshot: exportEntry.sandbox || (typeof createSandboxSnapshot === "function" ? createSandboxSnapshot() : null),
+    exportSnapshot: exportEntry.sandbox || exportEntry.mjSandbox || (typeof createSandboxSnapshot === "function" ? createSandboxSnapshot() : null),
+    mjExportSnapshot: exportEntry.mjSandbox || exportEntry.sandbox || (typeof createSandboxSnapshot === "function" ? createSandboxSnapshot() : null),
+    playerExportSnapshot: exportEntry.playerSandbox || (typeof createSandboxPlayerSnapshot === "function"
+      ? createSandboxPlayerSnapshot(exportEntry.sandbox || exportEntry.mjSandbox || null)
+      : (exportEntry.sandbox || null)),
     joinCode,
     title: summary.title,
     theme: summary.theme,
     playerCount: summary.playerCount,
+    roleMode: "mj_player_split",
     status: "lobby",
     createdAt: Date.now()
   }
 
   db.ref(SESSION_REF_PATH).set({ ...sessionData, slots: buildSessionSlots(summary.playerCount) }).then(() => {
     try { localStorage.setItem("rpg_last_join_code", joinCode) } catch (e) {}
+    try {
+      localStorage.setItem("rpg_last_session_role", "mj")
+      localStorage.setItem("rpg_last_session_export_id", String(sessionData.exportId || ""))
+    } catch (e) {}
+    applySessionExportSnapshot("mj", sessionData)
     showNotification("Partie lancee : " + joinCode)
     openSessionLobbyOverlay(sessionData)
   }).catch(error => {
@@ -393,6 +921,11 @@ function openJoinSessionOverlay() {
       }
       window.__activeJoinCode = code
       try { localStorage.setItem("rpg_last_join_code", code) } catch (e) {}
+      try {
+        localStorage.setItem("rpg_last_session_role", "player")
+        localStorage.setItem("rpg_last_session_export_id", String(session.exportId || ""))
+      } catch (e) {}
+      applySessionExportSnapshot("player", session)
       overlay.remove()
       requestPlayerAuth()
       refreshSessionSlotAvailability()
@@ -404,6 +937,15 @@ function openJoinSessionOverlay() {
   })
   setTimeout(() => input.focus(), 20)
 }
+
+try {
+  window.triggerSandboxExport = triggerSandboxExport
+  window.exportSandbox = exportSandbox
+  window.launchSessionFromExport = launchSessionFromExport
+  window.launchSessionFromLatestExport = launchSessionFromLatestExport
+  window.launchSessionFromSandbox = launchSessionFromSandbox
+  window.openJoinSessionOverlay = openJoinSessionOverlay
+} catch (_) {}
 
 window.groupMadness = 0
 window.groupMadnessTier = 0
@@ -566,6 +1108,11 @@ function watchLocalPlayerDefeat(playerId) {
 
   window.__localPlayerId = pid
   try { localStorage.setItem("rpg_local_player", pid) } catch (e) {}
+  try {
+    if (typeof loadUserAudioPreferencesForCurrentProfile === "function") {
+      loadUserAudioPreferencesForCurrentProfile()
+    }
+  } catch (e) {}
 
   if (window.__localDefeatRef && window.__localDefeatCb) {
     window.__localDefeatRef.off("value", window.__localDefeatCb)
@@ -1644,7 +2191,11 @@ db.ref("game/map").on("value", snap => {
     updateMapLoreBookVisibility()
     if (isFirst) { calculateMinZoom(); cameraZoom = minZoom; updateCamera() }
     document.querySelectorAll(".token").forEach(t => spawnPortal(t.id))
-    if (mapMusic[mapName] && !_state._pendingMapAudio) {
+    if (!_state._pendingMapAudio) {
+      const customAudio = getSandboxMapAudioForValue(mapName)
+      if (customAudio) {
+        applyMapAudioSelection(customAudio, 200)
+      } else if (mapMusic[mapName]) {
       const shouldKeepAuroraMusic = auroraActive && mapName !== "bifrost.jpg"
       const wantedMusic = /^(https?:|data:|blob:|\/|audio\/)/i.test(mapMusic[mapName]) ? mapMusic[mapName] : "audio/" + mapMusic[mapName]
       const activeMusic = currentMusic === "A" ? document.getElementById("musicA") : document.getElementById("musicB")
@@ -1664,6 +2215,9 @@ db.ref("game/map").on("value", snap => {
         }
         stopAllMusic()
         ensureMapMusicPlayback(mapName, 200)
+      }
+      } else {
+        applyMapAudioSelection("", 200)
       }
     }
   }, 800)
@@ -2797,6 +3351,23 @@ function getSandboxMapAudioForValue(mapValue, mapsSource) {
   return ""
 }
 
+function syncAudioForMapValue(mapValue, delay = 0) {
+  const targetMap = String(mapValue || "").trim()
+  if (!targetMap) return false
+  const customAudio = getSandboxMapAudioForValue(targetMap)
+  if (customAudio) {
+    applyMapAudioSelection(customAudio, delay)
+    return true
+  }
+  if (mapMusic[targetMap]) {
+    if (delay > 0) ensureMapMusicPlayback(targetMap, delay)
+    else playInitialMapMusic(targetMap)
+    return true
+  }
+  applyMapAudioSelection("", delay)
+  return false
+}
+
 function revivePlayer(playerId) {
   deadPlayers[playerId] = false
   db.ref("characters/" + playerId + "/hp").set(1)
@@ -2925,6 +3496,8 @@ function collectSandboxLocalSaveData() {
   try {
     customization.project = customization.project && typeof customization.project === "object" ? customization.project : {}
     customization.content = customization.content && typeof customization.content === "object" ? customization.content : {}
+    customization.content.mapTabs = Array.isArray(customization.content.mapTabs) ? customization.content.mapTabs : []
+    customization.content.pnjTabs = Array.isArray(customization.content.pnjTabs) ? customization.content.pnjTabs : []
     const liveTheme = String(
       window.__currentProjectTheme
       || (document.body && document.body.getAttribute("data-project-theme"))
@@ -3009,6 +3582,8 @@ function collectSandboxLocalSaveData() {
         startMapId: String(customization && customization.project && customization.project.startMapId || window.__onboardingStartMapId || "").trim(),
         startMapAsset: String(customization && customization.project && customization.project.startMapAsset || window.__onboardingStartMapAsset || "").trim(),
         startMapLabel: String(customization && customization.project && customization.project.startMapLabel || window.__onboardingStartMapLabel || "").trim(),
+        mapTabs: Array.isArray(customization.content.mapTabs) ? customization.content.mapTabs.slice() : [],
+        pnjTabs: Array.isArray(customization.content.pnjTabs) ? customization.content.pnjTabs.slice() : [],
         maps: runtimeMapsSnapshot.map(function(item) { return { ...item } }),
         pnjs: runtimePnjsSnapshot.map(function(item) { return { ...item } }),
         currentMap: String(window.__latestMapValue || currentMap || "").trim(),
@@ -3205,9 +3780,16 @@ function resolveLoadedSandboxCustomization(data) {
           map: String(item && item.map || ""),
           category: String(item && item.category || "Custom"),
           section: String(item && item.section || "lieux"),
+          tab: normalizeSandboxManagerTabName(item && item.tab),
           audio: String(item && item.audio || "")
         }
       })
+    }
+
+    if (Array.isArray(sandboxState.mapTabs)) {
+      customization.content.mapTabs = sandboxState.mapTabs
+        .map(normalizeSandboxManagerTabName)
+        .filter(Boolean)
     }
 
     if (Array.isArray(sandboxState.pnjs)) {
@@ -3216,9 +3798,16 @@ function resolveLoadedSandboxCustomization(data) {
           id: String(item && item.id || ("pnj_" + index)),
           label: String(item && item.label || "PNJ"),
           image: String(item && item.image || ""),
-          category: String(item && item.category || "Custom")
+          category: String(item && item.category || "Custom"),
+          tab: normalizeSandboxManagerTabName(item && item.tab)
         }
       })
+    }
+
+    if (Array.isArray(sandboxState.pnjTabs)) {
+      customization.content.pnjTabs = sandboxState.pnjTabs
+        .map(normalizeSandboxManagerTabName)
+        .filter(Boolean)
     }
 
     return customization
@@ -5033,6 +5622,12 @@ function getSandboxManagerLocalStorageKey(type) {
     : "rpg_manager_tabs_map_v1"
 }
 
+function getSandboxManagerActiveTabLocalStorageKey(type) {
+  return String(type || "").trim() === "pnj"
+    ? "rpg_manager_active_tab_pnj_v1"
+    : "rpg_manager_active_tab_map_v1"
+}
+
 function getSandboxItemTabOverrideStorageKey(type) {
   return String(type || "").trim() === "pnj"
     ? "rpg_manager_item_tabs_pnj_v1"
@@ -5069,14 +5664,25 @@ function getSandboxManagerTabs(type) {
       ? window.__sandboxManagerTabs
       : {}
     const localStorageKey = getSandboxManagerLocalStorageKey(type)
-    const storedLocalTabs = typeof localStorage !== "undefined"
-      ? JSON.parse(localStorage.getItem(localStorageKey) || "[]")
-      : []
+    let storedLocalTabs = []
+    try {
+      storedLocalTabs = typeof localStorage !== "undefined"
+        ? JSON.parse(localStorage.getItem(localStorageKey) || "[]")
+        : []
+    } catch (_) {
+      storedLocalTabs = []
+    }
+    const runtimeItems = String(type || "").trim() === "pnj"
+      ? (typeof getSimpleSandboxPnjs === "function" ? getSimpleSandboxPnjs() : [])
+      : (typeof getSimpleSandboxMaps === "function" ? getSimpleSandboxMaps() : [])
+    const runtimeItemTabs = (Array.isArray(runtimeItems) ? runtimeItems : [])
+      .map(function(item) { return normalizeSandboxManagerTabName(item && item.tab) })
+      .filter(Boolean)
     if (typeof getCustomization !== "function") {
       const runtimeOnlyTabs = Array.isArray(window.__sandboxManagerTabs[getSandboxManagerTabStorageKey(type)])
         ? window.__sandboxManagerTabs[getSandboxManagerTabStorageKey(type)]
         : []
-      return runtimeOnlyTabs.concat(Array.isArray(storedLocalTabs) ? storedLocalTabs : [])
+      return runtimeOnlyTabs.concat(Array.isArray(storedLocalTabs) ? storedLocalTabs : [], runtimeItemTabs)
         .map(normalizeSandboxManagerTabName)
         .filter(Boolean)
         .filter(function(name, index, list) { return list.indexOf(name) === index })
@@ -5093,7 +5699,7 @@ function getSandboxManagerTabs(type) {
       .map(function(item) { return normalizeSandboxManagerTabName(item && item.tab) })
       .filter(Boolean)
     return runtimeTabs
-      .concat(Array.isArray(storedLocalTabs) ? storedLocalTabs : [], storedTabs, itemTabs)
+      .concat(Array.isArray(storedLocalTabs) ? storedLocalTabs : [], storedTabs, itemTabs, runtimeItemTabs)
       .map(normalizeSandboxManagerTabName)
       .filter(Boolean)
       .filter(function(name, index, list) { return list.indexOf(name) === index })
@@ -5106,7 +5712,6 @@ function saveSandboxManagerTabs(type, tabs) {
     window.__sandboxManagerTabs = window.__sandboxManagerTabs && typeof window.__sandboxManagerTabs === "object"
       ? window.__sandboxManagerTabs
       : {}
-    if (typeof getCustomization !== "function" || typeof saveCustomization !== "function") return false
     const key = getSandboxManagerTabStorageKey(type)
     const cleanTabs = (Array.isArray(tabs) ? tabs : [])
       .map(normalizeSandboxManagerTabName)
@@ -5118,6 +5723,7 @@ function saveSandboxManagerTabs(type, tabs) {
         localStorage.setItem(getSandboxManagerLocalStorageKey(type), JSON.stringify(cleanTabs))
       }
     } catch (_) {}
+    if (typeof getCustomization !== "function" || typeof saveCustomization !== "function") return true
     const next = getCustomization()
     next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
     next.content[key] = cleanTabs
@@ -5132,7 +5738,16 @@ function getSandboxManagerActiveTab(type) {
     window.__sandboxManagerActiveTabs = window.__sandboxManagerActiveTabs && typeof window.__sandboxManagerActiveTabs === "object"
       ? window.__sandboxManagerActiveTabs
       : {}
-    const raw = normalizeSandboxManagerTabName(window.__sandboxManagerActiveTabs[type])
+    let raw = normalizeSandboxManagerTabName(window.__sandboxManagerActiveTabs[type])
+    if (!raw) {
+      try {
+        raw = normalizeSandboxManagerTabName(
+          typeof localStorage !== "undefined"
+            ? localStorage.getItem(getSandboxManagerActiveTabLocalStorageKey(type))
+            : ""
+        )
+      } catch (_) {}
+    }
     return raw || "all"
   } catch (_) {}
   return "all"
@@ -5143,7 +5758,13 @@ function setSandboxManagerActiveTab(type, tabName) {
     window.__sandboxManagerActiveTabs = window.__sandboxManagerActiveTabs && typeof window.__sandboxManagerActiveTabs === "object"
       ? window.__sandboxManagerActiveTabs
       : {}
-    window.__sandboxManagerActiveTabs[type] = normalizeSandboxManagerTabName(tabName) || "all"
+    const clean = normalizeSandboxManagerTabName(tabName) || "all"
+    window.__sandboxManagerActiveTabs[type] = clean
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(getSandboxManagerActiveTabLocalStorageKey(type), clean)
+      }
+    } catch (_) {}
   } catch (_) {}
 }
 
@@ -5195,8 +5816,8 @@ function createSandboxManagerTab(type) {
     const currentTabs = Array.isArray(window.__sandboxManagerTabs[key]) ? window.__sandboxManagerTabs[key].slice() : getSandboxManagerTabs(type)
     if (!currentTabs.includes(clean)) currentTabs.push(clean)
     window.__sandboxManagerTabs[key] = currentTabs
+    saveSandboxManagerTabs(type, currentTabs)
   } catch (_) {}
-  ensureSandboxManagerTabExists(type, clean)
   setSandboxManagerActiveTab(type, clean)
   if (type === "pnj") renderSandboxPnjManagerOverlayV2()
   else renderSandboxMapManagerOverlayV2()
@@ -5210,7 +5831,11 @@ function renderSandboxManagerTabsRow(type, overlay, items) {
   if (!host) return
   const previewMode = !!(document.body && document.body.classList.contains("sandbox-preview-mode"))
   const tabs = getSandboxManagerTabs(type)
-  const activeTab = getSandboxManagerActiveTab(type)
+  let activeTab = getSandboxManagerActiveTab(type)
+  if (activeTab !== "all" && activeTab !== "__untabbed__" && !tabs.includes(activeTab)) {
+    activeTab = "all"
+    setSandboxManagerActiveTab(type, activeTab)
+  }
   host.innerHTML = ""
 
   function createTabButton(id, label, isActive, onClick) {
@@ -6174,7 +6799,6 @@ function startGame() {
   if (gameStarted) return
   gameStarted = true
   primeMapMusicChannels()
-  playInitialMapMusic(window.__latestMapValue || "background.jpg")
   hideIntroLayers()
   setGameState(GAME_STATE.INTRO)
   const fade = document.getElementById("fadeScreen"); fade.style.opacity = 1
@@ -6197,6 +6821,7 @@ function fadeOut() {
 
 function showTavern() {
   if (typeof setBuilderShellVisible === "function") setBuilderShellVisible(false)
+  try { initializeSharedNotebook() } catch (_) {}
   hideIntroLayers()
   setGameState("GAME")
   const fade = document.getElementById("fadeScreen"); const map = document.getElementById("map")
@@ -6222,10 +6847,9 @@ function showTavern() {
     if (isGM) maybeSpawnMapLoreBook(mapName)
     syncMapElementsFromDB()
     syncWantedStateFromDB()
-    playInitialMapMusic(mapName)
-    ensureMapMusicPlayback(mapName, 0)
+    syncAudioForMapValue(mapName, 0)
     setTimeout(() => { fade.style.opacity = 0 }, 500)
-    ensureMapMusicPlayback(mapName, 800)
+    syncAudioForMapValue(mapName, 800)
     setTimeout(() => {
       const displayName = getMapDisplayLabel(mapName)
       if (displayName) showLocation(displayName)
@@ -6325,6 +6949,11 @@ function requestGM() {
 
 function activateGM(fromFirebaseRole = false) {
   isGM = true
+  try {
+    if (typeof loadUserAudioPreferencesForCurrentProfile === "function") {
+      loadUserAudioPreferencesForCurrentProfile()
+    }
+  } catch (e) {}
   ensureSandboxStudioChromeVisible()
   const gmBar = document.getElementById("gmBar")
   const mjLog = document.getElementById("mjLog")
@@ -6342,6 +6971,7 @@ function activateGM(fromFirebaseRole = false) {
   } catch (_) {}
   ensureMadnessGMButton()
   updateThuumButton()
+  updatePlayerNotesVisibility()
   if (!window.__gmModeActivatedOnce) {
     window.__gmModeActivatedOnce = true
     showNotification(fromFirebaseRole ? "Mode MJ active (Firebase)" : "Mode MJ active")
@@ -6519,11 +7149,15 @@ window.endSandboxMapDrag = endSandboxMapDrag
 
 function openPNJTab(id, el) {
   if (window.event) window.event.stopPropagation()
-  document.querySelectorAll(".pnjTabContent").forEach(tab => { tab.style.display = "none"; tab.classList.remove("active") })
-  document.querySelectorAll(".pnjTab").forEach(tab => tab.classList.remove("active"))
+  const trigger = el || null
+  const scope = trigger && trigger.closest
+    ? (trigger.closest(".gmSection") || trigger.closest("#sandboxPnjManagerOverlay") || document)
+    : document
+  scope.querySelectorAll(".pnjTabContent").forEach(tab => { tab.style.display = "none"; tab.classList.remove("active") })
+  scope.querySelectorAll(".pnjTab").forEach(tab => tab.classList.remove("active"))
   const target = document.getElementById(id)
   if (target) { target.style.display = "block"; target.classList.add("active") }
-  el.classList.add("active")
+  if (trigger) trigger.classList.add("active")
 }
 
 document.addEventListener("click", function(event) {
@@ -6588,6 +7222,7 @@ function choosePlayer(id) {
     watchFreePoints(id)
     refreshSessionSlotAvailability()
     _collapsePlayerMenu(id)
+    updatePlayerNotesVisibility()
   })
 }
 

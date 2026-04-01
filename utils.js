@@ -239,6 +239,7 @@ function saveSandboxExports(exportsList) {
 
 function createSandboxExport(data, label) {
   const snapshot = createSandboxSnapshot(data)
+  const playerSnapshot = createSandboxPlayerSnapshot(snapshot)
   const exportsList = getSandboxExports()
   const createdAt = Date.now()
   const exportEntry = {
@@ -246,7 +247,9 @@ function createSandboxExport(data, label) {
     label: String(label || "").trim() || ("Version jouable " + (exportsList.length + 1)),
     createdAt,
     summary: getSandboxSummary(snapshot),
-    sandbox: snapshot
+    sandbox: snapshot,
+    mjSandbox: snapshot,
+    playerSandbox: playerSnapshot
   }
   exportsList.unshift(exportEntry)
   saveSandboxExports(exportsList)
@@ -256,6 +259,15 @@ function createSandboxExport(data, label) {
 function getLatestSandboxExport() {
   const exportsList = getSandboxExports()
   return exportsList.length ? exportsList[0] : null
+}
+
+function createSandboxPlayerSnapshot(data) {
+  const snapshot = createSandboxSnapshot(data)
+  snapshot.project = snapshot.project && typeof snapshot.project === "object" ? { ...snapshot.project } : {}
+  delete snapshot.project.sharedNotebookPages
+  delete snapshot.project.sharedNotebookText
+  delete snapshot.project.sharedNotebookUpdatedAt
+  return snapshot
 }
 
 function getPlayerCustomization(playerId) {
@@ -580,10 +592,44 @@ function getUserEffectsVolume() {
   return 0.8
 }
 
+function getAudioProfileKey() {
+  try {
+    if (typeof isGM !== "undefined" && isGM) return "mj"
+  } catch (e) {}
+  try {
+    if (typeof getLocalPlayerId === "function") {
+      const localId = String(getLocalPlayerId() || "").trim().toLowerCase()
+      if (localId) return localId
+    }
+  } catch (e) {}
+  return "local"
+}
+
+function getAudioProfileLabel() {
+  const profileKey = getAudioProfileKey()
+  if (profileKey === "mj") return "MJ"
+  if (profileKey === "greg") return "Joueur 1"
+  if (profileKey === "ju") return "Joueur 2"
+  if (profileKey === "elo") return "Joueur 3"
+  if (profileKey === "bibi") return "Joueur 4"
+  return "Local"
+}
+
+function getAudioProfileStorageKey(channel) {
+  const safeChannel = channel === "music" ? "music" : "effects"
+  return "rpg_" + safeChannel + "_volume_" + getAudioProfileKey()
+}
+
+function updateAudioProfileLabel() {
+  const label = document.getElementById("audioProfileLabel")
+  if (!label) return
+  label.textContent = "Profil audio : " + getAudioProfileLabel()
+}
+
 function setUserEffectsVolume(volume) {
   const normalized = Math.max(0, Math.min(1, parseFloat(volume)))
   window.__userEffectsVolume = Number.isFinite(normalized) ? normalized : 0.8
-  try { localStorage.setItem("rpg_effects_volume", String(window.__userEffectsVolume)) } catch (e) {}
+  try { localStorage.setItem(getAudioProfileStorageKey("effects"), String(window.__userEffectsVolume)) } catch (e) {}
   return window.__userEffectsVolume
 }
 
@@ -597,7 +643,7 @@ function getUserMusicVolume() {
 function setUserMusicVolume(volume) {
   const normalized = Math.max(0, Math.min(1, parseFloat(volume)))
   window.__userMusicVolume = Number.isFinite(normalized) ? normalized : 0.8
-  try { localStorage.setItem("rpg_music_volume", String(window.__userMusicVolume)) } catch (e) {}
+  try { localStorage.setItem(getAudioProfileStorageKey("music"), String(window.__userMusicVolume)) } catch (e) {}
   return window.__userMusicVolume
 }
 
@@ -1030,29 +1076,46 @@ function scanAssets() {
   })
 }
 
-/* ========================= */
-/* VOLUME SLIDER             */
-/* ========================= */
-
-document.addEventListener("DOMContentLoaded", () => {
+function loadUserAudioPreferencesForCurrentProfile() {
   const musicSlider = document.getElementById("musicVolumeSlider")
-  const effectsSlider = document.getElementById("effectsVolumeSlider")
   let initialMusicVolume = 0.8
   let initialEffectsVolume = 0.8
   try {
-    const storedMusicVolume = parseFloat(localStorage.getItem("rpg_music_volume"))
-    const storedEffectsVolume = parseFloat(localStorage.getItem("rpg_effects_volume"))
+    const storedMusicVolume = parseFloat(localStorage.getItem(getAudioProfileStorageKey("music")))
+    const storedEffectsVolume = parseFloat(localStorage.getItem(getAudioProfileStorageKey("effects")))
+    const legacyMusicVolume = parseFloat(localStorage.getItem("rpg_music_volume"))
+    const legacyEffectsVolume = parseFloat(localStorage.getItem("rpg_effects_volume"))
     const legacyVolume = parseFloat(localStorage.getItem("rpg_volume"))
     if (Number.isFinite(storedMusicVolume)) initialMusicVolume = Math.max(0, Math.min(1, storedMusicVolume))
+    else if (Number.isFinite(legacyMusicVolume)) initialMusicVolume = Math.max(0, Math.min(1, legacyMusicVolume))
     else if (Number.isFinite(legacyVolume)) initialMusicVolume = Math.max(0, Math.min(1, legacyVolume))
     if (Number.isFinite(storedEffectsVolume)) initialEffectsVolume = Math.max(0, Math.min(1, storedEffectsVolume))
+    else if (Number.isFinite(legacyEffectsVolume)) initialEffectsVolume = Math.max(0, Math.min(1, legacyEffectsVolume))
     else if (Number.isFinite(legacyVolume)) initialEffectsVolume = Math.max(0, Math.min(1, legacyVolume))
   } catch (e) {}
 
   setUserMusicVolume(initialMusicVolume)
   setUserEffectsVolume(initialEffectsVolume)
   if (musicSlider) musicSlider.value = String(initialMusicVolume)
-  if (effectsSlider) effectsSlider.value = String(initialEffectsVolume)
+  updateAudioProfileLabel()
+  syncManagedAudioVolumes()
+  forcePrimaryAudioVolumes()
+
+  const menuMusic = document.getElementById("music")
+  if (menuMusic) {
+    menuMusic.__baseVolume = 1
+    menuMusic.__audioChannel = "music"
+    menuMusic.volume = getScaledAudioVolume(1, "music")
+  }
+}
+
+/* ========================= */
+/* VOLUME SLIDER             */
+/* ========================= */
+
+document.addEventListener("DOMContentLoaded", () => {
+  const musicSlider = document.getElementById("musicVolumeSlider")
+  loadUserAudioPreferencesForCurrentProfile()
   initializeManagedAudioElements()
   forcePrimaryAudioVolumes()
 
@@ -1074,16 +1137,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     musicSlider.addEventListener("input", handleMusicSlider)
     musicSlider.addEventListener("change", handleMusicSlider)
-  }
-
-  if (effectsSlider) {
-    const handleEffectsSlider = () => {
-      setUserEffectsVolume(effectsSlider.value)
-      syncManagedAudioVolumes()
-      forcePrimaryAudioVolumes()
-    }
-    effectsSlider.addEventListener("input", handleEffectsSlider)
-    effectsSlider.addEventListener("change", handleEffectsSlider)
   }
 
   const sheet = document.getElementById("characterSheet")

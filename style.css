@@ -119,6 +119,386 @@ html, body {
   pointer-events: auto !important;
 }
 
+#sharedNotebookDock {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(calc(-50% - 320px));
+  z-index: 1000000002;
+}
+
+#playerNotesDock {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(calc(-50% + 320px));
+  z-index: 1000000002;
+}
+
+#sharedNotebookBtn {
+  width: 64px;
+  height: 64px;
+  border: none;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(42,32,20,0.96), rgba(18,12,8,0.98));
+  box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+#playerNotesBtn {
+  width: 64px;
+  height: 64px;
+  border: none;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(22,36,54,0.96), rgba(10,18,30,0.98));
+  box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+#sharedNotebookBtn img {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+#playerNotesBtn img {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+#sharedNotebookPanel {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(1200px, 96vw);
+  height: min(860px, 92vh);
+  min-width: 320px;
+  min-height: 260px;
+  z-index: 1000000004;
+  border-radius: 28px;
+  overflow: hidden;
+  border: 1px solid rgba(120,88,45,0.22);
+  box-shadow: 0 28px 80px rgba(0,0,0,0.48);
+  background: linear-gradient(180deg, rgba(40,31,20,0.96), rgba(22,16,11,0.98));
+}
+
+#playerNotesPanel {
+  position: fixed;
+  right: 24px;
+  bottom: 96px;
+  width: min(420px, 92vw);
+  height: min(420px, 62vh);
+  z-index: 1000000004;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(120,150,205,0.24);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.42);
+  background: linear-gradient(180deg, rgba(16,24,38,0.98), rgba(8,12,22,0.98));
+}
+
+#playerNotesHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 10px;
+  font-family: "Cinzel", serif;
+  color: #eaf2ff;
+  letter-spacing: 1px;
+}
+
+#playerNotesClose {
+  border: 1px solid rgba(160,190,244,0.28);
+  background: rgba(255,255,255,0.08);
+  color: #eaf2ff;
+  min-width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+#playerNotesBody {
+  height: calc(100% - 60px);
+  padding: 0 16px 16px;
+}
+
+#playerNotesTextarea {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  resize: none;
+  border: 1px solid rgba(160,190,244,0.2);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.04);
+  color: #edf3ff;
+  padding: 14px 16px;
+  outline: none;
+  font-size: 15px;
+  line-height: 1.55;
+  font-family: "Georgia", "Times New Roman", serif;
+}
+
+#playerNotesTextarea::placeholder {
+  color: rgba(237,243,255,0.46);
+}
+
+#sharedNotebookHeader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px 26px 8px;
+  font-family: "Cinzel", serif;
+  color: #f8ebc9;
+  letter-spacing: 2px;
+  position: relative;
+  z-index: 2;
+  text-shadow: 0 2px 10px rgba(24, 12, 4, 0.9);
+}
+
+#sharedNotebookHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: absolute;
+  right: 26px;
+  top: 18px;
+}
+
+#sharedNotebookPrev,
+#sharedNotebookNext,
+#sharedNotebookAddPage,
+#sharedNotebookRemovePage,
+#sharedNotebookClose {
+  border: 1px solid rgba(255, 218, 136, 0.9);
+  background: linear-gradient(180deg, rgba(115, 72, 18, 0.96), rgba(63, 37, 9, 0.96));
+  color: #fff3cf;
+  min-width: 34px;
+  height: 40px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: "Cinzel", serif;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.18s ease, transform 0.18s ease, opacity 0.18s ease;
+  box-shadow: 0 10px 24px rgba(18, 9, 2, 0.42);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
+  font-weight: 700;
+}
+
+#sharedNotebookPrev:hover,
+#sharedNotebookNext:hover,
+#sharedNotebookAddPage:hover,
+#sharedNotebookRemovePage:hover,
+#sharedNotebookClose:hover {
+  background: linear-gradient(180deg, rgba(150, 96, 27, 0.98), rgba(79, 46, 11, 0.98));
+  transform: translateY(-1px);
+}
+
+#sharedNotebookAddPage,
+#sharedNotebookRemovePage {
+  padding: 0 14px;
+}
+
+#sharedNotebookBody {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+#sharedNotebookPageIndicator {
+  position: absolute;
+  top: 112px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: "Cinzel", serif;
+  font-size: 14px;
+  color: rgba(255, 240, 210, 0.92);
+  z-index: 2;
+  text-align: center;
+  text-shadow: 0 2px 6px rgba(24, 12, 4, 0.95);
+  pointer-events: none;
+}
+
+#sharedNotebookTextarea {
+  position: absolute;
+  left: 50%;
+  top: 51%;
+  width: min(430px, 38vw);
+  height: min(620px, 69vh);
+  transform: translate(-47%, -45%);
+  margin: 0;
+  padding: 64px 58px 74px 76px;
+  box-sizing: border-box;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #3c2b18;
+  font-size: 16px;
+  line-height: 1.5;
+  font-family: "Georgia", "Times New Roman", serif;
+  z-index: 2;
+}
+
+#sharedNotebookTextarea::placeholder {
+  color: rgba(93, 66, 34, 0.42);
+}
+
+#sharedNotebookFooter {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  z-index: 3;
+  gap: 10px;
+  width: min(640px, calc(100% - 180px));
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(28, 16, 7, 0.88), rgba(17, 9, 4, 0.92));
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.3);
+}
+
+#sharedNotebookNav {
+  display: flex;
+  align-items: center;
+  justify-content: stretch;
+  gap: 8px;
+  flex: 1 1 auto;
+}
+
+#sharedNotebookTurnHint {
+  display: none;
+}
+
+#sharedNotebookRemovePage,
+#sharedNotebookPrev,
+#sharedNotebookNext {
+  min-width: 0;
+  padding: 0 12px;
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  flex: 1 1 0;
+  height: 34px;
+}
+
+#sharedNotebookClearAll {
+  flex: 0 0 auto;
+  padding: 0 12px;
+  height: 34px;
+  font-size: 12px;
+  letter-spacing: 0.4px;
+}
+
+#sharedNotebookClearAll {
+  border-color: rgba(255, 170, 146, 0.95);
+  background: linear-gradient(180deg, rgba(126, 39, 23, 0.96), rgba(73, 18, 10, 0.96));
+}
+
+#sharedNotebookClearAll:hover {
+  background: linear-gradient(180deg, rgba(160, 50, 28, 0.98), rgba(92, 25, 13, 0.98));
+}
+
+#sharedNotebookPrev[disabled],
+#sharedNotebookNext[disabled] {
+  opacity: 0.42;
+  cursor: default;
+  transform: none;
+}
+
+body[data-project-theme="medieval_fantasy"] #sharedNotebookPanel {
+  background:
+    linear-gradient(rgba(255,244,214,0.18), rgba(239,220,178,0.2)),
+    url("images/notebook.png") center center/contain no-repeat;
+  border: none;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #sharedNotebookBtn {
+  background: url("images/boutonmjmed.png") center/100% 100% no-repeat;
+  box-shadow: 0 10px 24px rgba(23,12,7,0.32);
+}
+
+@media (max-width: 900px) {
+  #sharedNotebookDock {
+    left: 20px;
+    bottom: 20px;
+    transform: none;
+  }
+
+  #playerNotesDock {
+    right: 20px;
+    left: auto;
+    bottom: 20px;
+    transform: none;
+  }
+
+  #sharedNotebookPanel {
+    width: 96vw;
+    height: 88vh;
+  }
+
+  #sharedNotebookTextarea {
+    width: min(360px, 58vw);
+    height: min(520px, 58vh);
+    transform: translate(-47%, -44%);
+    padding: 54px 42px 60px 58px;
+    font-size: 14px;
+  }
+
+  #sharedNotebookHeader {
+    padding-top: 22px;
+  }
+
+  #sharedNotebookHeaderActions {
+    right: 16px;
+    top: 16px;
+  }
+
+  #sharedNotebookFooter {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    width: min(72vw, calc(100% - 72px));
+    padding: 10px 12px;
+  }
+
+  #sharedNotebookClearAll {
+    align-self: flex-start;
+  }
+
+  #sharedNotebookRemovePage {
+    align-self: flex-start;
+  }
+
+  #sharedNotebookNav {
+    width: 100%;
+    margin-left: 0;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  #sharedNotebookPrev,
+  #sharedNotebookNext {
+    min-width: 0;
+    flex: 1 1 48%;
+  }
+}
+
 .gmSection {
   z-index: 1000000003 !important;
   pointer-events: auto !important;
@@ -6714,7 +7094,6 @@ body.sandbox-studio-mode #intro,
 body.sandbox-studio-mode #startScreen,
 body.sandbox-studio-mode #dialogueBox,
 body.sandbox-studio-mode #playerSelect,
-body.sandbox-studio-mode #audioSliders,
 body.sandbox-studio-mode #mjLog,
 body.sandbox-studio-mode #playerAttackBtn,
 body.sandbox-studio-mode #playerThuumBtn,

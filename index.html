@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English&family=Cormorant+SC:wght@500;700&family=Marcellus&family=Orbitron:wght@500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <title>Roleplay It Yourself</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='48'%3E%F0%9F%8E%B2%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?v=195">
+<link rel="stylesheet" href="style.css?v=198">
   <style>
     #playerCodeBtn, #playerCodeBtn * {
       color: #ffd700 !important;
@@ -407,15 +407,8 @@
 <audio id="thuumSound"></audio>
 <audio id="criSound"></audio>
 
-<div id="audioSliders" style="position:fixed;top:12px;right:18px;z-index:1000000002;display:flex;flex-direction:column;gap:6px;padding:8px 10px;background:rgba(0,0,0,0.45);border:1px solid rgba(212,168,53,0.35);border-radius:10px;backdrop-filter:blur(4px);">
-  <label style="display:flex;align-items:center;gap:8px;font-family:Cinzel,serif;font-size:12px;color:#f0d8a0;letter-spacing:1px;">
-    <span style="min-width:54px;">Musique</span>
-    <input id="musicVolumeSlider" type="range" min="0" max="1" step="0.01" value="0.8" oninput="handleMusicSliderDirect(this.value)" onchange="handleMusicSliderDirect(this.value)">
-  </label>
-  <label style="display:flex;align-items:center;gap:8px;font-family:Cinzel,serif;font-size:12px;color:#f0d8a0;letter-spacing:1px;">
-    <span style="min-width:54px;">Effets</span>
-    <input id="effectsVolumeSlider" type="range" min="0" max="1" step="0.01" value="0.8" oninput="handleEffectsSliderDirect(this.value)" onchange="handleEffectsSliderDirect(this.value)">
-  </label>
+<div id="audioSliders" style="position:fixed;top:12px;right:18px;z-index:1000000002;display:flex;align-items:center;padding:8px 10px;background:rgba(0,0,0,0.45);border:1px solid rgba(212,168,53,0.35);border-radius:10px;backdrop-filter:blur(4px);">
+  <input id="musicVolumeSlider" type="range" min="0" max="1" step="0.01" value="0.8" title="Volume" aria-label="Volume" oninput="handleMusicSliderDirect(this.value)" onchange="handleMusicSliderDirect(this.value)" style="width:140px;">
 </div>
 
 <!-- BARRE MJ SAUVEGARDE -->
@@ -425,7 +418,7 @@
     <div id="studioSaveDropdown" class="studioSaveDropdown">
       <button class="studioSaveAction" type="button" onclick="return saveSandboxFromMenu()">Sauvegarder</button>
       <button class="studioSaveAction" type="button" onclick="return loadSandboxFromLocalFileFromMenu()">Charger</button>
-      <button class="studioSaveAction" type="button" onclick="if (typeof exportSandbox === 'function') exportSandbox(); closeStudioSaveMenu()">Exporter</button>
+      <button class="studioSaveAction" type="button" onclick="return exportSandboxFromMenu()">Exporter</button>
       <button class="studioSaveAction studioSaveActionDanger" type="button" onclick="closeStudioSaveMenu(); window.location.reload()">Quitter</button>
     </div>
     <div id="studioSaveHelp" class="studioSaveHelpPanel" aria-live="polite">
@@ -479,6 +472,18 @@
   <button id="sandboxPreviewBtn" type="button" onclick="return toggleSandboxPreviewMode()">Apercu</button>
 </div>
 
+<div id="sharedNotebookDock">
+  <button id="sharedNotebookBtn" type="button" onclick="return toggleSharedNotebookPanel()" title="Cahier">
+    <img src="images/book.png" alt="Cahier">
+  </button>
+</div>
+
+<div id="playerNotesDock" style="display:none;">
+  <button id="playerNotesBtn" type="button" onclick="return togglePlayerNotesPanel()" title="Mes notes">
+    <img src="images/book.png" alt="Mes notes">
+  </button>
+</div>
+
 <!-- BARRE MJ -->
 <div id="gmBar">
   <button class="gmIcon" id="gmCharactersBtn" type="button" onclick="return openGMCharacterPickerInline(event)" title="Personnages (P)">ðŸŽ­</button>
@@ -488,6 +493,38 @@
   <button class="gmIcon" id="gmXpBtn" onclick="toggleGMSection('xpMenu')"       title="XP">â­</button>
   <button class="gmIcon" id="gmElementsBtn" onclick="toggleGMSection('elementsMenu')" title="Ã‰lÃ©ments (E)">ðŸ—</button>
   <button class="gmIcon" id="allyBtn" onclick="openAllyPNJPanel()" title="AlliÃ©s (A)" style="display:none;">âš”</button>
+</div>
+
+<div id="playerNotesPanel" style="display:none;">
+  <div id="playerNotesHeader">
+    <span id="playerNotesTitle">Mes notes</span>
+    <button id="playerNotesClose" type="button" onclick="return closePlayerNotesPanel()" aria-label="Fermer">×</button>
+  </div>
+  <div id="playerNotesBody">
+    <textarea id="playerNotesTextarea" placeholder="Tes notes personnelles..."></textarea>
+  </div>
+</div>
+
+<div id="sharedNotebookPanel" style="display:none;">
+  <div id="sharedNotebookHeader">
+    <span id="sharedNotebookTitle">Cahier</span>
+    <div id="sharedNotebookHeaderActions">
+      <button id="sharedNotebookAddPage" type="button" onclick="return addSharedNotebookPage()" aria-label="Ajouter une page">+</button>
+      <button id="sharedNotebookClose" type="button" onclick="return closeSharedNotebookPanel()" aria-label="Fermer">×</button>
+    </div>
+  </div>
+  <div id="sharedNotebookBody">
+    <div id="sharedNotebookPageIndicator">Page 1 / 1</div>
+    <textarea id="sharedNotebookTextarea" placeholder="Notes du MJ..."></textarea>
+  </div>
+  <div id="sharedNotebookFooter">
+    <button id="sharedNotebookClearAll" type="button" onclick="return clearSharedNotebook()">Vider carnet</button>
+    <div id="sharedNotebookNav">
+      <button id="sharedNotebookRemovePage" type="button" onclick="return removeSharedNotebookPage()">Retirer page</button>
+      <button id="sharedNotebookPrev" type="button" onclick="return turnSharedNotebookPage(-1)" aria-label="Page precedente">‹ Page precedente</button>
+      <button id="sharedNotebookNext" type="button" onclick="return turnSharedNotebookPage(1)" aria-label="Page suivante">Page suivante ›</button>
+    </div>
+  </div>
 </div>
 
 <!-- SECTIONS MJ -->
@@ -1069,18 +1106,32 @@
 <!-- 2. Variables d'Ã©tat -->
 <script src="state.js?v=2"></script>
 <!-- 3. Utilitaires (pas de dÃ©pendances Firebase) -->
-<script src="utils.js?v=15"></script>
+<script src="utils.js?v=17"></script>
 <script src="customization.js?v=59"></script>
 <!-- 4. Logique principale + Firebase listeners -->
-<script src="game.js?v=190"></script>
+<script src="game.js?v=195"></script>
 <!-- 5. Interface utilisateur -->
 <script src="ui.js?v=8"></script>
 <!-- 6. Combat -->
 <script src="combat.js?v=3"></script>
 <script>
+function applyMusicSliderToActiveAudio(normalized) {
+  var safeValue = Math.max(0, Math.min(1, parseFloat(normalized) || 0))
+  ;["music", "musicA", "musicB", "auroraMusic", "forsureMusic", "sortPrisonMusic", "madnessLow", "madnessMid", "madnessHigh", "madnessPeak"].forEach(function(id) {
+    var audio = document.getElementById(id)
+    if (!audio) return
+    audio.__baseVolume = 1
+    audio.__audioChannel = "music"
+    if (!audio.paused || id === "music") {
+      audio.volume = safeValue
+    }
+  })
+}
+
 function handleMusicSliderDirect(value) {
+  var normalized = Math.max(0, Math.min(1, parseFloat(value) || 0))
   try {
-    if (typeof setUserMusicVolume === "function") setUserMusicVolume(value)
+    if (typeof setUserMusicVolume === "function") setUserMusicVolume(normalized)
     if (window.__menuMusicFadeInterval) {
       clearInterval(window.__menuMusicFadeInterval)
       window.__menuMusicFadeInterval = null
@@ -1089,13 +1140,7 @@ function handleMusicSliderDirect(value) {
     if (typeof forcePrimaryAudioVolumes === "function") forcePrimaryAudioVolumes()
   } catch (e) {}
 
-  var music = document.getElementById("music")
-  if (music) {
-    var normalized = Math.max(0, Math.min(1, parseFloat(value) || 0))
-    music.__baseVolume = 1
-    music.__audioChannel = "music"
-    music.volume = normalized
-  }
+  applyMusicSliderToActiveAudio(normalized)
 }
 
 function handleEffectsSliderDirect(value) {
@@ -1574,6 +1619,28 @@ async function saveSandboxFromMenu() {
   closeStudioSaveMenu()
   return false
 }
+
+function exportSandboxFromMenu() {
+  try {
+    var exporter = null
+    if (typeof window.triggerSandboxExport === "function") exporter = window.triggerSandboxExport
+    else if (typeof window.exportSandbox === "function") exporter = window.exportSandbox
+    if (!exporter) {
+      if (typeof showNotification === "function") showNotification("Export indisponible")
+      return false
+    }
+    exporter()
+  } catch (error) {
+    console.error("exportSandboxFromMenu failed:", error)
+    if (typeof showNotification === "function") showNotification("Export impossible")
+  }
+  closeStudioSaveMenu()
+  return false
+}
+
+try {
+  window.exportSandboxFromMenu = exportSandboxFromMenu
+} catch (e) {}
 
 async function loadSandboxFromLocalFileFromMenu() {
   try {

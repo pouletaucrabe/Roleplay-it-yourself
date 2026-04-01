@@ -875,7 +875,7 @@
       const next = collectCustomizationFromPanel()
       saveExtendedCustomization(next)
       applyCustomizationToUI()
-      if (typeof exportSandbox === "function") exportSandbox()
+      if (typeof window !== "undefined" && typeof window.exportSandboxFromMenu === "function") window.exportSandboxFromMenu()
     }
 
     byId("customizationLaunch").onclick = () => {
