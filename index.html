@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English&family=Cormorant+SC:wght@500;700&family=Marcellus&family=Orbitron:wght@500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <title>Roleplay It Yourself</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='48'%3E%F0%9F%8E%B2%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css?v=163">
+  <link rel="stylesheet" href="style.css?v=164">
   <style>
     #playerCodeBtn, #playerCodeBtn * {
       color: #ffd700 !important;
@@ -33,7 +33,7 @@
         <div class="builderLandingBlock">
           <div class="builderLandingSectionLabel">OUTIL POUR MJ</div>
           <button type="button" class="builderLandingButton" onclick="forceOpenSandboxFromClick(true)">NOUVEAU BAC A SABLE</button>
-          <button type="button" class="builderLandingButton" onclick="forceOpenSandboxFromClick(false)">CHARGER BAC A SABLE</button>
+          <button type="button" class="builderLandingButton" onclick="return loadSandboxFromIntroMenu()">CHARGER BAC A SABLE</button>
         </div>
         <div class="builderLandingDivider" aria-hidden="true"></div>
         <div class="builderLandingBlock">
@@ -424,9 +424,26 @@
   <div class="studioSaveMenu">
     <button id="gmSaveBtn" type="button" onclick="toggleStudioSaveMenu()">Save</button>
     <div id="studioSaveDropdown" class="studioSaveDropdown">
-      <button class="studioSaveAction" type="button" onclick="saveSandboxFromMenu()">Sauvegarder</button>
+      <button class="studioSaveAction" type="button" onclick="return saveSandboxFromMenu()">Sauvegarder</button>
+      <button class="studioSaveAction" type="button" onclick="return loadSandboxFromLocalFileFromMenu()">Charger</button>
       <button class="studioSaveAction" type="button" onclick="if (typeof exportSandbox === 'function') exportSandbox(); closeStudioSaveMenu()">Exporter</button>
       <button class="studioSaveAction studioSaveActionDanger" type="button" onclick="closeStudioSaveMenu(); window.location.reload()">Quitter</button>
+    </div>
+    <div id="studioSaveHelp" class="studioSaveHelpPanel" aria-live="polite">
+      <button type="button" class="studioSaveHelpClose" aria-label="Fermer l'aide" onclick="closeStudioSaveHelp()">×</button>
+      <div class="studioSaveHelpTitle">Sauvegarde locale</div>
+      <div class="studioSaveHelpText">
+        Choisis un dossier de projet local pour ton board.
+      </div>
+      <div class="studioSaveHelpText">
+        Le jeu y enregistre <strong>roleplay-save.json</strong>.
+      </div>
+      <div class="studioSaveHelpText">
+        A terme, ce dossier pourra aussi contenir les assets importes dans un sous-dossier <strong>assets/</strong>.
+      </div>
+      <div class="studioSaveHelpText">
+        Pour rouvrir une partie, utilise <strong>Charger</strong> et re-selectionne ce meme dossier.
+      </div>
     </div>
   </div>
 </div>
@@ -1064,7 +1081,7 @@
 <script src="utils.js?v=14"></script>
 <script src="customization.js?v=57"></script>
 <!-- 4. Logique principale + Firebase listeners -->
-<script src="game.js?v=147"></script>
+<script src="game.js?v=161"></script>
 <!-- 5. Interface utilisateur -->
 <script src="ui.js?v=8"></script>
 <!-- 6. Combat -->
@@ -1520,6 +1537,7 @@ function closeStudioSaveMenu() {
   var button = document.getElementById("gmSaveBtn")
   if (menu) menu.classList.remove("open")
   if (button) button.setAttribute("aria-expanded", "false")
+  closeStudioSaveHelp(true)
 }
 
 function toggleStudioSaveMenu() {
@@ -1529,19 +1547,76 @@ function toggleStudioSaveMenu() {
   var nextOpen = !menu.classList.contains("open")
   menu.classList.toggle("open", nextOpen)
   if (button) button.setAttribute("aria-expanded", nextOpen ? "true" : "false")
+  if (nextOpen) {
+    openStudioSaveHelp()
+  } else {
+    closeStudioSaveHelp(true)
+  }
 }
 
-function saveSandboxFromMenu() {
+function openStudioSaveHelp() {
+  var help = document.getElementById("studioSaveHelp")
+  if (!help) return
+  if (help.dataset.dismissed === "true") return
+  help.classList.add("open")
+}
+
+function closeStudioSaveHelp(silent) {
+  var help = document.getElementById("studioSaveHelp")
+  if (!help) return
+  help.classList.remove("open")
+  if (!silent) help.dataset.dismissed = "true"
+}
+
+async function saveSandboxFromMenu() {
   try {
-    if (typeof saveCustomization === "function" && typeof getCustomization === "function") {
+    if (typeof saveSandboxToLocalFolder === "function") {
+      await saveSandboxToLocalFolder()
+    } else if (typeof saveCustomization === "function" && typeof getCustomization === "function") {
       saveCustomization(getCustomization())
+      if (typeof showNotification === "function") showNotification("Bac a sable sauvegarde")
     }
-    if (typeof showNotification === "function") showNotification("Bac a sable sauvegarde")
   } catch (error) {
     console.error("saveSandboxFromMenu failed:", error)
     if (typeof showNotification === "function") showNotification("Sauvegarde impossible")
   }
   closeStudioSaveMenu()
+  return false
+}
+
+async function loadSandboxFromLocalFileFromMenu() {
+  try {
+    if (typeof promptLoadSandboxFromLocalFolder === "function") {
+      await promptLoadSandboxFromLocalFolder()
+    } else if (typeof promptLoadSandboxLocalSaveFile === "function") {
+      promptLoadSandboxLocalSaveFile()
+    } else if (typeof showNotification === "function") {
+      showNotification("Chargement indisponible")
+    }
+  } catch (error) {
+    console.error("loadSandboxFromLocalFileFromMenu failed:", error)
+    if (typeof showNotification === "function") showNotification("Chargement impossible")
+  }
+  closeStudioSaveMenu()
+  return false
+}
+
+async function loadSandboxFromIntroMenu() {
+  try {
+    var loaded = false
+    if (typeof promptLoadSandboxFromLocalFolder === "function") {
+      loaded = await promptLoadSandboxFromLocalFolder({ openSandboxAfterLoad: true })
+    } else if (typeof promptLoadSandboxLocalSaveFile === "function") {
+      loaded = await promptLoadSandboxLocalSaveFile({ openSandboxAfterLoad: true })
+    } else if (typeof showNotification === "function") {
+      showNotification("Chargement indisponible")
+    }
+    return !!loaded
+  } catch (error) {
+    console.error("loadSandboxFromIntroMenu failed:", error)
+    if (typeof showNotification === "function") showNotification("Chargement impossible")
+  }
+  return false
 }
 
 function applySandboxPlayersImmediate(count) {
@@ -2166,6 +2241,7 @@ function openSimpleCharacterSheet(playerId, event) {
 
   var panel = document.createElement("div")
   panel.className = "simpleSheetPanel"
+  panel.dataset.playerId = String(playerId || "")
   var canCustomizeSheet = false
   var canStructureCustomize = false
   try {

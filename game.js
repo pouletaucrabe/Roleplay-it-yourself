@@ -51,6 +51,27 @@ function setSandboxStudioMode(enabled) {
   } catch (e) {}
 }
 
+function ensureSandboxStudioChromeVisible() {
+  try {
+    if (!document.body) return
+    document.body.classList.add("sandbox-studio-mode")
+    var chromeDisplayMap = {
+      gmSaveBar: "block",
+      sandboxPlayerSlotsBar: "block",
+      sandboxStyleBar: "block",
+      sandboxPreviewBar: "block",
+      gmBar: "flex",
+      mjLog: "block",
+      diceBar: "flex",
+      diceLog: "block"
+    }
+    Object.keys(chromeDisplayMap).forEach(function(id) {
+      var el = document.getElementById(id)
+      if (el) el.style.display = chromeDisplayMap[id]
+    })
+  } catch (_) {}
+}
+
 function updateSandboxPreviewButton() {
   try {
     const button = document.getElementById("sandboxPreviewBtn")
@@ -2726,6 +2747,556 @@ function giveXP(amount) {
 /* SAUVEGARDE                */
 /* ========================= */
 
+function sanitizeSandboxSaveFileName(rawTitle) {
+  return String(rawTitle || "bac-a-sable")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-+|-+$/g, "") || "bac-a-sable"
+}
+
+function getSandboxLiveStoryImageValue(slot) {
+  try {
+    const map = {
+      1: "storyImageContent",
+      2: "storyImageContent2",
+      3: "storyImageContent3"
+    }
+    const el = document.getElementById(map[slot] || "")
+    return el && el.getAttribute ? String(el.getAttribute("src") || "").trim() : ""
+  } catch (_) {}
+  return ""
+}
+
+function readSandboxRefWithTimeout(refPath, fallbackValue) {
+  return new Promise(function(resolve) {
+    let settled = false
+    const done = function(value) {
+      if (settled) return
+      settled = true
+      resolve(value)
+    }
+    const timer = setTimeout(function() {
+      done(typeof fallbackValue === "function" ? fallbackValue() : fallbackValue)
+    }, 600)
+    try {
+      db.ref(refPath).once("value").then(function(snapshot) {
+        clearTimeout(timer)
+        done(snapshot && typeof snapshot.val === "function" ? snapshot.val() : null)
+      }).catch(function() {
+        clearTimeout(timer)
+        done(typeof fallbackValue === "function" ? fallbackValue() : fallbackValue)
+      })
+    } catch (_) {
+      clearTimeout(timer)
+      done(typeof fallbackValue === "function" ? fallbackValue() : fallbackValue)
+    }
+  })
+}
+
+function collectSandboxLocalSaveData() {
+  const customization = typeof getCustomization === "function"
+    ? getCustomization()
+    : (typeof getDefaultCustomization === "function" ? getDefaultCustomization() : {})
+  let runtimeMapsSnapshot = []
+  let runtimePnjsSnapshot = []
+  try {
+    customization.project = customization.project && typeof customization.project === "object" ? customization.project : {}
+    customization.content = customization.content && typeof customization.content === "object" ? customization.content : {}
+    const liveTheme = String(
+      window.__currentProjectTheme
+      || (document.body && document.body.getAttribute("data-project-theme"))
+      || (document.documentElement && document.documentElement.getAttribute("data-project-theme"))
+      || customization.project.theme
+      || "medieval_fantasy"
+    ).trim() || "medieval_fantasy"
+    const livePlayerCount = Math.max(
+      1,
+      Math.min(
+        12,
+        parseInt(
+          (document.body && document.body.getAttribute("data-sandbox-player-count"))
+          || customization.project.playerCount
+          || 4,
+          10
+        ) || 4
+      )
+    )
+    const liveTitle = String(
+      customization.project.title
+      || (document.getElementById("gameTitle") && document.getElementById("gameTitle").textContent)
+      || document.title
+      || "Roleplay It Yourself"
+    ).trim() || "Roleplay It Yourself"
+    customization.project.theme = liveTheme
+    customization.project.playerCount = livePlayerCount
+    customization.project.title = liveTitle
+    if (typeof getSimpleSandboxMaps === "function") {
+      runtimeMapsSnapshot = getSimpleSandboxMaps().map(function(item) { return { ...item } })
+      customization.content.maps = runtimeMapsSnapshot.map(function(item) { return { ...item } })
+    }
+    if (typeof getSimpleSandboxPnjs === "function") {
+      runtimePnjsSnapshot = getSimpleSandboxPnjs().map(function(item) { return { ...item } })
+      customization.content.pnjs = runtimePnjsSnapshot.map(function(item) { return { ...item } })
+    }
+  } catch (_) {}
+  const playerIds = Object.keys((customization && customization.players) || {}).filter(Boolean)
+  const basePlayerIds = playerIds.length ? playerIds : ["greg", "ju", "elo", "bibi"]
+  const refs = [
+    { key: "elements", ref: "elements", fallback: null },
+    { key: "game.map", ref: "game/map", fallback: function() { return window.__latestMapValue || currentMap || "" } },
+    { key: "game.wantedPosters", ref: "game/wantedPosters", fallback: function() { return window.__wantedPostersData || null } },
+    { key: "game.wantedOpen", ref: "game/wantedOpen", fallback: null },
+    { key: "game.runeChallenge", ref: "game/runeChallenge", fallback: null },
+    { key: "game.mapLoreBook", ref: "game/mapLoreBook", fallback: function() { return window.mapLoreBookData || null } },
+    { key: "game.readLoreBooks", ref: "game/readLoreBooks", fallback: function() { return window.readLoreBooksData || null } },
+    { key: "game.storyImage", ref: "game/storyImage", fallback: function() { return getSandboxLiveStoryImageValue(1) || null } },
+    { key: "game.storyImage2", ref: "game/storyImage2", fallback: function() { return getSandboxLiveStoryImageValue(2) || null } },
+    { key: "game.storyImage3", ref: "game/storyImage3", fallback: function() { return getSandboxLiveStoryImageValue(3) || null } }
+  ]
+
+  basePlayerIds.forEach(function(playerId) {
+    refs.push({ key: "characters." + playerId, ref: "characters/" + playerId, fallback: {} })
+    if (["greg", "ju", "elo", "bibi"].includes(playerId)) {
+      refs.push({ key: "tokens." + playerId, ref: "tokens/" + playerId, fallback: {} })
+    }
+  })
+
+  return Promise.all(refs.map(function(entry) {
+    return readSandboxRefWithTimeout(entry.ref, entry.fallback).then(function(value) {
+      return { key: entry.key, value: value }
+    })
+  })).then(function(entries) {
+    const payload = {
+      version: 1,
+      savedAt: new Date().toISOString(),
+      customization: customization,
+      sandboxState: {
+        title: String(customization && customization.project && customization.project.title || "Roleplay It Yourself").trim() || "Roleplay It Yourself",
+        theme: String(customization && customization.project && customization.project.theme || "medieval_fantasy").trim() || "medieval_fantasy",
+        playerCount: Math.max(1, Math.min(12, parseInt(customization && customization.project && customization.project.playerCount, 10) || 4)),
+        startMapId: String(customization && customization.project && customization.project.startMapId || window.__onboardingStartMapId || "").trim(),
+        startMapAsset: String(customization && customization.project && customization.project.startMapAsset || window.__onboardingStartMapAsset || "").trim(),
+        startMapLabel: String(customization && customization.project && customization.project.startMapLabel || window.__onboardingStartMapLabel || "").trim(),
+        maps: runtimeMapsSnapshot.map(function(item) { return { ...item } }),
+        pnjs: runtimePnjsSnapshot.map(function(item) { return { ...item } }),
+        currentMap: String(window.__latestMapValue || currentMap || "").trim()
+      },
+      characters: {},
+      tokens: {},
+      elements: null,
+      game: {}
+    }
+
+    entries.forEach(function(entry) {
+      const key = entry.key
+      const value = entry.value
+      if (key === "elements") {
+        payload.elements = value || null
+        return
+      }
+      if (key.indexOf("characters.") === 0) {
+        payload.characters[key.split(".")[1]] = value || {}
+        return
+      }
+      if (key.indexOf("tokens.") === 0) {
+        payload.tokens[key.split(".")[1]] = value || {}
+        return
+      }
+      if (key.indexOf("game.") === 0) {
+        payload.game[key.split(".")[1]] = value
+      }
+    })
+
+    basePlayerIds.forEach(function(playerId) {
+      let localSheet = {}
+      let liveSheet = {}
+      try {
+        if (typeof loadSimpleSheetLocal === "function") {
+          localSheet = loadSimpleSheetLocal(playerId) || {}
+        }
+      } catch (_) {}
+      try {
+        const overlay = document.getElementById("simpleSheetTestOverlay")
+        const panel = overlay ? overlay.querySelector('.simpleSheetPanel[data-player-id="' + String(playerId || "") + '"]') : null
+        if (panel && typeof collectSimpleSheetData === "function") {
+          liveSheet = collectSimpleSheetData(panel) || {}
+        }
+      } catch (_) {}
+      payload.characters[playerId] = {
+        ...(payload.characters[playerId] || {}),
+        ...(localSheet || {}),
+        ...(liveSheet || {})
+      }
+    })
+
+    return payload
+  })
+}
+
+function downloadSandboxLocalSaveFile() {
+  Promise.resolve(collectSandboxLocalSaveData()).then(function(payload) {
+    const title = payload && payload.customization && payload.customization.project
+      ? payload.customization.project.title
+      : "bac-a-sable"
+    const fileName = sanitizeSandboxSaveFileName(title) + "-" + new Date().toISOString().slice(0, 10) + ".json"
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    setTimeout(function() {
+      URL.revokeObjectURL(url)
+      if (link.parentNode) link.parentNode.removeChild(link)
+    }, 0)
+    if (typeof showNotification === "function") showNotification("Fichier de sauvegarde telecharge")
+  }).catch(function(error) {
+    console.error("downloadSandboxLocalSaveFile failed:", error)
+    if (typeof showNotification === "function") showNotification("Sauvegarde fichier impossible")
+  })
+  return false
+}
+
+function resolveLoadedSandboxCustomization(data) {
+  try {
+    const safeData = data && typeof data === "object" ? data : {}
+    const base = typeof getDefaultCustomization === "function" ? getDefaultCustomization() : {
+      project: {},
+      players: {},
+      assets: {},
+      content: { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+    }
+    const customization = safeData.customization && typeof safeData.customization === "object"
+      ? JSON.parse(JSON.stringify(safeData.customization))
+      : JSON.parse(JSON.stringify(base))
+    customization.project = customization.project && typeof customization.project === "object" ? customization.project : {}
+    customization.players = customization.players && typeof customization.players === "object" ? customization.players : {}
+    customization.assets = customization.assets && typeof customization.assets === "object" ? customization.assets : {}
+    customization.content = customization.content && typeof customization.content === "object"
+      ? customization.content
+      : { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+    customization.content.maps = Array.isArray(customization.content.maps) ? customization.content.maps : []
+    customization.content.pnjs = Array.isArray(customization.content.pnjs) ? customization.content.pnjs : []
+    customization.content.highPnjs = Array.isArray(customization.content.highPnjs) ? customization.content.highPnjs : []
+    customization.content.mobs = Array.isArray(customization.content.mobs) ? customization.content.mobs : []
+    customization.content.documents = Array.isArray(customization.content.documents) ? customization.content.documents : []
+
+    const sandboxState = safeData.sandboxState && typeof safeData.sandboxState === "object"
+      ? safeData.sandboxState
+      : {}
+
+    const savedTheme = String(
+      sandboxState.theme
+      || customization.project.theme
+      || "medieval_fantasy"
+    ).trim() || "medieval_fantasy"
+    const savedPlayerCount = Math.max(
+      1,
+      Math.min(
+        12,
+        parseInt(
+          sandboxState.playerCount
+          || customization.project.playerCount
+          || 4,
+          10
+        ) || 4
+      )
+    )
+    const savedTitle = String(
+      sandboxState.title
+      || customization.project.title
+      || "Roleplay It Yourself"
+    ).trim() || "Roleplay It Yourself"
+
+    customization.project.theme = savedTheme
+    customization.project.playerCount = savedPlayerCount
+    customization.project.title = savedTitle
+
+    const startMapId = String(
+      sandboxState.startMapId
+      || customization.project.startMapId
+      || ""
+    ).trim()
+    const startMapAsset = String(
+      sandboxState.startMapAsset
+      || customization.project.startMapAsset
+      || ""
+    ).trim()
+    const startMapLabel = String(
+      sandboxState.startMapLabel
+      || customization.project.startMapLabel
+      || ""
+    ).trim()
+    if (startMapId) customization.project.startMapId = startMapId
+    if (startMapAsset) customization.project.startMapAsset = startMapAsset
+    if (startMapLabel) customization.project.startMapLabel = startMapLabel
+
+    if (Array.isArray(sandboxState.maps)) {
+      customization.content.maps = sandboxState.maps.map(function(item, index) {
+        return {
+          id: String(item && item.id || ("map_" + index)),
+          label: String(item && item.label || "Sans titre"),
+          map: String(item && item.map || ""),
+          category: String(item && item.category || "Custom"),
+          section: String(item && item.section || "lieux"),
+          audio: String(item && item.audio || "")
+        }
+      })
+    }
+
+    if (Array.isArray(sandboxState.pnjs)) {
+      customization.content.pnjs = sandboxState.pnjs.map(function(item, index) {
+        return {
+          id: String(item && item.id || ("pnj_" + index)),
+          label: String(item && item.label || "PNJ"),
+          image: String(item && item.image || ""),
+          category: String(item && item.category || "Custom")
+        }
+      })
+    }
+
+    return customization
+  } catch (error) {
+    console.error("resolveLoadedSandboxCustomization failed:", error)
+  }
+  return typeof getDefaultCustomization === "function" ? getDefaultCustomization() : {}
+}
+
+async function saveSandboxToLocalFolder() {
+  try {
+    if (typeof window.showDirectoryPicker !== "function") {
+      return downloadSandboxLocalSaveFile()
+    }
+    let directoryHandle = window.__sandboxDirectoryHandle || null
+    if (!directoryHandle) {
+      directoryHandle = await window.showDirectoryPicker({ mode: "readwrite" })
+    }
+    if (directoryHandle && typeof directoryHandle.requestPermission === "function") {
+      const permission = await directoryHandle.requestPermission({ mode: "readwrite" })
+      if (permission !== "granted") throw new Error("directory permission denied")
+    }
+    const payload = await collectSandboxLocalSaveData()
+    const fileHandle = await directoryHandle.getFileHandle("roleplay-save.json", { create: true })
+    if (fileHandle && typeof fileHandle.requestPermission === "function") {
+      const filePermission = await fileHandle.requestPermission({ mode: "readwrite" })
+      if (filePermission !== "granted") throw new Error("file permission denied")
+    }
+    const writable = await fileHandle.createWritable()
+    const raw = JSON.stringify(payload, null, 2)
+    await writable.write(raw)
+    await writable.close()
+    const verifyFile = await fileHandle.getFile()
+    const verifyText = await verifyFile.text()
+    if (!verifyText || verifyText.length < 10) throw new Error("empty save file after write")
+    window.__sandboxDirectoryHandle = directoryHandle
+    window.__sandboxLastDirectoryName = directoryHandle && directoryHandle.name ? String(directoryHandle.name) : ""
+    if (typeof showNotification === "function") {
+      showNotification("Bac a sable sauvegarde dans " + (window.__sandboxLastDirectoryName || "le dossier choisi"))
+    }
+  } catch (error) {
+    if (error && error.name === "AbortError") return false
+    console.error("saveSandboxToLocalFolder failed:", error)
+    if (typeof showNotification === "function") showNotification("Sauvegarde dossier impossible")
+  }
+  return false
+}
+
+function applySandboxLocalLoadSnapshot(data, options) {
+  try {
+    const safeData = data && typeof data === "object" ? data : {}
+    const customization = resolveLoadedSandboxCustomization(safeData)
+    if (typeof saveCustomization === "function") {
+      saveCustomization(customization)
+    }
+    try {
+      const maps = customization && customization.content && Array.isArray(customization.content.maps)
+        ? customization.content.maps
+        : []
+      window.__simpleSandboxMaps = maps.map((item, index) => ({
+        id: String(item && item.id || ("map_" + index)),
+        label: String(item && item.label || "Sans titre"),
+        map: String(item && item.map || ""),
+        category: String(item && item.category || "Custom"),
+        section: String(item && item.section || "lieux"),
+        audio: String(item && item.audio || "")
+      }))
+    } catch (_) {}
+    try {
+      const pnjs = customization && customization.content && Array.isArray(customization.content.pnjs)
+        ? customization.content.pnjs
+        : []
+      window.__simpleSandboxPnjs = pnjs.map((item, index) => ({
+        id: String(item && item.id || ("pnj_" + index)),
+        label: String(item && item.label || "PNJ"),
+        image: String(item && item.image || ""),
+        category: String(item && item.category || "Custom")
+      }))
+    } catch (_) {}
+    try {
+      Object.entries(safeData.characters || {}).forEach(function(entry) {
+        var pid = entry[0]
+        var value = entry[1] || {}
+        if (typeof saveSimpleSheetLocal === "function") saveSimpleSheetLocal(pid, value)
+      })
+    } catch (_) {}
+    try {
+      const project = customization && customization.project ? customization.project : {}
+      window.__onboardingStartMapId = String(project.startMapId || "").trim()
+      window.__onboardingStartMapAsset = String(project.startMapAsset || "").trim()
+      window.__onboardingStartMapLabel = String(project.startMapLabel || "").trim()
+      const projectTheme = String(project.theme || "medieval_fantasy").trim() || "medieval_fantasy"
+      const projectPlayerCount = Math.max(1, Math.min(12, parseInt(project.playerCount, 10) || 4))
+      if (typeof applyProjectThemeToDocument === "function") {
+        applyProjectThemeToDocument(projectTheme)
+      } else if (document.body) {
+        document.body.setAttribute("data-project-theme", projectTheme)
+      }
+      if (document.body) {
+        document.body.setAttribute("data-sandbox-player-count", String(projectPlayerCount))
+      }
+      try {
+        if (typeof forceSandboxPlayerVisibility === "function") {
+          forceSandboxPlayerVisibility(projectPlayerCount)
+        }
+      } catch (_) {}
+    } catch (_) {}
+    try {
+      const preferredCurrentMap = String(
+        (safeData.sandboxState && safeData.sandboxState.currentMap)
+        || (safeData.game && safeData.game.map)
+        || ""
+      ).trim()
+      if (preferredCurrentMap) {
+        currentMap = preferredCurrentMap
+        window.__latestMapValue = currentMap
+      }
+    } catch (_) {}
+    try {
+      if (typeof renderMapMenu === "function") renderMapMenu()
+      if (typeof renderPNJMenu === "function") renderPNJMenu()
+      if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
+    } catch (_) {}
+    try {
+      const project = customization && customization.project ? customization.project : {}
+      const startMapAsset = String(project.startMapAsset || "").trim()
+      const startMapLabel = String(project.startMapLabel || "").trim() || "Map de depart"
+      const visibleMapAsset = startMapAsset || String((safeData.game && safeData.game.map) || "").trim()
+      if (visibleMapAsset) {
+        if (typeof simpleRenderSandboxMap === "function") {
+          simpleRenderSandboxMap(startMapLabel, visibleMapAsset)
+        } else {
+          const map = document.getElementById("map")
+          if (map) {
+            map.style.setProperty("background", "url('" + visibleMapAsset.replace(/'/g, "\\'") + "') center / cover no-repeat", "important")
+          }
+        }
+      }
+    } catch (_) {}
+    try { ensureSandboxStudioChromeVisible() } catch (_) {}
+    if (options && options.openSandboxAfterLoad && typeof openSandboxAfterProjectCreation === "function") {
+      try {
+        window.__skipIntroHub = true
+        openSandboxAfterProjectCreation("Bac a sable charge")
+      } catch (_) {}
+    }
+    try {
+      setTimeout(function() {
+        try {
+          if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
+          ensureSandboxStudioChromeVisible()
+        } catch (_) {}
+      }, 80)
+    } catch (_) {}
+    return true
+  } catch (error) {
+    console.error("applySandboxLocalLoadSnapshot failed:", error)
+  }
+  return false
+}
+
+function promptLoadSandboxLocalSaveFile(options) {
+  return new Promise(function(resolve) {
+    try {
+      const chooser = document.createElement("input")
+      chooser.type = "file"
+      chooser.accept = ".json,application/json"
+      chooser.style.display = "none"
+      chooser.addEventListener("change", function() {
+        const file = chooser.files && chooser.files[0]
+        if (!file) {
+          if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+          resolve(false)
+          return
+        }
+        const reader = new FileReader()
+        reader.onload = function() {
+          try {
+            const parsed = JSON.parse(String(reader.result || "{}"))
+            if (typeof _applyLoadData !== "function") throw new Error("load function missing")
+            applySandboxLocalLoadSnapshot(parsed, options)
+            _applyLoadData(parsed, function() {
+              if (typeof showNotification === "function") showNotification("Fichier charge")
+              resolve(true)
+            })
+          } catch (error) {
+            console.error("promptLoadSandboxLocalSaveFile parse/apply failed:", error)
+            if (typeof showNotification === "function") showNotification("Fichier invalide")
+            resolve(false)
+          } finally {
+            if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+          }
+        }
+        reader.onerror = function(error) {
+          console.error("promptLoadSandboxLocalSaveFile read failed:", error)
+          if (typeof showNotification === "function") showNotification("Lecture du fichier impossible")
+          if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+          resolve(false)
+        }
+        reader.readAsText(file)
+      }, { once: true })
+      document.body.appendChild(chooser)
+      chooser.click()
+    } catch (error) {
+      console.error("promptLoadSandboxLocalSaveFile failed:", error)
+      if (typeof showNotification === "function") showNotification("Chargement fichier impossible")
+      resolve(false)
+    }
+  })
+}
+
+async function promptLoadSandboxFromLocalFolder(options) {
+  try {
+    if (typeof window.showDirectoryPicker !== "function") {
+      return promptLoadSandboxLocalSaveFile(options)
+    }
+    let directoryHandle = window.__sandboxDirectoryHandle || null
+    if (!directoryHandle) {
+      directoryHandle = await window.showDirectoryPicker()
+    }
+    const fileHandle = await directoryHandle.getFileHandle("roleplay-save.json")
+    const file = await fileHandle.getFile()
+    const text = await file.text()
+    const parsed = JSON.parse(String(text || "{}"))
+    if (typeof _applyLoadData !== "function") throw new Error("load function missing")
+    applySandboxLocalLoadSnapshot(parsed, options)
+    _applyLoadData(parsed, function() {
+      window.__sandboxDirectoryHandle = directoryHandle
+      window.__sandboxLastDirectoryName = directoryHandle && directoryHandle.name ? String(directoryHandle.name) : ""
+      if (typeof showNotification === "function") {
+        showNotification("Bac a sable charge depuis " + (window.__sandboxLastDirectoryName || "le dossier choisi"))
+      }
+    })
+    return true
+  } catch (error) {
+    if (error && error.name === "AbortError") return false
+    console.error("promptLoadSandboxFromLocalFolder failed:", error)
+    if (typeof showNotification === "function") showNotification("Chargement dossier impossible")
+  }
+  return false
+}
+
 function saveGame() {
   showNotification("Les anciennes sauvegardes ont ete retirees")
 }
@@ -2733,15 +3304,28 @@ function saveGame() {
 function _applyLoadData(data, callback) {
   const ops = []
   const pushOp = (label, promise) => { ops.push({ label, promise }) }
+  const resolvedCustomization = resolveLoadedSandboxCustomization(data)
+  const persistLoadedSimpleSheetLocal = (playerId, raw) => {
+    try {
+      if (typeof saveSimpleSheetLocal === "function") {
+        saveSimpleSheetLocal(playerId, raw || {})
+        return
+      }
+    } catch (_) {}
+    try {
+      localStorage.setItem("rpg_simple_sheet_" + String(playerId || "unknown"), JSON.stringify(raw || {}))
+    } catch (_) {}
+  }
   if (typeof saveCustomization === "function" && typeof getDefaultCustomization === "function") {
-    saveCustomization(data && data.customization && typeof data.customization === "object"
-      ? data.customization
+    saveCustomization(resolvedCustomization && typeof resolvedCustomization === "object"
+      ? resolvedCustomization
       : getDefaultCustomization())
   }
   const normalizeLoadedCharacterData = (playerId, raw) => {
     const level = clampInteger(raw?.lvl, 1, 99)
     const defaults = getPlayerStatsAtLevel(playerId, level) || getPlayerStatsAtLevel(playerId, 1) || {}
     return {
+      ...(raw || {}),
       lvl: level,
       xp: clampInteger(raw?.xp, 0, 999999),
       hp: clampInteger(raw?.hp, 0, 999),
@@ -2776,6 +3360,7 @@ function _applyLoadData(data, callback) {
   // Ã‰criture directe sur chaque ref â€” pas de update() depuis la racine avec des slashes
   if (data.characters) {
     Object.entries(data.characters).forEach(([pid, value]) => {
+      persistLoadedSimpleSheetLocal(pid, value || {})
       pushOp("characters/" + pid, db.ref("characters/" + pid).set(normalizeLoadedCharacterData(pid, value)))
     })
   }
@@ -2833,12 +3418,45 @@ function _applyLoadData(data, callback) {
 
     if (failed.length) {
       console.error("Load error:", failed)
-      showNotification("Erreur chargement: " + failed.map(f => f.label).join(", "))
-      return
+      try {
+        showNotification("Chargement partiel: " + failed.map(f => f.label).join(", "))
+      } catch (_) {}
     }
+    try {
+      if (resolvedCustomization && resolvedCustomization.content) {
+        if (Array.isArray(resolvedCustomization.content.maps)) {
+          window.__simpleSandboxMaps = resolvedCustomization.content.maps.map((item, index) => ({
+            id: String(item && item.id || ("map_" + index)),
+            label: String(item && item.label || "Sans titre"),
+            map: String(item && item.map || ""),
+            category: String(item && item.category || "Custom"),
+            section: String(item && item.section || "lieux"),
+            audio: String(item && item.audio || "")
+          }))
+        }
+        if (Array.isArray(resolvedCustomization.content.pnjs)) {
+          window.__simpleSandboxPnjs = resolvedCustomization.content.pnjs.map((item, index) => ({
+            id: String(item && item.id || ("pnj_" + index)),
+            label: String(item && item.label || "PNJ"),
+            image: String(item && item.image || ""),
+            category: String(item && item.category || "Custom")
+          }))
+        }
+      }
+    } catch (_) {}
     if (typeof applyCustomizationToUI === "function") {
       setTimeout(applyCustomizationToUI, 20)
     }
+    try {
+      if (data.characters) {
+        Object.entries(data.characters).forEach(function(entry) {
+          var pid = entry[0]
+          var value = entry[1] || {}
+          if (typeof syncSimpleSheetIdentityToToken === "function") syncSimpleSheetIdentityToToken(pid, value)
+          if (typeof syncSimpleSheetVitalsToToken === "function") syncSimpleSheetVitalsToToken(pid, value)
+        })
+      }
+    } catch (_) {}
     callback()
   })
 }
@@ -2851,6 +3469,7 @@ function openSandboxAfterProjectCreation(message) {
   window.__startInSandboxMode = false
   try {
     setSandboxStudioMode(true)
+    ensureSandboxStudioChromeVisible()
     if (typeof setBuilderShellVisible === "function") setBuilderShellVisible(false)
     if (!gameStarted) gameStarted = true
     hideIntroLayers()
@@ -2875,6 +3494,7 @@ function openSandboxAfterProjectCreation(message) {
     if (typeof applyCustomizationToUI === "function") {
       setTimeout(() => {
         try { applyCustomizationToUI() } catch (e) {}
+        try { ensureSandboxStudioChromeVisible() } catch (_) {}
       }, 40)
     }
     if (typeof openCustomizationPanel === "function") {
@@ -5057,14 +5677,28 @@ function requestGM() {
 }
 
 function activateGM(fromFirebaseRole = false) {
-  if (isGM) return
   isGM = true
-  document.getElementById("gmBar").style.display     = "flex"
-  document.getElementById("mjLog").style.display     = "block"
-  document.getElementById("gmSaveBar").style.display = "block"
+  ensureSandboxStudioChromeVisible()
+  const gmBar = document.getElementById("gmBar")
+  const mjLog = document.getElementById("mjLog")
+  const gmSaveBar = document.getElementById("gmSaveBar")
+  if (gmBar) gmBar.style.display = "flex"
+  if (mjLog) mjLog.style.display = "block"
+  if (gmSaveBar) gmSaveBar.style.display = "block"
+  try {
+    if (document.body && document.body.classList.contains("sandbox-studio-mode")) {
+      const diceBar = document.getElementById("diceBar")
+      const diceLog = document.getElementById("diceLog")
+      if (diceBar) diceBar.style.display = "flex"
+      if (diceLog) diceLog.style.display = "block"
+    }
+  } catch (_) {}
   ensureMadnessGMButton()
   updateThuumButton()
-  showNotification(fromFirebaseRole ? "Mode MJ active (Firebase)" : "Mode MJ active")
+  if (!window.__gmModeActivatedOnce) {
+    window.__gmModeActivatedOnce = true
+    showNotification(fromFirebaseRole ? "Mode MJ active (Firebase)" : "Mode MJ active")
+  }
   // Fermer et masquer complÃ¨tement le menu de sÃ©lection
   const select = document.getElementById("playerSelect")
   if (select) {

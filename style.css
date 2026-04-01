@@ -4990,6 +4990,54 @@ body[data-project-theme="contemporain"] .simpleSheetPortrait {
   display: grid;
 }
 
+.studioSaveHelpPanel {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: calc(100% + 14px);
+  width: 280px;
+  padding: 14px 16px 14px;
+  display: none;
+  gap: 8px;
+  background: linear-gradient(180deg, rgba(17,17,17,0.95), rgba(35,26,18,0.96));
+  border: 1px solid rgba(214,180,106,0.26);
+  border-radius: 16px;
+  box-shadow: 0 18px 40px rgba(0,0,0,0.42);
+  backdrop-filter: blur(8px);
+  color: #f3e7cf;
+}
+
+.studioSaveHelpPanel.open {
+  display: grid;
+}
+
+.studioSaveHelpClose {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(214,180,106,0.24);
+  background: rgba(255,255,255,0.04);
+  color: #f3e7cf;
+  cursor: pointer;
+}
+
+.studioSaveHelpTitle {
+  font-family: var(--font-title);
+  font-size: 16px;
+  letter-spacing: 1px;
+  color: #f4dfb0;
+  padding-right: 26px;
+}
+
+.studioSaveHelpText {
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(243,231,207,0.92);
+}
+
 .studioSaveAction {
   font-family: var(--font-body);
   font-size: 13px;
