@@ -68,7 +68,9 @@ function getDefaultCustomization() {
     assets: {},
     content: {
       maps: [],
+      mapTabs: [],
       pnjs: [],
+      pnjTabs: [],
       highPnjs: [],
       mobs: [],
       documents: []
@@ -101,14 +103,18 @@ function normalizeCustomization(raw) {
     content: raw.content && typeof raw.content === "object"
       ? {
           maps: Array.isArray(raw.content.maps) ? raw.content.maps.map(item => ({ ...item })) : [],
+          mapTabs: Array.isArray(raw.content.mapTabs) ? raw.content.mapTabs.slice() : [],
           pnjs: Array.isArray(raw.content.pnjs) ? raw.content.pnjs.map(item => ({ ...item })) : [],
+          pnjTabs: Array.isArray(raw.content.pnjTabs) ? raw.content.pnjTabs.slice() : [],
           highPnjs: Array.isArray(raw.content.highPnjs) ? raw.content.highPnjs.map(item => ({ ...item })) : [],
           mobs: Array.isArray(raw.content.mobs) ? raw.content.mobs.map(item => ({ ...item })) : [],
           documents: Array.isArray(raw.content.documents) ? raw.content.documents.map(item => ({ ...item })) : []
         }
       : {
           maps: [],
+          mapTabs: [],
           pnjs: [],
+          pnjTabs: [],
           highPnjs: [],
           mobs: [],
           documents: []

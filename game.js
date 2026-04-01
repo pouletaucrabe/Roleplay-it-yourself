@@ -3014,7 +3014,9 @@ function resolveLoadedSandboxCustomization(data) {
       ? customization.content
       : { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
     customization.content.maps = Array.isArray(customization.content.maps) ? customization.content.maps : []
+    customization.content.mapTabs = Array.isArray(customization.content.mapTabs) ? customization.content.mapTabs : []
     customization.content.pnjs = Array.isArray(customization.content.pnjs) ? customization.content.pnjs : []
+    customization.content.pnjTabs = Array.isArray(customization.content.pnjTabs) ? customization.content.pnjTabs : []
     customization.content.highPnjs = Array.isArray(customization.content.highPnjs) ? customization.content.highPnjs : []
     customization.content.mobs = Array.isArray(customization.content.mobs) ? customization.content.mobs : []
     customization.content.documents = Array.isArray(customization.content.documents) ? customization.content.documents : []
@@ -3216,6 +3218,7 @@ function applySandboxLocalLoadSnapshot(data, options) {
         map: String(item && item.map || ""),
         category: String(item && item.category || "Custom"),
         section: String(item && item.section || "lieux"),
+        tab: normalizeSandboxManagerTabName(item && item.tab),
         audio: String(item && item.audio || "")
       }))
     } catch (_) {}
@@ -3227,7 +3230,8 @@ function applySandboxLocalLoadSnapshot(data, options) {
         id: String(item && item.id || ("pnj_" + index)),
         label: String(item && item.label || "PNJ"),
         image: String(item && item.image || ""),
-        category: String(item && item.category || "Custom")
+        category: String(item && item.category || "Custom"),
+        tab: normalizeSandboxManagerTabName(item && item.tab)
       }))
     } catch (_) {}
     try {
@@ -3532,6 +3536,7 @@ function _applyLoadData(data, callback) {
             map: String(item && item.map || ""),
             category: String(item && item.category || "Custom"),
             section: String(item && item.section || "lieux"),
+            tab: normalizeSandboxManagerTabName(item && item.tab),
             audio: String(item && item.audio || "")
           }))
         }
@@ -3540,7 +3545,8 @@ function _applyLoadData(data, callback) {
             id: String(item && item.id || ("pnj_" + index)),
             label: String(item && item.label || "PNJ"),
             image: String(item && item.image || ""),
-            category: String(item && item.category || "Custom")
+            category: String(item && item.category || "Custom"),
+            tab: normalizeSandboxManagerTabName(item && item.tab)
           }))
         }
       }
@@ -4232,6 +4238,7 @@ function persistSandboxMapsDirect(maps) {
       category: String(item && item.category || "Custom"),
       map: String(item && item.map || ""),
       section: String(item && item.section || "lieux"),
+      tab: normalizeSandboxManagerTabName(item && item.tab),
       audio: String(item && item.audio || ""),
       id: String(item && (item.id || item.__runtimeKey) || ("map_" + index))
     }))
@@ -4360,6 +4367,77 @@ function renameSandboxMapByKey(mapKey) {
   return renameSandboxMap(index)
 }
 
+function moveSandboxMapToTab(indexOrId) {
+  try {
+    const customization = typeof getCustomization === "function" ? getCustomization() : null
+    const savedMaps = customization && customization.content && Array.isArray(customization.content.maps)
+      ? customization.content.maps.slice()
+      : []
+    const fallbackMaps = getSimpleSandboxMaps().slice()
+    const maps = savedMaps.length ? savedMaps : fallbackMaps
+    const wanted = String(indexOrId || "")
+    const numericIndex = Number(indexOrId)
+    const resolvedIndex = Number.isFinite(numericIndex) && numericIndex >= 0
+      ? numericIndex
+      : maps.findIndex(function(entry) {
+          return String(entry && entry.id || "") === wanted
+        })
+    const item = maps[resolvedIndex]
+    if (!item) return false
+    const nextTab = promptSandboxManagerTabMove("map", item)
+    if (nextTab == null) return false
+    if (nextTab) ensureSandboxManagerTabExists("map", nextTab)
+    saveSandboxItemTabOverride("map", String(item && item.id || ""), nextTab)
+    maps[resolvedIndex] = { ...item, tab: nextTab }
+    if (customization && typeof saveCustomization === "function") {
+      customization.content = customization.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+      customization.content.maps = maps.map(function(entry, idx) {
+        return {
+          id: String(entry && entry.id || ("map_" + idx)),
+          label: String(entry && entry.label || "Sans titre"),
+          map: String(entry && entry.map || ""),
+          category: String(entry && entry.category || "Custom"),
+          section: String(entry && entry.section || "lieux"),
+          tab: normalizeSandboxManagerTabName(entry && entry.tab),
+          audio: String(entry && entry.audio || "")
+        }
+      })
+      saveCustomization(customization)
+    }
+    window.__simpleSandboxMaps = maps.map(function(entry, idx) {
+      return {
+        id: String(entry && entry.id || ("map_" + idx)),
+        label: String(entry && entry.label || "Sans titre"),
+        map: String(entry && entry.map || ""),
+        category: String(entry && entry.category || "Custom"),
+        section: String(entry && entry.section || "lieux"),
+        tab: normalizeSandboxManagerTabName(entry && entry.tab),
+        audio: String(entry && entry.audio || "")
+      }
+    })
+    window.__sandboxMapPanelState = maps.map(function(entry, idx) {
+      return {
+        id: String(entry && entry.id || ("map_" + idx)),
+        label: String(entry && entry.label || "Sans titre"),
+        map: String(entry && entry.map || ""),
+        category: String(entry && entry.category || "Custom"),
+        section: String(entry && entry.section || "lieux"),
+        tab: normalizeSandboxManagerTabName(entry && entry.tab),
+        audio: String(entry && entry.audio || ""),
+        __runtimeKey: String(entry && (entry.__runtimeKey || entry.id) || ("map_" + idx))
+      }
+    })
+    try { if (typeof applyCustomizationToUI === "function") applyCustomizationToUI() } catch (_) {}
+    setSandboxManagerActiveTab("map", nextTab || "__untabbed__")
+    try { renderSandboxManagerPanelById("mapMenu") } catch (_) {}
+    try { forceRenderMapMenuPanelList() } catch (_) {}
+    renderSandboxMapManagerOverlayV2()
+    if (typeof showNotification === "function") showNotification(nextTab ? "Map deplacee" : "Map retiree de l'onglet")
+    return false
+  } catch (_) {}
+  return false
+}
+
 function deleteSandboxMap(index) {
   const runtimeMaps = ensureSandboxMapRuntimeState().slice()
   if (index < 0 || index >= runtimeMaps.length) return false
@@ -4396,6 +4474,7 @@ function createSandboxMapFromPanel() {
         return
       }
       const trimmedLabel = String(chosenLabel).trim()
+      const activeTab = getSandboxManagerActiveTab("map")
       if (!trimmedLabel) {
         if (typeof showNotification === "function") showNotification("Nom obligatoire")
         if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
@@ -4790,6 +4869,270 @@ function closeSandboxMapManagerV2() {
   return false
 }
 
+function closeStudioMenusBeforeOpen(exceptId) {
+  const keep = String(exceptId || "").trim()
+  try {
+    document.querySelectorAll(".gmSection").forEach(function(sec) {
+      if (keep && sec.id === keep) return
+      sec.style.display = "none"
+    })
+  } catch (_) {}
+  try {
+    const idsToRemove = [
+      "gmCharacterPickerInline",
+      "gmCharacterPickerOverlay",
+      "sandboxPnjManagerOverlay",
+      "creatorStudioOverlay",
+      "customizationOverlay"
+    ]
+    idsToRemove.forEach(function(id) {
+      if (keep && id === keep) return
+      const node = document.getElementById(id)
+      if (node && node.parentNode) node.parentNode.removeChild(node)
+    })
+  } catch (_) {}
+  try {
+    if (keep !== "sandboxMapManagerOverlay") closeSandboxMapManagerV2()
+  } catch (_) {}
+  try {
+    if (keep !== "sandboxPnjManagerOverlay") closeSandboxPnjManagerV2()
+  } catch (_) {}
+}
+
+try {
+  window.closeStudioMenusBeforeOpen = closeStudioMenusBeforeOpen
+} catch (_) {}
+
+function normalizeSandboxManagerTabName(value) {
+  return String(value || "").trim()
+}
+
+function getSandboxManagerTabStorageKey(type) {
+  return String(type || "").trim() === "pnj" ? "pnjTabs" : "mapTabs"
+}
+
+function getSandboxManagerLocalStorageKey(type) {
+  return String(type || "").trim() === "pnj"
+    ? "rpg_manager_tabs_pnj_v1"
+    : "rpg_manager_tabs_map_v1"
+}
+
+function getSandboxItemTabOverrideStorageKey(type) {
+  return String(type || "").trim() === "pnj"
+    ? "rpg_manager_item_tabs_pnj_v1"
+    : "rpg_manager_item_tabs_map_v1"
+}
+
+function getSandboxItemTabOverrides(type) {
+  try {
+    if (typeof localStorage === "undefined") return {}
+    const raw = JSON.parse(localStorage.getItem(getSandboxItemTabOverrideStorageKey(type)) || "{}")
+    return raw && typeof raw === "object" ? raw : {}
+  } catch (_) {}
+  return {}
+}
+
+function saveSandboxItemTabOverride(type, itemId, tabName) {
+  try {
+    if (typeof localStorage === "undefined") return false
+    const key = String(itemId || "").trim()
+    if (!key) return false
+    const next = getSandboxItemTabOverrides(type)
+    const clean = normalizeSandboxManagerTabName(tabName)
+    if (clean) next[key] = clean
+    else delete next[key]
+    localStorage.setItem(getSandboxItemTabOverrideStorageKey(type), JSON.stringify(next))
+    return true
+  } catch (_) {}
+  return false
+}
+
+function getSandboxManagerTabs(type) {
+  try {
+    window.__sandboxManagerTabs = window.__sandboxManagerTabs && typeof window.__sandboxManagerTabs === "object"
+      ? window.__sandboxManagerTabs
+      : {}
+    const localStorageKey = getSandboxManagerLocalStorageKey(type)
+    const storedLocalTabs = typeof localStorage !== "undefined"
+      ? JSON.parse(localStorage.getItem(localStorageKey) || "[]")
+      : []
+    if (typeof getCustomization !== "function") {
+      const runtimeOnlyTabs = Array.isArray(window.__sandboxManagerTabs[getSandboxManagerTabStorageKey(type)])
+        ? window.__sandboxManagerTabs[getSandboxManagerTabStorageKey(type)]
+        : []
+      return runtimeOnlyTabs.concat(Array.isArray(storedLocalTabs) ? storedLocalTabs : [])
+        .map(normalizeSandboxManagerTabName)
+        .filter(Boolean)
+        .filter(function(name, index, list) { return list.indexOf(name) === index })
+    }
+    const data = getCustomization()
+    const content = data && data.content ? data.content : {}
+    const key = getSandboxManagerTabStorageKey(type)
+    const runtimeTabs = Array.isArray(window.__sandboxManagerTabs[key]) ? window.__sandboxManagerTabs[key] : []
+    const storedTabs = (Array.isArray(content[key]) ? content[key] : [])
+      .map(normalizeSandboxManagerTabName)
+      .filter(Boolean)
+    const itemKey = String(type || "").trim() === "pnj" ? "pnjs" : "maps"
+    const itemTabs = (Array.isArray(content[itemKey]) ? content[itemKey] : [])
+      .map(function(item) { return normalizeSandboxManagerTabName(item && item.tab) })
+      .filter(Boolean)
+    return runtimeTabs
+      .concat(Array.isArray(storedLocalTabs) ? storedLocalTabs : [], storedTabs, itemTabs)
+      .map(normalizeSandboxManagerTabName)
+      .filter(Boolean)
+      .filter(function(name, index, list) { return list.indexOf(name) === index })
+  } catch (_) {}
+  return []
+}
+
+function saveSandboxManagerTabs(type, tabs) {
+  try {
+    window.__sandboxManagerTabs = window.__sandboxManagerTabs && typeof window.__sandboxManagerTabs === "object"
+      ? window.__sandboxManagerTabs
+      : {}
+    if (typeof getCustomization !== "function" || typeof saveCustomization !== "function") return false
+    const key = getSandboxManagerTabStorageKey(type)
+    const cleanTabs = (Array.isArray(tabs) ? tabs : [])
+      .map(normalizeSandboxManagerTabName)
+      .filter(Boolean)
+      .filter(function(name, index, list) { return list.indexOf(name) === index })
+    window.__sandboxManagerTabs[key] = cleanTabs.slice()
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(getSandboxManagerLocalStorageKey(type), JSON.stringify(cleanTabs))
+      }
+    } catch (_) {}
+    const next = getCustomization()
+    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+    next.content[key] = cleanTabs
+    saveCustomization(next)
+    return true
+  } catch (_) {}
+  return false
+}
+
+function getSandboxManagerActiveTab(type) {
+  try {
+    window.__sandboxManagerActiveTabs = window.__sandboxManagerActiveTabs && typeof window.__sandboxManagerActiveTabs === "object"
+      ? window.__sandboxManagerActiveTabs
+      : {}
+    const raw = normalizeSandboxManagerTabName(window.__sandboxManagerActiveTabs[type])
+    return raw || "all"
+  } catch (_) {}
+  return "all"
+}
+
+function setSandboxManagerActiveTab(type, tabName) {
+  try {
+    window.__sandboxManagerActiveTabs = window.__sandboxManagerActiveTabs && typeof window.__sandboxManagerActiveTabs === "object"
+      ? window.__sandboxManagerActiveTabs
+      : {}
+    window.__sandboxManagerActiveTabs[type] = normalizeSandboxManagerTabName(tabName) || "all"
+  } catch (_) {}
+}
+
+function getSandboxItemTab(item) {
+  return normalizeSandboxManagerTabName(item && item.tab)
+}
+
+function getSandboxVisibleManagerItems(type, items) {
+  const activeTab = getSandboxManagerActiveTab(type)
+  const safeItems = Array.isArray(items) ? items : []
+  if (activeTab === "all" || activeTab === "__untabbed__") return safeItems
+  return safeItems.filter(function(item) { return getSandboxItemTab(item) === activeTab })
+}
+
+function promptSandboxManagerTabMove(type, item) {
+  const tabs = getSandboxManagerTabs(type)
+  const currentTab = getSandboxItemTab(item)
+  const label = String(item && item.label || "").trim() || (type === "pnj" ? "PNJ" : "Map")
+  const help = tabs.length
+    ? "Onglets dispo : " + tabs.join(", ") + "\nLaisse vide pour retirer l'onglet."
+    : "Aucun onglet cree pour le moment.\nEcris un nom pour creer et affecter un onglet."
+  const answer = prompt("Deplacer \"" + label + "\" vers quel onglet ?\n" + help, currentTab)
+  if (answer == null) return null
+  return normalizeSandboxManagerTabName(answer)
+}
+
+function ensureSandboxManagerTabExists(type, tabName) {
+  const clean = normalizeSandboxManagerTabName(tabName)
+  if (!clean) return false
+  const tabs = getSandboxManagerTabs(type)
+  if (tabs.includes(clean)) return true
+  tabs.push(clean)
+  return saveSandboxManagerTabs(type, tabs)
+}
+
+function createSandboxManagerTab(type) {
+  const label = prompt("Nom du nouvel onglet :", "")
+  if (label == null) return false
+  const clean = normalizeSandboxManagerTabName(label)
+  if (!clean) {
+    if (typeof showNotification === "function") showNotification("Nom d'onglet obligatoire")
+    return false
+  }
+  try {
+    window.__sandboxManagerTabs = window.__sandboxManagerTabs && typeof window.__sandboxManagerTabs === "object"
+      ? window.__sandboxManagerTabs
+      : {}
+    const key = getSandboxManagerTabStorageKey(type)
+    const currentTabs = Array.isArray(window.__sandboxManagerTabs[key]) ? window.__sandboxManagerTabs[key].slice() : getSandboxManagerTabs(type)
+    if (!currentTabs.includes(clean)) currentTabs.push(clean)
+    window.__sandboxManagerTabs[key] = currentTabs
+  } catch (_) {}
+  ensureSandboxManagerTabExists(type, clean)
+  setSandboxManagerActiveTab(type, clean)
+  if (type === "pnj") renderSandboxPnjManagerOverlayV2()
+  else renderSandboxMapManagerOverlayV2()
+  if (typeof showNotification === "function") showNotification("Onglet cree")
+  return false
+}
+
+function renderSandboxManagerTabsRow(type, overlay, items) {
+  if (!overlay) return
+  const host = overlay.querySelector(type === "pnj" ? "[data-pnj-manager-tabs]" : "[data-map-manager-tabs]")
+  if (!host) return
+  const previewMode = !!(document.body && document.body.classList.contains("sandbox-preview-mode"))
+  const tabs = getSandboxManagerTabs(type)
+  const activeTab = getSandboxManagerActiveTab(type)
+  host.innerHTML = ""
+
+  function createTabButton(id, label, isActive, onClick) {
+    const btn = document.createElement("button")
+    btn.type = "button"
+    btn.textContent = label
+    btn.style.cssText = "padding:8px 12px;border-radius:999px;border:1px solid " + (isActive ? "#caa46b" : "rgba(214,180,106,0.24)") + ";background:" + (isActive ? "linear-gradient(#7a5533,#4b321c)" : "rgba(255,255,255,0.05)") + ";color:#f5e6c8;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+    btn.dataset.managerTab = id
+    btn.addEventListener("click", onClick)
+    return btn
+  }
+
+  host.appendChild(createTabButton("all", "Tous", activeTab === "all", function() {
+    setSandboxManagerActiveTab(type, "all")
+    if (type === "pnj") renderSandboxPnjManagerOverlayV2()
+    else renderSandboxMapManagerOverlayV2()
+  }))
+
+  tabs.forEach(function(tab) {
+    host.appendChild(createTabButton(tab, tab, activeTab === tab, function() {
+      setSandboxManagerActiveTab(type, tab)
+      if (type === "pnj") renderSandboxPnjManagerOverlayV2()
+      else renderSandboxMapManagerOverlayV2()
+    }))
+  })
+
+  if (!previewMode) {
+    const addBtn = document.createElement("button")
+    addBtn.type = "button"
+    addBtn.textContent = "+ Onglet"
+    addBtn.style.cssText = "padding:8px 12px;border-radius:999px;border:1px dashed rgba(214,180,106,0.34);background:rgba(0,0,0,0.12);color:#f0d087;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+    addBtn.addEventListener("click", function() {
+      createSandboxManagerTab(type)
+    })
+    host.appendChild(addBtn)
+  }
+}
+
 function getSimpleSandboxPnjs() {
   try {
     if (Array.isArray(window.__simpleSandboxPnjs)) {
@@ -4797,7 +5140,8 @@ function getSimpleSandboxPnjs() {
         id: String(item && item.id || ("pnj_" + index)),
         label: String(item && item.label || "PNJ"),
         image: String(item && item.image || ""),
-        category: String(item && item.category || "Custom")
+        category: String(item && item.category || "Custom"),
+        tab: normalizeSandboxManagerTabName(item && item.tab)
       }))
       return window.__simpleSandboxPnjs
     }
@@ -4811,7 +5155,8 @@ function getSimpleSandboxPnjs() {
       id: String(item && item.id || ("pnj_" + index)),
       label: String(item && item.label || "PNJ"),
       image: String(item && item.image || ""),
-      category: String(item && item.category || "Custom")
+      category: String(item && item.category || "Custom"),
+      tab: normalizeSandboxManagerTabName(item && item.tab)
     })) : []
     return window.__simpleSandboxPnjs
   } catch (_) {}
@@ -4825,7 +5170,8 @@ function saveSimpleSandboxPnjs(items) {
       id: String(item && item.id || ("pnj_" + index)),
       label: String(item && item.label || "PNJ"),
       image: String(item && item.image || ""),
-      category: String(item && item.category || "Custom")
+      category: String(item && item.category || "Custom"),
+      tab: normalizeSandboxManagerTabName(item && item.tab)
     })) : []
     window.__simpleSandboxPnjs = safeItems
     if (typeof getCustomization === "function" && typeof saveCustomization === "function") {
@@ -4835,7 +5181,8 @@ function saveSimpleSandboxPnjs(items) {
         id: item.id,
         label: item.label,
         image: item.image,
-        category: item.category
+        category: item.category,
+        tab: item.tab || ""
       }))
       saveCustomization(next)
       try { if (typeof applyCustomizationToUI === "function") applyCustomizationToUI() } catch (_) {}
@@ -4920,6 +5267,24 @@ function renameSandboxPnj(index) {
     item.label = trimmedLabel
     saveSimpleSandboxPnjs(items)
     closeSandboxPnjManagerV2()
+    return false
+  } catch (_) {}
+  return false
+}
+
+function moveSandboxPnjToTab(index) {
+  try {
+    const items = getSimpleSandboxPnjs().slice()
+    const item = items[Number(index)]
+    if (!item) return false
+    const nextTab = promptSandboxManagerTabMove("pnj", item)
+    if (nextTab == null) return false
+    if (nextTab) ensureSandboxManagerTabExists("pnj", nextTab)
+    item.tab = nextTab
+    saveSimpleSandboxPnjs(items)
+    setSandboxManagerActiveTab("pnj", nextTab || "__untabbed__")
+    renderSandboxPnjManagerOverlayV2()
+    if (typeof showNotification === "function") showNotification(nextTab ? "PNJ deplace" : "PNJ retire de l'onglet")
     return false
   } catch (_) {}
   return false
@@ -5012,11 +5377,13 @@ function submitSandboxPnjManagerCreateV2() {
         return
       }
       const items = getSimpleSandboxPnjs().slice()
+      const activeTab = getSandboxManagerActiveTab("pnj")
       items.push({
         id: "pnj_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 6),
         label: nextLabel,
         image: image,
-        category: "Custom"
+        category: "Custom",
+        tab: activeTab !== "all" && activeTab !== "__untabbed__" ? activeTab : ""
       })
       saveSimpleSandboxPnjs(items)
       closeSandboxPnjCreateComposerV2()
@@ -5092,8 +5459,20 @@ function createSandboxPnjManagerCard(item, index) {
     deleteSandboxPnj(index)
   })
 
+  const moveTabBtn = document.createElement("button")
+  moveTabBtn.type = "button"
+  moveTabBtn.className = "sandboxMapManagerActionButton"
+  moveTabBtn.style.cssText = "padding:8px 10px;background:rgba(18,60,42,0.48);color:#def6e7;border:1px solid rgba(90,180,120,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+  moveTabBtn.textContent = getSandboxItemTab(item) ? "Onglet : " + getSandboxItemTab(item) : "Mettre en onglet"
+  moveTabBtn.addEventListener("click", function(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    moveSandboxPnjToTab(index)
+  })
+
   if (!previewMode) {
     actionsRow.appendChild(renameBtn)
+    actionsRow.appendChild(moveTabBtn)
     actionsRow.appendChild(deleteBtn)
     card.addEventListener("dragover", function(event) {
       event.preventDefault()
@@ -5126,13 +5505,20 @@ function renderSandboxPnjManagerOverlayV2() {
   if (subtitle) subtitle.style.display = previewMode ? "none" : ""
   if (!content) return
   const items = getSimpleSandboxPnjs()
+  renderSandboxManagerTabsRow("pnj", overlay, items)
+  const visibleItems = getSandboxVisibleManagerItems("pnj", items)
   if (debug) debug.textContent = "PNJ : " + items.length
   content.innerHTML = ""
   if (!items.length) {
     content.innerHTML = `<div style="font-size:12px;color:#bfae8b;padding:10px;background:rgba(0,0,0,0.18);border:1px dashed rgba(214,180,106,0.18);border-radius:10px;">Aucun PNJ pour le moment.</div>`
     return
   }
+  if (!visibleItems.length) {
+    content.innerHTML = `<div style="font-size:12px;color:#bfae8b;padding:10px;background:rgba(0,0,0,0.18);border:1px dashed rgba(214,180,106,0.18);border-radius:10px;">Aucun PNJ dans cet onglet.</div>`
+    return
+  }
   items.forEach(function(item, index) {
+    if (visibleItems.indexOf(item) === -1) return
     content.appendChild(createSandboxPnjManagerCard(item, index))
   })
 }
@@ -5202,9 +5588,7 @@ function closeVisibleSandboxPnjLocal() {
 function openSandboxPnjManagerV2() {
   try {
     const previewMode = !!(document.body && document.body.classList.contains("sandbox-preview-mode"))
-    document.querySelectorAll(".gmSection").forEach(function(sec) {
-      sec.style.display = "none"
-    })
+    closeStudioMenusBeforeOpen("sandboxPnjManagerOverlay")
     let overlay = document.getElementById("sandboxPnjManagerOverlay")
     if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay)
     overlay = document.createElement("div")
@@ -5224,6 +5608,7 @@ function openSandboxPnjManagerV2() {
           (previewMode ? `` : `<div class="sandboxMapManagerToolbar" style="display:flex;flex-wrap:wrap;gap:8px;">` +
             `<button type="button" class="sandboxMapManagerActionButton sandboxMapManagerPrimaryButton" data-pnj-manager-action="new-pnj" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Nouveau PNJ</button>` +
           `</div>`) +
+          `<div data-pnj-manager-tabs style="display:flex;flex-wrap:wrap;gap:8px;"></div>` +
           `<div class="sandboxMapManagerComposer" data-pnj-manager-composer style="display:none;grid-template-columns:1fr;gap:10px;padding:12px;border-radius:14px;background:rgba(0,0,0,0.16);border:1px solid rgba(214,180,106,0.18);">` +
             `<input type="text" class="sandboxMapManagerInput" data-pnj-manager-name placeholder="Nom du PNJ" style="padding:10px 12px;border-radius:10px;border:1px solid rgba(214,180,106,0.2);background:rgba(10,18,30,0.55);color:#f5e6c8;font-family:Cinzel,serif;">` +
             `<input type="file" class="sandboxMapManagerFileInput" data-pnj-manager-file accept="image/*" style="color:#f5e6c8;font-family:Cinzel,serif;">` +
@@ -5371,8 +5756,20 @@ function createSandboxMapManagerCard(item, index) {
     deleteSandboxMap(index)
   })
 
+  const moveTabBtn = document.createElement("button")
+  moveTabBtn.type = "button"
+  moveTabBtn.className = "sandboxMapManagerActionButton"
+  moveTabBtn.style.cssText = "padding:8px 10px;background:rgba(18,60,42,0.48);color:#def6e7;border:1px solid rgba(90,180,120,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+  moveTabBtn.textContent = getSandboxItemTab(item) ? "Onglet : " + getSandboxItemTab(item) : "Mettre en onglet"
+  moveTabBtn.addEventListener("click", function(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    moveSandboxMapToTab(item && item.id ? item.id : index)
+  })
+
   if (!previewMode) {
     actionsRow.appendChild(renameBtn)
+    actionsRow.appendChild(moveTabBtn)
     actionsRow.appendChild(deleteBtn)
   }
 
@@ -5409,52 +5806,26 @@ function renderSandboxMapManagerOverlayV2() {
   if (subtitle) subtitle.style.display = previewMode ? "none" : ""
   if (!content) return
   const maps = getSimpleSandboxMaps()
+  renderSandboxManagerTabsRow("map", overlay, maps)
+  const visibleMaps = getSandboxVisibleManagerItems("map", maps)
   if (debug) debug.textContent = "Maps : " + maps.length
   content.innerHTML = ""
   if (!maps.length) {
     content.innerHTML = `<div style="font-size:12px;color:#bfae8b;padding:10px;background:rgba(0,0,0,0.18);border:1px dashed rgba(214,180,106,0.18);border-radius:10px;">Aucune map pour le moment.</div>`
     return
   }
+  if (!visibleMaps.length) {
+    content.innerHTML = `<div style="font-size:12px;color:#bfae8b;padding:10px;background:rgba(0,0,0,0.18);border:1px dashed rgba(214,180,106,0.18);border-radius:10px;">Aucune map dans cet onglet.</div>`
+    return
+  }
   maps.forEach((item, index) => {
+    if (visibleMaps.indexOf(item) === -1) return
     content.appendChild(createSandboxMapManagerCard(item, index))
   })
 }
 
 function openSandboxMapManager() {
-  try {
-    document.querySelectorAll(".gmSection").forEach(sec => {
-      sec.style.display = "none"
-    })
-    let overlay = document.getElementById("sandboxMapManagerOverlay")
-    if (!overlay) {
-      overlay = document.createElement("div")
-      overlay.id = "sandboxMapManagerOverlay"
-      overlay.style.cssText = "position:fixed;inset:0;z-index:10060;background:rgba(8,10,18,0.46);display:flex;align-items:center;justify-content:center;padding:24px;"
-      overlay.innerHTML =
-        `<div style="width:min(960px, 92vw);max-height:88vh;overflow:auto;display:grid;gap:14px;padding:22px;border-radius:22px;background:linear-gradient(180deg, rgba(38,52,88,0.96), rgba(16,22,36,0.98));border:1px solid rgba(214,180,106,0.28);box-shadow:0 24px 80px rgba(0,0,0,0.42);font-family:Cinzel,serif;">` +
-          `<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">` +
-            `<div style="display:grid;gap:6px;">` +
-              `<div style="font-size:14px;letter-spacing:2px;color:#e6c27a;">Maps et lieux</div>` +
-              `<div style="font-size:12px;line-height:1.6;color:rgba(255,240,210,0.82);">Ici ajoute tes maps et lieux. Nomme-les de facon claire pour t'y retrouver et donner une bonne scenerie aux joueurs.</div>` +
-            `</div>` +
-            `<button type="button" onclick="return closeSandboxMapManager()" style="padding:8px 12px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:10px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Fermer</button>` +
-          `</div>` +
-          `<div style="display:flex;flex-wrap:wrap;gap:8px;">` +
-            `<button type="button" onclick="return launchOnboardingStartMap()" style="padding:9px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Map de depart</button>` +
-            `<button type="button" onclick="return createSandboxMapFromPanel()" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Nouvelle map</button>` +
-          `</div>` +
-          `<div data-map-manager-debug style="font-size:11px;color:#bfae8b;"></div>` +
-          `<div data-map-manager-content style="display:grid;gap:10px;"></div>` +
-        `</div>`
-      document.body.appendChild(overlay)
-      overlay.addEventListener("click", function(event) {
-        if (event.target === overlay) closeSandboxMapManager()
-      })
-    }
-    overlay.style.display = "flex"
-    renderSandboxMapManagerOverlay()
-  } catch (_) {}
-  return false
+  return openSandboxMapManagerV2()
 }
 
 function sanitizeLegacySandboxUI() {
@@ -5859,12 +6230,13 @@ function openGMCharacterPicker() {
   if (typeof window !== "undefined" && typeof window.openGMCharacterPickerInline === "function") {
     return window.openGMCharacterPickerInline()
   }
+  closeStudioMenusBeforeOpen("gmCharacterPickerOverlay")
   const existing = document.getElementById("gmCharacterPickerOverlay")
   if (existing) existing.remove()
 
   const overlay = document.createElement("div")
   overlay.id = "gmCharacterPickerOverlay"
-  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.72);display:flex;align-items:center;justify-content:center;z-index:2147483601;padding:20px;"
+  overlay.style.cssText = "position:fixed;inset:0;background:transparent;display:flex;align-items:center;justify-content:center;z-index:2147483601;padding:20px;"
   overlay.addEventListener("click", event => {
     if (event.target === overlay) overlay.remove()
   })
@@ -5935,6 +6307,7 @@ document.addEventListener("DOMContentLoaded", () => {
 })
 
 function toggleGMSection(id) {
+  closeStudioMenusBeforeOpen(id === "mapMenu" ? "sandboxMapManagerOverlay" : id === "pnjMenu" ? "sandboxPnjManagerOverlay" : id === "gmCharacters" ? "gmCharacterPickerInline" : id)
   if (id === "gmCharacters") {
     openGMCharacterPicker()
     return
@@ -6432,6 +6805,7 @@ document.addEventListener("keydown", e => {
 // Simple, single-source sandbox map manager.
 function getSimpleSandboxMaps() {
   try {
+    const tabOverrides = getSandboxItemTabOverrides("map")
     const runtimeMaps = Array.isArray(window.__simpleSandboxMaps) ? window.__simpleSandboxMaps : []
     if (typeof getCustomization !== "function") {
       return runtimeMaps.map((item, index) => ({
@@ -6440,19 +6814,23 @@ function getSimpleSandboxMaps() {
         map: String(item && item.map || ""),
         category: String(item && item.category || "Custom"),
         section: String(item && item.section || "lieux"),
+        tab: normalizeSandboxManagerTabName(tabOverrides[String(item && item.id || ("map_" + index))] || item && item.tab),
         audio: String(item && item.audio || "")
       }))
     }
     const data = getCustomization()
     const content = data && data.content ? data.content : {}
     const savedMaps = Array.isArray(content.maps) ? content.maps : []
-    const sourceMaps = savedMaps.length ? savedMaps : runtimeMaps
+    const sourceMaps = runtimeMaps.length >= savedMaps.length && runtimeMaps.length
+      ? runtimeMaps
+      : savedMaps
     window.__simpleSandboxMaps = sourceMaps.map((item, index) => ({
       id: String(item && item.id || ("map_" + index)),
       label: String(item && item.label || "Sans titre"),
       map: String(item && item.map || ""),
       category: String(item && item.category || "Custom"),
       section: String(item && item.section || "lieux"),
+      tab: normalizeSandboxManagerTabName(tabOverrides[String(item && item.id || ("map_" + index))] || item && item.tab),
       audio: String(item && item.audio || "")
     }))
     return window.__simpleSandboxMaps
@@ -6468,6 +6846,7 @@ function saveSimpleSandboxMaps(maps) {
       map: String(item && item.map || ""),
       category: String(item && item.category || "Custom"),
       section: String(item && item.section || "lieux"),
+      tab: normalizeSandboxManagerTabName(item && item.tab),
       audio: String(item && item.audio || "")
     }))
     if (typeof getCustomization !== "function" || typeof saveCustomization !== "function") return false
@@ -6479,6 +6858,7 @@ function saveSimpleSandboxMaps(maps) {
       map: String(item && item.map || ""),
       category: String(item && item.category || "Custom"),
       section: String(item && item.section || "lieux"),
+      tab: normalizeSandboxManagerTabName(item && item.tab),
       audio: String(item && item.audio || "")
     }))
     saveCustomization(next)
@@ -6516,6 +6896,7 @@ function ensureTutorialStartMapInSimpleMaps() {
         map: String(item && item.map || ""),
         category: String(item && item.category || "Custom"),
         section: String(item && item.section || "lieux"),
+        tab: normalizeSandboxManagerTabName(item && item.tab),
         audio: String(item && item.audio || "")
       }))
       if (typeof getCustomization === "function" && typeof saveCustomization === "function") {
@@ -6532,6 +6913,7 @@ function ensureTutorialStartMapInSimpleMaps() {
       map: String(item && item.map || ""),
       category: String(item && item.category || "Custom"),
       section: String(item && item.section || "lieux"),
+      tab: normalizeSandboxManagerTabName(item && item.tab),
       audio: String(item && item.audio || "")
     }))
     return true
@@ -6707,9 +7089,7 @@ function endSandboxMapDrag() {
 }
 
 function closeSandboxMapManager() {
-  const overlay = document.getElementById("sandboxMapManagerOverlay")
-  if (overlay) overlay.style.display = "none"
-  return false
+  return closeSandboxMapManagerV2()
 }
 
 function createSimpleSandboxMapCard(item, index) {
@@ -6874,6 +7254,7 @@ async function submitSandboxMapManagerCreateV2() {
       trimmedLabel = String(file.name || "Nouvelle map").replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim() || "Nouvelle map"
       if (nameInput) nameInput.value = trimmedLabel
     }
+    const activeTab = getSandboxManagerActiveTab("map")
     let asset = typeof readNativeStudioFileAsDataURL === "function"
       ? String(await readNativeStudioFileAsDataURL(file) || "").trim()
       : ""
@@ -6891,10 +7272,12 @@ async function submitSandboxMapManagerCreateV2() {
       map: asset,
       category: "Custom",
       section: "lieux",
+      tab: activeTab !== "all" && activeTab !== "__untabbed__" ? activeTab : "",
       audio: ""
     })
     saveSimpleSandboxMaps(maps)
-    closeSandboxMapManagerV2()
+    closeSandboxMapCreateComposerV2()
+    renderSandboxMapManagerOverlayV2()
     if (typeof showNotification === "function") showNotification("Map ajoutee")
   } catch (_) {}
   return false
@@ -6944,6 +7327,7 @@ async function createSandboxMapFromPanel() {
         map: asset,
         category: "Custom",
         section: "lieux",
+        tab: activeTab !== "all" && activeTab !== "__untabbed__" ? activeTab : "",
         audio: ""
       })
       saveSimpleSandboxMaps(maps)
@@ -6970,9 +7354,7 @@ function openSandboxMapManagerV2() {
         || "medieval_fantasy"
       ).trim() || "medieval_fantasy"
     } catch (_) {}
-    document.querySelectorAll(".gmSection").forEach(function(sec) {
-      sec.style.display = "none"
-    })
+    closeStudioMenusBeforeOpen("sandboxMapManagerOverlay")
     let overlay = document.getElementById("sandboxMapManagerOverlay")
     if (!overlay) {
       overlay = document.createElement("div")
@@ -6991,6 +7373,7 @@ function openSandboxMapManagerV2() {
           `<div class="sandboxMapManagerToolbar" style="display:flex;flex-wrap:wrap;gap:8px;">` +
             `<button type="button" class="sandboxMapManagerActionButton sandboxMapManagerPrimaryButton" data-map-manager-action="new-map" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Nouvelle map</button>` +
           `</div>` +
+          `<div data-map-manager-tabs style="display:flex;flex-wrap:wrap;gap:8px;"></div>` +
           `<div class="sandboxMapManagerComposer" data-map-manager-composer style="display:none;grid-template-columns:1fr;gap:10px;padding:12px;border-radius:14px;background:rgba(0,0,0,0.16);border:1px solid rgba(214,180,106,0.18);">` +
             `<input type="text" class="sandboxMapManagerInput" data-map-manager-name placeholder="Nom de la map" style="padding:10px 12px;border-radius:10px;border:1px solid rgba(214,180,106,0.2);background:rgba(10,18,30,0.55);color:#f5e6c8;font-family:Cinzel,serif;">` +
             `<input type="file" class="sandboxMapManagerFileInput" data-map-manager-file accept="image/*" style="color:#f5e6c8;font-family:Cinzel,serif;">` +

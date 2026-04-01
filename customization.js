@@ -25,7 +25,9 @@
     const data = getCustomization()
     data.content = data.content && typeof data.content === "object" ? data.content : {}
     data.content.maps = Array.isArray(data.content.maps) ? data.content.maps : []
+    data.content.mapTabs = Array.isArray(data.content.mapTabs) ? data.content.mapTabs : []
     data.content.pnjs = Array.isArray(data.content.pnjs) ? data.content.pnjs : []
+    data.content.pnjTabs = Array.isArray(data.content.pnjTabs) ? data.content.pnjTabs : []
     data.content.highPnjs = Array.isArray(data.content.highPnjs) ? data.content.highPnjs : []
     data.content.mobs = Array.isArray(data.content.mobs) ? data.content.mobs : []
     data.content.documents = Array.isArray(data.content.documents) ? data.content.documents : []
@@ -570,6 +572,7 @@
   }
 
   function showCreatorStudioHome() {
+    if (typeof closeStudioMenusBeforeOpen === "function") closeStudioMenusBeforeOpen("creatorStudioOverlay")
     closeStudioOverlay()
     const summary = getStudioSummary()
     const studioPresentation = typeof getProjectThemePresentation === "function"
@@ -689,6 +692,7 @@
   }
 
   function openCustomizationPanel(options) {
+    if (typeof closeStudioMenusBeforeOpen === "function") closeStudioMenusBeforeOpen("customizationOverlay")
     const existing = byId("customizationOverlay")
     if (existing) existing.remove()
     const customization = getExtendedCustomization()

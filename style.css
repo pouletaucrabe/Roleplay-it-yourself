@@ -1952,8 +1952,8 @@ textarea.sheetField {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: rgba(0,0,0,0.74);
-  backdrop-filter: blur(6px);
+  background: transparent;
+  backdrop-filter: none;
   z-index: 2147483602;
 }
 
@@ -2033,7 +2033,7 @@ textarea.sheetField {
 }
 
 body[data-project-theme="medieval_fantasy"] .gmCharacterPickerOverlay {
-  background: rgba(6,4,2,0.78);
+  background: transparent;
 }
 
 body[data-project-theme="medieval_fantasy"] .gmCharacterPickerPanel {
@@ -2101,7 +2101,7 @@ body[data-project-theme="medieval_fantasy"] .gmCharacterPickerClose {
 }
 
 body[data-project-theme="pirate"] .gmCharacterPickerOverlay {
-  background: rgba(2,10,14,0.82);
+  background: transparent;
 }
 
 body[data-project-theme="pirate"] .gmCharacterPickerPanel {
@@ -2163,7 +2163,7 @@ body[data-project-theme="pirate"] .gmCharacterPickerClose {
 }
 
 body[data-project-theme="science_fiction"] .gmCharacterPickerOverlay {
-  background: rgba(3,8,16,0.82);
+  background: transparent;
 }
 
 body[data-project-theme="science_fiction"] .gmCharacterPickerPanel {
@@ -2231,7 +2231,7 @@ body[data-project-theme="science_fiction"] .gmCharacterPickerClose:focus-visible
 }
 
 body[data-project-theme="contemporain"] .gmCharacterPickerOverlay {
-  background: rgba(12,12,12,0.76);
+  background: transparent;
 }
 
 body[data-project-theme="contemporain"] .gmCharacterPickerPanel {
@@ -2284,7 +2284,7 @@ body[data-project-theme="contemporain"] .gmCharacterPickerClose {
 }
 
 #gmCharacterPickerInline[data-picker-theme="medieval_fantasy"] {
-  background: rgba(6,4,2,0.78);
+  background: transparent;
 }
 
 #gmCharacterPickerInline[data-picker-theme="medieval_fantasy"] .gmCharacterPickerPanel {
@@ -2352,7 +2352,7 @@ body[data-project-theme="contemporain"] .gmCharacterPickerClose {
 }
 
 #gmCharacterPickerInline[data-picker-theme="pirate"] {
-  background: rgba(2,10,14,0.82);
+  background: transparent;
 }
 
 #gmCharacterPickerInline[data-picker-theme="pirate"] .gmCharacterPickerPanel {
@@ -2414,7 +2414,7 @@ body[data-project-theme="contemporain"] .gmCharacterPickerClose {
 }
 
 #gmCharacterPickerInline[data-picker-theme="science_fiction"] {
-  background: rgba(3,8,16,0.82);
+  background: transparent;
 }
 
 #gmCharacterPickerInline[data-picker-theme="science_fiction"] .gmCharacterPickerPanel {
@@ -2482,7 +2482,7 @@ body[data-project-theme="contemporain"] .gmCharacterPickerClose {
 }
 
 #gmCharacterPickerInline[data-picker-theme="contemporain"] {
-  background: rgba(12,12,12,0.76);
+  background: transparent;
 }
 
 #gmCharacterPickerInline[data-picker-theme="contemporain"] .gmCharacterPickerPanel {
@@ -2535,7 +2535,7 @@ body[data-project-theme="contemporain"] .gmCharacterPickerClose {
 }
 
 .gmCharacterPickerOverlay[data-picker-theme="medieval_fantasy"] {
-  background: rgba(6,4,2,0.78);
+  background: transparent;
 }
 
 .gmCharacterPickerPanel[data-picker-theme="medieval_fantasy"] {
@@ -2603,7 +2603,7 @@ body[data-project-theme="contemporain"] .gmCharacterPickerClose {
 }
 
 .gmCharacterPickerOverlay[data-picker-theme="pirate"] {
-  background: rgba(4,8,10,0.78);
+  background: transparent;
 }
 
 .gmCharacterPickerPanel[data-picker-theme="pirate"] {
@@ -2660,7 +2660,7 @@ body[data-project-theme="contemporain"] .gmCharacterPickerClose {
 }
 
 .gmCharacterPickerOverlay[data-picker-theme="science_fiction"] {
-  background: rgba(3,8,16,0.82);
+  background: transparent;
 }
 
 .gmCharacterPickerPanel[data-picker-theme="science_fiction"] {
@@ -2728,7 +2728,7 @@ body[data-project-theme="contemporain"] .gmCharacterPickerClose {
 }
 
 .gmCharacterPickerOverlay[data-picker-theme="contemporain"] {
-  background: rgba(12,12,12,0.76);
+  background: transparent;
 }
 
 .gmCharacterPickerPanel[data-picker-theme="contemporain"] {
@@ -2894,7 +2894,7 @@ body[data-project-theme="contemporain"] .gmCharacterPickerClose {
 }
 
 .sandboxMapManagerOverlay[data-map-theme="medieval_fantasy"] {
-  background: rgba(6,4,2,0.78) !important;
+  background: transparent !important;
 }
 
 .sandboxMapManagerPanel[data-map-theme="medieval_fantasy"] {
@@ -2987,7 +2987,7 @@ body[data-project-theme="contemporain"] .gmCharacterPickerClose {
 }
 
 .sandboxMapManagerOverlay[data-map-theme="pirate"] {
-  background: rgba(2,10,14,0.82) !important;
+  background: transparent !important;
 }
 
 .sandboxMapManagerPanel[data-map-theme="pirate"] {
@@ -3045,7 +3045,7 @@ body[data-project-theme="contemporain"] .gmCharacterPickerClose {
 }
 
 .sandboxMapManagerOverlay[data-map-theme="science_fiction"] {
-  background: rgba(3,8,16,0.82) !important;
+  background: transparent !important;
 }
 
 .sandboxMapManagerPanel[data-map-theme="science_fiction"] {
@@ -3111,7 +3111,7 @@ body[data-project-theme="contemporain"] .gmCharacterPickerClose {
 }
 
 .sandboxMapManagerOverlay[data-map-theme="contemporain"] {
-  background: rgba(12,12,12,0.76) !important;
+  background: transparent !important;
 }
 
 .sandboxMapManagerPanel[data-map-theme="contemporain"] {
@@ -8518,11 +8518,16 @@ body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .token::before {
   height: 96px !important;
   transform: translate(-50%, -50%) !important;
   border-radius: 28px !important;
-  background: linear-gradient(135deg, rgba(121,83,42,0.98), rgba(73,47,24,0.99) 48%, rgba(47,29,13,1)) !important;
+  background:
+    linear-gradient(rgba(40,24,10,0.18), rgba(40,24,10,0.18)),
+    url("images/bois.png") center/180px auto repeat,
+    linear-gradient(135deg, rgba(121,83,42,0.98), rgba(73,47,24,0.99) 48%, rgba(47,29,13,1)) !important;
   box-shadow:
+    0 0 0 2px rgba(212,174,104,0.78),
+    0 0 0 4px rgba(75,47,19,0.92),
     inset 0 1px 0 rgba(255,232,181,0.24),
     inset 0 -2px 0 rgba(28,16,7,0.55),
-    0 10px 24px rgba(31,18,9,0.28) !important;
+    0 12px 28px rgba(31,18,9,0.34) !important;
   border: 1px solid rgba(193,155,91,0.32) !important;
   z-index: 1 !important;
 }
@@ -8538,8 +8543,10 @@ body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .token::after {
   transform: translate(-50%, -50%) !important;
   border-radius: 32px !important;
   box-shadow:
-    0 0 0 2px rgba(58,36,16,0.9),
-    0 0 0 4px rgba(200,165,100,0.26) !important;
+    0 0 0 2px rgba(62,38,16,0.95),
+    0 0 0 4px rgba(214,182,112,0.52),
+    0 0 0 6px rgba(92,59,25,0.52),
+    0 16px 30px rgba(27,15,7,0.22) !important;
   z-index: 0 !important;
   pointer-events: none !important;
 }
@@ -8548,15 +8555,19 @@ body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .nameTag {
   bottom: -44px !important;
   min-width: 110px !important;
   padding: 9px 18px 11px !important;
-  background: linear-gradient(180deg, rgba(109,76,40,0.98), rgba(62,40,21,0.99)) !important;
+  background:
+    linear-gradient(rgba(35,20,9,0.16), rgba(35,20,9,0.16)),
+    url("images/bois.png") center/160px auto repeat,
+    linear-gradient(180deg, rgba(109,76,40,0.98), rgba(62,40,21,0.99)) !important;
   border: 1px solid rgba(191,154,93,0.36) !important;
   color: #f2dfb3 !important;
   text-shadow:
     0 1px 0 rgba(54,31,12,0.95),
     0 0 10px rgba(0,0,0,0.34) !important;
   box-shadow:
+    0 0 0 1px rgba(214,181,111,0.62),
     inset 0 1px 0 rgba(255,232,181,0.12),
-    0 10px 18px rgba(49, 31, 18, 0.18) !important;
+    0 10px 18px rgba(49, 31, 18, 0.22) !important;
 }
 
 body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .nameTag::before,
@@ -8568,7 +8579,9 @@ body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .nameTag::after 
   height: 8px !important;
   border-radius: 50% !important;
   background: radial-gradient(circle, rgba(232,196,125,0.95), rgba(120,82,39,0.98)) !important;
-  box-shadow: 0 0 0 1px rgba(52,30,11,0.7) !important;
+  box-shadow:
+    0 0 0 1px rgba(52,30,11,0.78),
+    0 0 0 2px rgba(214,181,111,0.24) !important;
   transform: translateY(-50%) !important;
 }
 
