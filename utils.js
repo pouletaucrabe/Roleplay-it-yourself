@@ -1,7 +1,8 @@
+﻿// @ts-nocheck
 "use strict"
 
 /* ========================= */
-/* HELPERS GÉNÉRAUX         */
+/* HELPERS GÃ‰NÃ‰RAUX         */
 /* ========================= */
 
 function idsEqualLoose(a, b) {
@@ -128,7 +129,7 @@ function getProjectThemeOptions() {
     { value: "science_fiction", label: "Science-fiction", description: "Technologie, vaisseaux, stations, planete hostile et futur." },
     { value: "pirate", label: "Pirate", description: "Iles, tresors, tempetes, navires et aventures maritimes." },
     { value: "contemporain", label: "Contemporaine", description: "Ville actuelle, enquete, mystere, infiltration ou survie moderne." }
-  }
+  ]
 }
 
 function getProjectThemeLabel(themeValue) {
@@ -398,26 +399,9 @@ function addMJLog(text) {
   log.prepend(entry)
 }
 
-function addDiceLog(player, dice, result) {
-  const log = document.getElementById("diceLogContent")
-  if (!log) return
-  const empty = log.querySelector(".diceLogEmpty")
-  if (empty) empty.remove()
-  const entry = document.createElement("div")
-  entry.classList.add("logEntry")
-  if (player === "MJ") entry.classList.add("logMJ")
-  let text = player + " → 🎲 d" + dice + " → " + result
-  if (result === dice) { text += " ✨"; entry.classList.add("logCrit") }
-  if (result === 1)    { text += " ☠";  entry.classList.add("logFail") }
-  entry.innerText = text
-  log.prepend(entry)
-  addMJLog(text)
-  if (log.children.length > 20) log.removeChild(log.lastChild)
-}
-
 function showXPMessage(amount) {
   const msg = document.createElement("div")
-  msg.innerText = "✨ +" + amount + " XP pour le groupe ✨"
+  msg.innerText = "âœ¨ +" + amount + " XP pour le groupe âœ¨"
   msg.style.cssText = "position:fixed;left:50%;top:55%;transform:translate(-50%,0);font-family:Cinzel;font-size:40px;color:gold;text-shadow:0 0 10px gold,0 0 20px orange,0 0 40px gold;pointer-events:none;z-index:999999999;opacity:0;transition:all 1s ease;"
   document.body.appendChild(msg)
   setTimeout(() => { msg.style.opacity = "1"; msg.style.transform = "translate(-50%,-40px)" }, 50)
@@ -606,7 +590,7 @@ function showLevelUpEffect(playerID) {
 
 function showLevelUpText(player) {
   const msg = document.createElement("div")
-  msg.innerText = "⭐ LEVEL UP ⭐"
+  msg.innerText = "â­ LEVEL UP â­"
   msg.style.cssText = "position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(0.5);font-family:Cinzel;font-size:80px;color:gold;text-shadow:0 0 10px gold,0 0 30px orange,0 0 60px gold;pointer-events:none;z-index:999999999;opacity:0;transition:all 0.6s ease;"
   document.body.appendChild(msg)
   setTimeout(() => { msg.style.opacity = "1"; msg.style.transform = "translate(-50%,-50%) scale(1.2)" }, 50)
@@ -623,7 +607,7 @@ function shadeColor(color, percent) {
 }
 
 /* ========================= */
-/* CAMÉRA                    */
+/* CAMÃ‰RA                    */
 /* ========================= */
 
 function calculateMinZoom() {
@@ -961,7 +945,7 @@ function playSound(id, volume = 0.8) {
 }
 
 /* ========================= */
-/* SANG / MALÉDICTION        */
+/* SANG / MALÃ‰DICTION        */
 /* ========================= */
 
 function startBloodEffect(token) {
@@ -1022,7 +1006,7 @@ function tryBark() {
 }
 
 function showBibiSpeech(text) {
-  addMJLog("🐶 Bibi : " + text)
+  addMJLog("ðŸ¶ Bibi : " + text)
   const bibi = document.getElementById("bibi")
   if (!bibi) return
   const bubble = document.createElement("div")
@@ -1054,7 +1038,7 @@ function makeDraggable(element) {
 }
 
 /* ========================= */
-/* MENU ÉTINCELLES           */
+/* MENU Ã‰TINCELLES           */
 /* ========================= */
 
 let menuSparkInterval = null
@@ -1148,7 +1132,7 @@ function scanAssets() {
   ])
   images.forEach(img => {
     const test = new Image()
-    test.onerror = () => console.warn("❌ IMAGE MANQUANTE → " + img)
+    test.onerror = () => console.warn("âŒ IMAGE MANQUANTE â†’ " + img)
     test.src = "images/" + img
   })
 }

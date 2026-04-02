@@ -4575,9 +4575,13 @@ function clearSandboxImportedViewState() {
 }
 
 function applySandboxLocalLoadSnapshot(data, options) {
+  let snapshotStage = "init"
   try {
+    snapshotStage = "safeData"
     const safeData = data && typeof data === "object" ? data : {}
+    snapshotStage = "resolveLoadedSandboxCustomization"
     const customization = resolveLoadedSandboxCustomization(safeData)
+    snapshotStage = "buildSyncLoadedSheetsToTokens"
     const syncLoadedSheetsToTokens = function() {
       try {
         const project = customization && customization.project ? customization.project : {}
@@ -4608,10 +4612,17 @@ function applySandboxLocalLoadSnapshot(data, options) {
         }
       } catch (_) {}
     }
+    snapshotStage = "clearSandboxImportedViewState"
     clearSandboxImportedViewState()
-    if (typeof saveCustomization === "function") {
-      saveCustomization(customization)
+    snapshotStage = "saveCustomization"
+    try {
+      if (typeof saveCustomization === "function") {
+        saveCustomization(customization)
+      }
+    } catch (error) {
+      console.warn("applySandboxLocalLoadSnapshot saveCustomization skipped:", error)
     }
+    snapshotStage = "primeSimpleSheets"
     try {
       const count = Math.max(1, Math.min(12, parseInt((customization.project && customization.project.playerCount) || 4, 10) || 4))
       for (let slotIndex = 1; slotIndex <= 12; slotIndex += 1) {
@@ -4629,6 +4640,7 @@ function applySandboxLocalLoadSnapshot(data, options) {
         }
       }
     } catch (_) {}
+    snapshotStage = "setRuntimeMaps"
     try {
       const maps = customization && customization.content && Array.isArray(customization.content.maps)
         ? customization.content.maps
@@ -4643,6 +4655,7 @@ function applySandboxLocalLoadSnapshot(data, options) {
         audio: String(item && item.audio || "")
       }))
     } catch (_) {}
+    snapshotStage = "setRuntimePnjs"
     try {
       const pnjs = customization && customization.content && Array.isArray(customization.content.pnjs)
         ? customization.content.pnjs
@@ -4655,6 +4668,7 @@ function applySandboxLocalLoadSnapshot(data, options) {
         tab: normalizeSandboxManagerTabName(item && item.tab)
       }))
     } catch (_) {}
+    snapshotStage = "persistCharacters"
     try {
       Object.entries(safeData.characters || {}).forEach(function(entry) {
         var pid = entry[0]
@@ -4662,6 +4676,7 @@ function applySandboxLocalLoadSnapshot(data, options) {
         if (typeof saveSimpleSheetLocal === "function") saveSimpleSheetLocal(pid, value)
       })
     } catch (_) {}
+    snapshotStage = "projectThemeAndPlayers"
     try {
       const project = customization && customization.project ? customization.project : {}
       window.__onboardingStartMapId = String(project.startMapId || "").trim()
@@ -4683,6 +4698,7 @@ function applySandboxLocalLoadSnapshot(data, options) {
         }
       } catch (_) {}
     } catch (_) {}
+    snapshotStage = "preferredCurrentMap"
     try {
       const preferredCurrentMap = String(
         (safeData.sandboxState && safeData.sandboxState.currentMap)
@@ -4694,12 +4710,15 @@ function applySandboxLocalLoadSnapshot(data, options) {
         window.__latestMapValue = currentMap
       }
     } catch (_) {}
+    snapshotStage = "renderMenusAndUI"
     try {
       if (typeof renderMapMenu === "function") renderMapMenu()
       if (typeof renderPNJMenu === "function") renderPNJMenu()
       if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
     } catch (_) {}
+    snapshotStage = "syncLoadedSheetsToTokensInitial"
     syncLoadedSheetsToTokens()
+    snapshotStage = "restoreVisibleMap"
     try {
       const project = customization && customization.project ? customization.project : {}
       const startMapAsset = String(project.startMapAsset || "").trim()
@@ -4728,13 +4747,16 @@ function applySandboxLocalLoadSnapshot(data, options) {
         applyMapAudioSelection(restoredMapAudio, 0)
       }
     } catch (_) {}
+    snapshotStage = "ensureChromeVisible"
     try { ensureSandboxStudioChromeVisible() } catch (_) {}
+    snapshotStage = "openSandboxAfterLoad"
     if (options && options.openSandboxAfterLoad && typeof openSandboxAfterProjectCreation === "function") {
       try {
         window.__skipIntroHub = true
         openSandboxAfterProjectCreation("Bac a sable charge")
       } catch (_) {}
     }
+    snapshotStage = "postLoadTimeouts"
     try {
       setTimeout(function() {
         try {
@@ -4749,7 +4771,13 @@ function applySandboxLocalLoadSnapshot(data, options) {
     } catch (_) {}
     return true
   } catch (error) {
-    console.error("applySandboxLocalLoadSnapshot failed:", error)
+    console.error("applySandboxLocalLoadSnapshot failed at stage:", snapshotStage, error)
+    try {
+      if (typeof showNotification === "function") showNotification("Chargement bloque : " + snapshotStage)
+    } catch (_) {}
+    try {
+      window.__lastSandboxLoadSnapshotErrorStage = snapshotStage
+    } catch (_) {}
   }
   return false
 }
@@ -4809,28 +4837,59 @@ async function promptLoadSandboxFromLocalFolder(options) {
     if (typeof window.showDirectoryPicker !== "function") {
       return promptLoadSandboxLocalSaveFile(options)
     }
-    let directoryHandle = window.__sandboxDirectoryHandle || null
-    if (!directoryHandle) {
-      directoryHandle = await window.showDirectoryPicker()
+    const directoryHandle = await window.showDirectoryPicker({ mode: "readwrite" })
+    try {
+      if (typeof showNotification === "function") showNotification("Dossier choisi : " + String(directoryHandle && directoryHandle.name || "dossier"))
+    } catch (_) {}
+    if (directoryHandle && typeof directoryHandle.requestPermission === "function") {
+      const permission = await directoryHandle.requestPermission({ mode: "readwrite" })
+      if (permission !== "granted") throw new Error("directory permission denied")
     }
-    const fileHandle = await directoryHandle.getFileHandle("roleplay-save.json")
+    let fileHandle = null
+    try {
+      fileHandle = await directoryHandle.getFileHandle("roleplay-save.json")
+    } catch (_) {}
+    if (!fileHandle && typeof directoryHandle.values === "function") {
+      for await (const entry of directoryHandle.values()) {
+        if (!entry || entry.kind !== "file") continue
+        const entryName = String(entry.name || "").toLowerCase()
+        if (!entryName.endsWith(".json")) continue
+        fileHandle = entry
+        break
+      }
+    }
+    if (!fileHandle) throw new Error("save file not found")
+    try {
+      if (typeof showNotification === "function") showNotification("Fichier trouve : " + String(fileHandle && fileHandle.name || "roleplay-save.json"))
+    } catch (_) {}
     const file = await fileHandle.getFile()
     const text = await file.text()
     const parsed = JSON.parse(String(text || "{}"))
-    if (typeof _applyLoadData !== "function") throw new Error("load function missing")
-    applySandboxLocalLoadSnapshot(parsed, options)
-    _applyLoadData(parsed, function() {
+    const applied = applySandboxLocalLoadSnapshot(parsed, options)
+    if (!applied) {
+      const stage = String((window.__lastSandboxLoadSnapshotErrorStage || "")).trim()
+      throw new Error(stage ? ("snapshot apply failed at " + stage) : "snapshot apply failed")
+    }
+    try {
       window.__sandboxDirectoryHandle = directoryHandle
       window.__sandboxLastDirectoryName = directoryHandle && directoryHandle.name ? String(directoryHandle.name) : ""
-      if (typeof showNotification === "function") {
-        showNotification("Bac a sable charge depuis " + (window.__sandboxLastDirectoryName || "le dossier choisi"))
+    } catch (_) {}
+    try {
+      if (typeof _applyLoadData === "function") {
+        _applyLoadData(parsed, function() {})
       }
-    })
+    } catch (_) {}
+    if (typeof showNotification === "function") {
+      showNotification("Bac a sable charge depuis " + (window.__sandboxLastDirectoryName || "le dossier choisi"))
+    }
     return true
   } catch (error) {
     if (error && error.name === "AbortError") return false
     console.error("promptLoadSandboxFromLocalFolder failed:", error)
-    if (typeof showNotification === "function") showNotification("Chargement dossier impossible")
+    if (typeof showNotification === "function") showNotification("Chargement dossier impossible : " + String((error && error.message) || error || "erreur"))
+    try {
+      if (typeof alert === "function") alert("Chargement dossier impossible : " + String((error && error.message) || error || "erreur"))
+    } catch (_) {}
   }
   return false
 }
@@ -4842,6 +4901,14 @@ function saveGame() {
 function _applyLoadData(data, callback) {
   const ops = []
   const pushOp = (label, promise) => { ops.push({ label, promise }) }
+  let callbackDone = false
+  const finishLoad = () => {
+    if (callbackDone) return
+    callbackDone = true
+    try {
+      if (typeof callback === "function") callback()
+    } catch (_) {}
+  }
   const resolvedCustomization = resolveLoadedSandboxCustomization(data)
   const persistLoadedSimpleSheetLocal = (playerId, raw) => {
     try {
@@ -4957,7 +5024,13 @@ function _applyLoadData(data, callback) {
   pushOp("game/powerSound", db.ref("game/powerSound").remove())
   pushOp("game/document", db.ref("game/document").remove())
 
+  const loadTimeout = setTimeout(() => {
+    console.warn("_applyLoadData timeout: falling back to local completion")
+    finishLoad()
+  }, 1800)
+
   Promise.allSettled(ops.map(op => op.promise)).then(results => {
+    clearTimeout(loadTimeout)
     const failed = results
       .map((result, idx) => ({ result, label: ops[idx].label }))
       .filter(entry => entry.result.status === "rejected")
@@ -5005,7 +5078,11 @@ function _applyLoadData(data, callback) {
         })
       }
     } catch (_) {}
-    callback()
+    finishLoad()
+  }).catch(error => {
+    clearTimeout(loadTimeout)
+    console.error("_applyLoadData failed:", error)
+    finishLoad()
   })
 }
 
