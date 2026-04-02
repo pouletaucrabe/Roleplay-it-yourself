@@ -32,7 +32,11 @@ function tryAutoSelectAuthenticatedPlayer() { return false }
 function setSandboxStudioMode(enabled) {
   try {
     document.body.classList.toggle("sandbox-studio-mode", !!enabled)
-    if (!enabled) document.body.classList.remove("sandbox-preview-mode")
+    if (!enabled) {
+      document.body.classList.remove("sandbox-preview-mode", "sandbox-mj-preview-mode", "sandbox-player-preview-mode")
+      document.body.removeAttribute("data-sandbox-preview-role")
+      document.body.removeAttribute("data-sandbox-preview-player")
+    }
     updateSandboxPreviewButton()
     try {
       if (typeof applyProjectThemeToDocument === "function") {
@@ -58,6 +62,74 @@ function setSandboxStudioMode(enabled) {
       }
     }
   } catch (e) {}
+}
+
+function isSandboxPlayerPreviewActive() {
+  try {
+    return !!(document.body && document.body.classList.contains("sandbox-player-preview-mode"))
+  } catch (_) {}
+  return false
+}
+
+function getSandboxPreviewPlayerId() {
+  try {
+    const explicit = String(document.body && document.body.getAttribute("data-sandbox-preview-player") || "").trim().toLowerCase()
+    if (explicit) return explicit
+    if (myToken && myToken.id) return String(myToken.id).trim().toLowerCase()
+  } catch (_) {}
+  return "greg"
+}
+
+function updateSandboxPreviewPlayerUI() {
+  try {
+    if (!document.body) return
+    const playerSelect = document.getElementById("playerSelect")
+    const playerToggle = document.getElementById("playerToggle")
+    const previewPlayerId = getSandboxPreviewPlayerId()
+    const previewToken = document.getElementById(previewPlayerId)
+    const playerCount = Math.max(1, Math.min(12, parseInt(document.body.getAttribute("data-sandbox-player-count"), 10) || 4))
+    const visibleIds = Array.from({ length: playerCount }, function(_, index) {
+      const slotIndex = index + 1
+      if (slotIndex === 1) return "greg"
+      if (slotIndex === 2) return "ju"
+      if (slotIndex === 3) return "elo"
+      if (slotIndex === 4) return "bibi"
+      return "slot_" + slotIndex
+    })
+    document.querySelectorAll(".token").forEach(function(token) {
+      token.classList.remove("selectedPlayer")
+    })
+    if (previewToken) {
+      myToken = previewToken
+      window.myToken = previewToken
+      previewToken.classList.add("selectedPlayer")
+    }
+    if (playerSelect) {
+      playerSelect.style.display = isSandboxPlayerPreviewActive() ? "block" : "none"
+      playerSelect.style.opacity = "1"
+    }
+    if (playerToggle) {
+      const fallback = previewPlayerId ? previewPlayerId.toUpperCase() : "JOUEUR"
+      const labelNode = previewToken ? previewToken.querySelector(".nameTag") : null
+      playerToggle.textContent = String(labelNode && labelNode.textContent || fallback).trim() || fallback
+    }
+    document.querySelectorAll("#playerMenu .playerChoiceBtn").forEach(function(button) {
+      const buttonId = String(button.getAttribute("data-player-choice") || "").trim().toLowerCase()
+      const active = isSandboxPlayerPreviewActive() && buttonId === previewPlayerId
+      button.style.display = visibleIds.includes(buttonId) ? "" : "none"
+      button.setAttribute("aria-pressed", active ? "true" : "false")
+    })
+    updatePlayerNotesVisibility()
+  } catch (_) {}
+}
+
+function openPreviewPlayerSheet() {
+  try {
+    const previewPlayerId = getSandboxPreviewPlayerId()
+    if (!previewPlayerId) return false
+    if (typeof openCharacterSheet === "function") openCharacterSheet(previewPlayerId)
+  } catch (_) {}
+  return false
 }
 
 function ensureSandboxStudioChromeVisible() {
@@ -101,11 +173,18 @@ function ensureDiceBarDefaultOpen() {
 
 function updateSandboxPreviewButton() {
   try {
-    const button = document.getElementById("sandboxPreviewBtn")
-    if (!button) return
     const active = document.body.classList.contains("sandbox-preview-mode")
-    button.textContent = active ? "Retour studio" : "Apercu"
-    button.setAttribute("aria-pressed", active ? "true" : "false")
+    const role = String(document.body.getAttribute("data-sandbox-preview-role") || "").trim().toLowerCase()
+    const mjButton = document.getElementById("sandboxPreviewMjBtn")
+    const playerButton = document.getElementById("sandboxPreviewPlayerBtn")
+    if (mjButton) {
+      mjButton.textContent = active && role === "mj" ? "Retour studio" : "Apercu MJ"
+      mjButton.setAttribute("aria-pressed", active && role === "mj" ? "true" : "false")
+    }
+    if (playerButton) {
+      playerButton.textContent = active && role === "player" ? "Retour studio" : "Apercu joueur"
+      playerButton.setAttribute("aria-pressed", active && role === "player" ? "true" : "false")
+    }
   } catch (_) {}
 }
 
@@ -264,6 +343,7 @@ function initializeSharedNotebook() {
     if (playerNotesTextarea && !playerNotesTextarea.dataset.boundPlayerNotes) {
       playerNotesTextarea.dataset.boundPlayerNotes = "1"
       playerNotesTextarea.addEventListener("input", function() {
+        syncCurrentPlayerNotebookPageFromTextarea()
         persistPlayerNotes()
       })
     }
@@ -272,10 +352,18 @@ function initializeSharedNotebook() {
       window.addEventListener("keydown", function(event) {
         if (String(event.key || "").toLowerCase() !== "escape") return
         const visiblePanel = document.getElementById("sharedNotebookPanel")
-        if (!visiblePanel || visiblePanel.style.display === "none") return
-        event.preventDefault()
-        event.stopPropagation()
-        closeSharedNotebookPanel()
+        const visiblePlayerPanel = document.getElementById("playerNotesPanel")
+        if (visiblePanel && visiblePanel.style.display !== "none") {
+          event.preventDefault()
+          event.stopPropagation()
+          closeSharedNotebookPanel()
+          return
+        }
+        if (visiblePlayerPanel && visiblePlayerPanel.style.display !== "none") {
+          event.preventDefault()
+          event.stopPropagation()
+          closePlayerNotesPanel()
+        }
       }, true)
     }
     if (panel) applySharedNotebookState(window.__sharedNotebookState || getSharedNotebookProjectState())
@@ -310,21 +398,73 @@ function closeSharedNotebookPanel() {
 
 function getPlayerNotesStorageKey() {
   try {
-    const joinCode = String(window.__activeJoinCode || "offline").trim().toUpperCase() || "offline"
-    const slotId = String((myToken && myToken.id) || "spectator").trim().toLowerCase() || "spectator"
+    const inPlayerPreview = isSandboxPlayerPreviewActive()
+    const joinCode = String(window.__activeJoinCode || (inPlayerPreview ? "preview" : "offline")).trim().toUpperCase() || "offline"
+    const slotId = String((myToken && myToken.id) || (inPlayerPreview ? getSandboxPreviewPlayerId() : "spectator")).trim().toLowerCase() || "spectator"
     return "rpg_player_notes_v1_" + joinCode + "_" + slotId
   } catch (_) {}
   return "rpg_player_notes_v1_default"
 }
 
+function getPlayerNotebookState() {
+  try {
+    const raw = localStorage.getItem(getPlayerNotesStorageKey())
+    const parsed = raw ? JSON.parse(raw) : null
+    if (parsed && typeof parsed === "object" && Array.isArray(parsed.pages)) {
+      return {
+        pages: parsed.pages.map(function(page) { return String(page == null ? "" : page) }),
+        updatedAt: Number(parsed.updatedAt) || Date.now()
+      }
+    }
+    if (typeof raw === "string" && raw && raw[0] !== "{") {
+      return { pages: [raw], updatedAt: Date.now() }
+    }
+  } catch (_) {}
+  return { pages: [""], updatedAt: Date.now() }
+}
+
+function syncCurrentPlayerNotebookPageFromTextarea() {
+  try {
+    const textarea = document.getElementById("playerNotesTextarea")
+    if (!textarea) return
+    const state = window.__playerNotebookState && Array.isArray(window.__playerNotebookState.pages)
+      ? { pages: window.__playerNotebookState.pages.slice(), updatedAt: Number(window.__playerNotebookState.updatedAt) || Date.now() }
+      : getPlayerNotebookState()
+    const index = Math.max(0, Math.min(state.pages.length - 1, parseInt(window.__playerNotebookPageIndex, 10) || 0))
+    state.pages[index] = String(textarea.value || "")
+    state.updatedAt = Date.now()
+    window.__playerNotebookState = state
+  } catch (_) {}
+}
+
+function applyPlayerNotebookState(state) {
+  try {
+    const safeState = state && typeof state === "object" ? state : getPlayerNotebookState()
+    const pages = Array.isArray(safeState.pages) && safeState.pages.length ? safeState.pages.map(function(page) { return String(page == null ? "" : page) }) : [""]
+    const index = Math.max(0, Math.min(pages.length - 1, parseInt(window.__playerNotebookPageIndex, 10) || 0))
+    window.__playerNotebookState = { pages: pages, updatedAt: Number(safeState.updatedAt) || Date.now() }
+    window.__playerNotebookPageIndex = index
+    const textarea = document.getElementById("playerNotesTextarea")
+    if (textarea) textarea.value = pages[index] || ""
+    const indicator = document.getElementById("playerNotesPageIndicator")
+    if (indicator) indicator.textContent = "Page " + (index + 1) + " / " + pages.length
+    const prev = document.getElementById("playerNotesPrev")
+    const next = document.getElementById("playerNotesNext")
+    if (prev) prev.disabled = index <= 0
+    if (next) next.disabled = index >= pages.length - 1
+  } catch (_) {}
+}
+
 function updatePlayerNotesVisibility() {
   try {
     const sharedDock = document.getElementById("sharedNotebookDock")
-    if (sharedDock) sharedDock.style.display = isGM ? "block" : "none"
+    if (sharedDock) sharedDock.style.display = isGM && !isSandboxPlayerPreviewActive() ? "block" : "none"
     const dock = document.getElementById("playerNotesDock")
+    const sheetDock = document.getElementById("playerSheetDock")
     if (!dock) return
-    const shouldShow = !isGM && !!(myToken && myToken.id) && !!window.__activeJoinCode
+    const shouldShow = (isSandboxPlayerPreviewActive() && !!getSandboxPreviewPlayerId()) || (!isGM && !!(myToken && myToken.id) && !!window.__activeJoinCode)
     dock.style.display = shouldShow ? "block" : "none"
+    if (sheetDock) sheetDock.style.display = shouldShow ? "block" : "none"
     if (!shouldShow) {
       const panel = document.getElementById("playerNotesPanel")
       if (panel) panel.style.display = "none"
@@ -334,18 +474,96 @@ function updatePlayerNotesVisibility() {
 
 function loadPlayerNotesIntoPanel() {
   try {
-    const textarea = document.getElementById("playerNotesTextarea")
-    if (!textarea) return
-    textarea.value = String(localStorage.getItem(getPlayerNotesStorageKey()) || "")
+    applyPlayerNotebookState(getPlayerNotebookState())
   } catch (_) {}
 }
 
 function persistPlayerNotes() {
   try {
-    const textarea = document.getElementById("playerNotesTextarea")
-    if (!textarea) return false
-    localStorage.setItem(getPlayerNotesStorageKey(), String(textarea.value || ""))
+    syncCurrentPlayerNotebookPageFromTextarea()
+    const state = window.__playerNotebookState && Array.isArray(window.__playerNotebookState.pages)
+      ? window.__playerNotebookState
+      : getPlayerNotebookState()
+    localStorage.setItem(getPlayerNotesStorageKey(), JSON.stringify({
+      pages: state.pages.slice(),
+      updatedAt: Date.now()
+    }))
     return true
+  } catch (_) {}
+  return false
+}
+
+function turnPlayerNotebookPage(direction) {
+  try {
+    const step = Number(direction) < 0 ? -1 : 1
+    syncCurrentPlayerNotebookPageFromTextarea()
+    const state = window.__playerNotebookState && Array.isArray(window.__playerNotebookState.pages)
+      ? { pages: window.__playerNotebookState.pages.slice(), updatedAt: Number(window.__playerNotebookState.updatedAt) || Date.now() }
+      : getPlayerNotebookState()
+    const count = Math.max(1, state.pages.length)
+    const currentIndex = Math.max(0, Math.min(count - 1, parseInt(window.__playerNotebookPageIndex, 10) || 0))
+    if (step > 0 && currentIndex >= count - 1) {
+      state.pages.push("")
+      state.updatedAt = Date.now()
+      window.__playerNotebookState = state
+      window.__playerNotebookPageIndex = state.pages.length - 1
+      persistPlayerNotes()
+      applyPlayerNotebookState(state)
+      return false
+    }
+    const nextIndex = Math.max(0, Math.min(count - 1, currentIndex + step))
+    if (nextIndex === currentIndex) return false
+    window.__playerNotebookPageIndex = nextIndex
+    applyPlayerNotebookState(state)
+  } catch (_) {}
+  return false
+}
+
+function addPlayerNotebookPage() {
+  try {
+    syncCurrentPlayerNotebookPageFromTextarea()
+    const state = window.__playerNotebookState && Array.isArray(window.__playerNotebookState.pages)
+      ? { pages: window.__playerNotebookState.pages.slice(), updatedAt: Number(window.__playerNotebookState.updatedAt) || Date.now() }
+      : getPlayerNotebookState()
+    state.pages.push("")
+    state.updatedAt = Date.now()
+    window.__playerNotebookState = state
+    window.__playerNotebookPageIndex = state.pages.length - 1
+    persistPlayerNotes()
+    applyPlayerNotebookState(state)
+  } catch (_) {}
+  return false
+}
+
+function removePlayerNotebookPage() {
+  try {
+    syncCurrentPlayerNotebookPageFromTextarea()
+    const state = window.__playerNotebookState && Array.isArray(window.__playerNotebookState.pages)
+      ? { pages: window.__playerNotebookState.pages.slice(), updatedAt: Number(window.__playerNotebookState.updatedAt) || Date.now() }
+      : getPlayerNotebookState()
+    if (state.pages.length <= 1) {
+      state.pages = [""]
+      window.__playerNotebookPageIndex = 0
+    } else {
+      const currentIndex = Math.max(0, Math.min(state.pages.length - 1, parseInt(window.__playerNotebookPageIndex, 10) || 0))
+      state.pages.splice(currentIndex, 1)
+      window.__playerNotebookPageIndex = Math.max(0, Math.min(state.pages.length - 1, currentIndex))
+    }
+    state.updatedAt = Date.now()
+    window.__playerNotebookState = state
+    persistPlayerNotes()
+    applyPlayerNotebookState(state)
+  } catch (_) {}
+  return false
+}
+
+function clearPlayerNotebook() {
+  try {
+    if (!window.confirm("Vider tout ton carnet personnel ?")) return false
+    window.__playerNotebookState = { pages: [""], updatedAt: Date.now() }
+    window.__playerNotebookPageIndex = 0
+    persistPlayerNotes()
+    applyPlayerNotebookState(window.__playerNotebookState)
   } catch (_) {}
   return false
 }
@@ -446,12 +664,15 @@ function clearSharedNotebook() {
   return false
 }
 
-function toggleSandboxPreviewMode(forceState) {
+function toggleSandboxPreviewMode(forceState, previewRole) {
   try {
     if (!document.body || !document.body.classList.contains("sandbox-studio-mode")) return false
+    const wantedRole = String(previewRole || document.body.getAttribute("data-sandbox-preview-role") || "mj").trim().toLowerCase() === "player" ? "player" : "mj"
+    const currentRole = String(document.body.getAttribute("data-sandbox-preview-role") || "").trim().toLowerCase()
+    const alreadyActiveForRole = document.body.classList.contains("sandbox-preview-mode") && currentRole === wantedRole
     const nextState = typeof forceState === "boolean"
       ? !!forceState
-      : !document.body.classList.contains("sandbox-preview-mode")
+      : !alreadyActiveForRole
     if (nextState) {
       try {
         if (typeof closeSimpleSheet === "function") closeSimpleSheet()
@@ -473,8 +694,55 @@ function toggleSandboxPreviewMode(forceState) {
         const inlinePicker = document.getElementById("gmCharacterPickerInline")
         if (inlinePicker) inlinePicker.remove()
       } catch (_) {}
+      if (!window.__sandboxPreviewStateBackup) {
+        window.__sandboxPreviewStateBackup = {
+          isGM: !!isGM,
+          myTokenId: myToken && myToken.id ? String(myToken.id) : ""
+        }
+      }
+      document.body.setAttribute("data-sandbox-preview-role", wantedRole)
+      if (wantedRole === "player") {
+        isGM = false
+        window.isGM = false
+        document.body.setAttribute("data-sandbox-preview-player", getSandboxPreviewPlayerId())
+        try {
+          const playerSelect = document.getElementById("playerSelect")
+          if (playerSelect) playerSelect.classList.remove("previewHidden")
+        } catch (_) {}
+        updateSandboxPreviewPlayerUI()
+      } else {
+        isGM = true
+        window.isGM = true
+      }
+    } else {
+      document.body.removeAttribute("data-sandbox-preview-role")
+      document.body.removeAttribute("data-sandbox-preview-player")
+      const backup = window.__sandboxPreviewStateBackup || null
+      if (backup) {
+        isGM = !!backup.isGM
+        window.isGM = isGM
+        myToken = backup.myTokenId ? document.getElementById(backup.myTokenId) : null
+        window.myToken = myToken
+      } else {
+        isGM = true
+        window.isGM = true
+      }
+      window.__sandboxPreviewStateBackup = null
+      try {
+        document.querySelectorAll(".token").forEach(function(token) {
+          token.classList.remove("selectedPlayer")
+        })
+        if (myToken) myToken.classList.add("selectedPlayer")
+      } catch (_) {}
+      try {
+        const playerSelect = document.getElementById("playerSelect")
+        if (playerSelect) playerSelect.style.display = "none"
+      } catch (_) {}
     }
     document.body.classList.toggle("sandbox-preview-mode", nextState)
+    document.body.classList.toggle("sandbox-mj-preview-mode", nextState && wantedRole === "mj")
+    document.body.classList.toggle("sandbox-player-preview-mode", nextState && wantedRole === "player")
+    if (!nextState) updatePlayerNotesVisibility()
     updateSandboxPreviewButton()
   } catch (_) {}
   return false
@@ -547,6 +815,106 @@ function getCurrentSandboxSummary() {
   }
 }
 
+function notifyUI(message, channel) {
+  try {
+    if (typeof showNotification === "function") {
+      showNotification(message)
+      return
+    }
+  } catch (_) {}
+  try {
+    console.log("[" + String(channel || "ui") + "]", message)
+  } catch (_) {}
+}
+
+function notifyExportStatus(message) {
+  notifyUI(message, "export")
+}
+
+function notifySessionStatus(message) {
+  notifyUI(message, "session")
+}
+
+function makeExportSerializable(value, seen) {
+  const tracker = seen || new WeakSet()
+  if (value == null) return value
+  const valueType = typeof value
+  if (valueType === "string" || valueType === "number" || valueType === "boolean") return value
+  if (valueType === "bigint") return Number(value)
+  if (valueType === "function" || valueType === "symbol" || valueType === "undefined") return null
+  if (value instanceof Date) return value.toISOString()
+  if (typeof Node !== "undefined" && value instanceof Node) return null
+  if (typeof File !== "undefined" && value instanceof File) {
+    return { name: String(value.name || ""), type: String(value.type || ""), size: Number(value.size) || 0 }
+  }
+  if (typeof Blob !== "undefined" && value instanceof Blob) {
+    return { type: String(value.type || ""), size: Number(value.size) || 0 }
+  }
+  if (Array.isArray(value)) {
+    return value.map(function(entry) {
+      return makeExportSerializable(entry, tracker)
+    })
+  }
+  if (valueType === "object") {
+    if (tracker.has(value)) return null
+    tracker.add(value)
+    const output = {}
+    Object.keys(value).forEach(function(key) {
+      const serialized = makeExportSerializable(value[key], tracker)
+      if (serialized !== null && typeof serialized !== "undefined") output[key] = serialized
+    })
+    tracker.delete(value)
+    return output
+  }
+  return null
+}
+
+function buildSandboxExportPayload(exportEntry, summaryOverride) {
+  const source = exportEntry && typeof exportEntry === "object" ? exportEntry : {}
+  const summary = summaryOverride || source.summary || getCurrentSandboxSummary()
+  return makeExportSerializable({
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    exportId: source.id || ("exp_" + Date.now()),
+    label: source.label || "Version jouable",
+    summary: summary,
+    mjSandbox: source.mjSandbox || source.sandbox || null,
+    playerSandbox: source.playerSandbox || null
+  })
+}
+
+function createExportEntry(data, label) {
+  return typeof createSandboxExport === "function"
+    ? createSandboxExport(data, label)
+    : createSandboxExportFallback(data, label)
+}
+
+function createSandboxPlayerSnapshotFallback(data) {
+  const snapshot = makeExportSerializable(data || {})
+  if (snapshot && snapshot.project && typeof snapshot.project === "object") {
+    delete snapshot.project.sharedNotebookPages
+    delete snapshot.project.sharedNotebookText
+    delete snapshot.project.sharedNotebookUpdatedAt
+  }
+  return snapshot
+}
+
+function createSandboxExportFallback(data, label) {
+  const snapshot = makeExportSerializable(
+    data || (typeof getCustomization === "function" ? getCustomization() : {})
+  ) || {}
+  const summary = getCurrentSandboxSummary()
+  return {
+    id: "exp_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8),
+    label: String(label || "").trim() || "Version jouable",
+    createdAt: Date.now(),
+    summary: summary,
+    sandbox: snapshot,
+    mjSandbox: snapshot,
+    playerSandbox: createSandboxPlayerSnapshotFallback(snapshot)
+  }
+}
+
 function buildSessionSlots(playerCount) {
   const slots = {}
   ;["greg", "ju", "elo", "bibi"].slice(0, playerCount).forEach(slotId => {
@@ -556,22 +924,11 @@ function buildSessionSlots(playerCount) {
 }
 
 function exportSandbox(label) {
-  if (typeof createSandboxExport !== "function") {
-    showNotification("Export indisponible")
-    return null
-  }
-  const exportEntry = createSandboxExport(typeof getCustomization === "function" ? getCustomization() : null, label)
+  const exportEntry = createExportEntry(typeof getCustomization === "function" ? getCustomization() : null, label)
   const summary = exportEntry && exportEntry.summary ? exportEntry.summary : getCurrentSandboxSummary()
+  const serializablePayload = buildSandboxExportPayload(exportEntry, summary)
   try {
-    const payload = JSON.stringify({
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      exportId: exportEntry.id,
-      label: exportEntry.label,
-      summary: summary,
-      mjSandbox: exportEntry.mjSandbox || exportEntry.sandbox || null,
-      playerSandbox: exportEntry.playerSandbox || null
-    }, null, 2)
+    const payload = JSON.stringify(serializablePayload, null, 2)
     const fileName = sanitizeSandboxSaveFileName(summary.title || exportEntry.label || "session") + "-export-" + new Date().toISOString().slice(0, 10) + ".json"
     if (typeof Blob !== "undefined" && typeof URL !== "undefined" && typeof URL.createObjectURL === "function") {
       const blob = new Blob([payload], { type: "application/json;charset=utf-8" })
@@ -599,13 +956,39 @@ function exportSandbox(label) {
     }
   } catch (error) {
     console.warn("exportSandbox download failed:", error)
-    if (typeof showNotification === "function") showNotification("Export impossible")
-    return null
+    notifyExportStatus("Telechargement direct impossible")
   }
-  showNotification("Export MJ/Joueur telecharge")
+  exportEntry.__serializablePayload = serializablePayload
+  notifyExportStatus("Export prepare")
   return {
     ...exportEntry,
     summary
+  }
+}
+
+function persistSessionLaunchState(sessionData) {
+  try { localStorage.setItem("rpg_last_join_code", String(sessionData && sessionData.joinCode || "")) } catch (_) {}
+  try {
+    localStorage.setItem("rpg_last_session_role", "mj")
+    localStorage.setItem("rpg_last_session_export_id", String(sessionData && sessionData.exportId || ""))
+  } catch (_) {}
+}
+
+function syncSessionToFirebase(sessionData) {
+  try {
+    if (!db || typeof db.ref !== "function") throw new Error("Firebase indisponible")
+    db.ref(SESSION_REF_PATH).set({
+      ...sessionData,
+      slots: buildSessionSlots(sessionData && sessionData.playerCount)
+    }).then(function() {
+      notifySessionStatus("Partie synchronisee : " + String(sessionData && sessionData.joinCode || ""))
+    }).catch(function(error) {
+      console.warn("launchSessionFromExport sync failed:", error)
+      notifySessionStatus("Partie ouverte en local, synchronisation impossible")
+    })
+  } catch (error) {
+    console.warn("launchSessionFromExport setup failed:", error)
+    notifySessionStatus("Partie ouverte en local, synchronisation indisponible")
   }
 }
 
@@ -651,15 +1034,7 @@ function openSandboxExportOverlay(exportEntry) {
     if (existing) existing.remove()
     const summary = exportEntry.summary || getCurrentSandboxSummary()
     const safeTitle = sanitizeSandboxSaveFileName(summary.title || exportEntry.label || "session")
-    const combinedPayload = {
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      exportId: exportEntry.id,
-      label: exportEntry.label,
-      summary: summary,
-      mjSandbox: exportEntry.mjSandbox || exportEntry.sandbox || null,
-      playerSandbox: exportEntry.playerSandbox || null
-    }
+    const combinedPayload = exportEntry.__serializablePayload || buildSandboxExportPayload(exportEntry, summary)
     const overlay = document.createElement("div")
     overlay.id = "sandboxExportOverlay"
     overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.84);display:flex;align-items:center;justify-content:center;z-index:1000000300;padding:18px;"
@@ -687,7 +1062,9 @@ function openSandboxExportOverlay(exportEntry) {
           `<button type="button" id="sandboxExportMJ" style="padding:10px 16px;background:rgba(15,40,56,0.72);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Telecharger version MJ</button>` +
           `<button type="button" id="sandboxExportPlayer" style="padding:10px 16px;background:rgba(15,40,56,0.72);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Telecharger version Joueur</button>` +
         `</div>` +
-        `<textarea readonly style="width:100%;min-height:220px;padding:12px 14px;box-sizing:border-box;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.3);border-radius:10px;color:#f5e6c8;font-family:Consolas,monospace;font-size:12px;line-height:1.5;">${JSON.stringify(combinedPayload, null, 2).replace(/</g, "&lt;")}</textarea>` +
+        `<div style="padding:14px 16px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(214,180,106,0.16);font-size:12px;line-height:1.7;color:#cdbb96;">` +
+          `L’aperçu JSON a ete retire pour fiabiliser l’export sur les gros bacs a sable. Utilise les boutons ci-dessus pour telecharger le fichier.` +
+        `</div>` +
       `</div>`
     overlay.appendChild(panel)
     document.body.appendChild(overlay)
@@ -698,16 +1075,16 @@ function openSandboxExportOverlay(exportEntry) {
 
     document.getElementById("sandboxExportClose").onclick = function() { overlay.remove() }
     document.getElementById("sandboxExportCombined").onclick = function() {
-      if (downloadSandboxExportPayload(combinedPayload, combinedName)) showNotification("Export complet telecharge")
-      else showNotification("Telechargement impossible")
+      if (downloadSandboxExportPayload(combinedPayload, combinedName)) notifyExportStatus("Export complet telecharge")
+      else notifyExportStatus("Telechargement impossible")
     }
     document.getElementById("sandboxExportMJ").onclick = function() {
-      if (downloadSandboxExportPayload(exportEntry.mjSandbox || exportEntry.sandbox || {}, mjName)) showNotification("Version MJ telechargee")
-      else showNotification("Telechargement impossible")
+      if (downloadSandboxExportPayload(exportEntry.mjSandbox || exportEntry.sandbox || {}, mjName)) notifyExportStatus("Version MJ telechargee")
+      else notifyExportStatus("Telechargement impossible")
     }
     document.getElementById("sandboxExportPlayer").onclick = function() {
-      if (downloadSandboxExportPayload(exportEntry.playerSandbox || {}, playerName)) showNotification("Version Joueur telechargee")
-      else showNotification("Telechargement impossible")
+      if (downloadSandboxExportPayload(exportEntry.playerSandbox || {}, playerName)) notifyExportStatus("Version Joueur telechargee")
+      else notifyExportStatus("Telechargement impossible")
     }
     return true
   } catch (error) {
@@ -725,8 +1102,101 @@ function triggerSandboxExport(label) {
   } catch (error) {
     console.warn("triggerSandboxExport failed:", error)
     if (typeof showNotification === "function") showNotification("Export impossible")
+    try {
+      if (typeof alert === "function") alert("Export impossible : " + String((error && error.message) || error || "erreur inconnue"))
+    } catch (_) {}
   }
   return null
+}
+
+function performSandboxExportAction(label) {
+  try {
+    if (typeof showNotification === "function") showNotification("Preparation de l'export...")
+    const exportEntry = triggerSandboxExport(label)
+    if (exportEntry) return exportEntry
+  } catch (error) {
+    console.warn("performSandboxExportAction failed:", error)
+    try {
+      if (typeof alert === "function") alert("Export impossible : " + String((error && error.message) || error || "erreur inconnue"))
+    } catch (_) {}
+  }
+  try {
+    if (typeof alert === "function") alert("Export impossible")
+  } catch (_) {}
+  return null
+}
+
+function bindSandboxExportButtons(root) {
+  try {
+    const scope = root && root.querySelectorAll ? root : document
+    const buttons = scope.querySelectorAll ? scope.querySelectorAll("[data-export-sandbox]") : []
+    buttons.forEach(function(button) {
+      if (!button || button.dataset.exportBound === "true") return
+      button.dataset.exportBound = "true"
+      button.addEventListener("click", function(event) {
+        try {
+          event.preventDefault()
+          event.stopPropagation()
+        } catch (_) {}
+        performSandboxExportAction(button.getAttribute("data-export-label") || "")
+        return false
+      }, true)
+    })
+  } catch (error) {
+    console.warn("bindSandboxExportButtons failed:", error)
+  }
+}
+
+function bindDirectSandboxExportButton() {
+  try {
+    const button = document.getElementById("gmExportDirectBtn")
+    if (!button || button.dataset.exportBound === "true") return
+    button.dataset.exportBound = "true"
+    button.addEventListener("click", function(event) {
+      try {
+        event.preventDefault()
+        event.stopPropagation()
+      } catch (_) {}
+      const previousLabel = button.textContent
+      button.textContent = "Export..."
+      button.disabled = true
+      setTimeout(function() {
+        performSandboxExportAction("Export direct")
+        button.disabled = false
+        button.textContent = previousLabel || "Export"
+      }, 0)
+      return false
+    }, true)
+  } catch (error) {
+    console.warn("bindDirectSandboxExportButton failed:", error)
+  }
+}
+
+function installSandboxExportBindings() {
+  try {
+    bindSandboxExportButtons(document)
+    bindDirectSandboxExportButton()
+    if (window.__sandboxExportBindingObserverInstalled) return
+    const observer = new MutationObserver(function(mutations) {
+      mutations.forEach(function(mutation) {
+        const addedNodes = Array.from(mutation.addedNodes || [])
+        addedNodes.forEach(function(node) {
+          if (!node || node.nodeType !== 1) return
+          if (node.matches && node.matches("[data-export-sandbox]")) {
+            bindSandboxExportButtons(node.parentNode || document)
+          }
+          if (node.id === "gmExportDirectBtn" || (node.querySelector && node.querySelector("#gmExportDirectBtn"))) {
+            bindDirectSandboxExportButton()
+          }
+          if (node.querySelector) bindSandboxExportButtons(node)
+        })
+      })
+    })
+    observer.observe(document.documentElement || document.body, { childList: true, subtree: true })
+    window.__sandboxExportBindingObserverInstalled = true
+  } catch (error) {
+    console.warn("installSandboxExportBindings failed:", error)
+  }
 }
 
 function applySessionExportSnapshot(role, sessionData) {
@@ -750,7 +1220,7 @@ function applySessionExportSnapshot(role, sessionData) {
 
 function launchSessionFromExport(exportEntry) {
   if (!exportEntry || !exportEntry.id) {
-    showNotification("Aucun export jouable disponible")
+    notifySessionStatus("Aucun export jouable disponible")
     return
   }
   const summary = exportEntry.summary || getCurrentSandboxSummary()
@@ -772,19 +1242,110 @@ function launchSessionFromExport(exportEntry) {
     status: "lobby",
     createdAt: Date.now()
   }
-
-  db.ref(SESSION_REF_PATH).set({ ...sessionData, slots: buildSessionSlots(summary.playerCount) }).then(() => {
-    try { localStorage.setItem("rpg_last_join_code", joinCode) } catch (e) {}
-    try {
-      localStorage.setItem("rpg_last_session_role", "mj")
-      localStorage.setItem("rpg_last_session_export_id", String(sessionData.exportId || ""))
-    } catch (e) {}
+  persistSessionLaunchState(sessionData)
+  try {
     applySessionExportSnapshot("mj", sessionData)
-    showNotification("Partie lancee : " + joinCode)
+  } catch (error) {
+    console.warn("applySessionExportSnapshot before session sync failed:", error)
+  }
+  try {
     openSessionLobbyOverlay(sessionData)
-  }).catch(error => {
-    console.warn("launchSessionFromExport failed:", error)
-    showNotification("Impossible de lancer la partie")
+  } catch (error) {
+    console.warn("openSessionLobbyOverlay failed:", error)
+  }
+  notifySessionStatus("Partie MJ ouverte : " + joinCode)
+  syncSessionToFirebase(sessionData)
+}
+
+function normalizeImportedSandboxExport(parsed) {
+  const raw = parsed && typeof parsed === "object" ? parsed : {}
+  const summary = raw.summary && typeof raw.summary === "object" ? raw.summary : getCurrentSandboxSummary()
+  const mjSnapshot = raw.mjSandbox || raw.exportSnapshot || raw.sandbox || raw.customization || null
+  const playerSnapshot = raw.playerSandbox || raw.playerExportSnapshot || mjSnapshot
+  if (!mjSnapshot) return null
+  return {
+    id: String(raw.exportId || raw.id || ("imp_" + Date.now())),
+    label: String(raw.label || raw.exportLabel || "Export importe"),
+    createdAt: Number(raw.createdAt) || Date.now(),
+    summary: {
+      title: String(summary.title || "Roleplay It Yourself").trim() || "Roleplay It Yourself",
+      theme: String(summary.theme || "medieval_fantasy"),
+      playerCount: Math.max(1, Math.min(12, parseInt(summary.playerCount, 10) || 4))
+    },
+    sandbox: mjSnapshot,
+    mjSandbox: mjSnapshot,
+    playerSandbox: playerSnapshot
+  }
+}
+
+function pickJsonFileFromUser() {
+  return new Promise(function(resolve) {
+    try {
+      const chooser = document.createElement("input")
+      chooser.type = "file"
+      chooser.accept = ".json,application/json"
+      chooser.style.display = "none"
+      chooser.addEventListener("change", function() {
+        const file = chooser.files && chooser.files[0] ? chooser.files[0] : null
+        if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+        resolve(file)
+      }, { once: true })
+      document.body.appendChild(chooser)
+      chooser.click()
+    } catch (error) {
+      console.error("pickJsonFileFromUser failed:", error)
+      resolve(null)
+    }
+  })
+}
+
+function readJsonFile(file) {
+  return new Promise(function(resolve, reject) {
+    try {
+      if (!file) {
+        resolve(null)
+        return
+      }
+      const reader = new FileReader()
+      reader.onload = function() {
+        try {
+          resolve(JSON.parse(String(reader.result || "{}")))
+        } catch (error) {
+          reject(error)
+        }
+      }
+      reader.onerror = function() {
+        reject(reader.error || new Error("file_read_error"))
+      }
+      reader.readAsText(file)
+    } catch (error) {
+      reject(error)
+    }
+  })
+}
+
+function promptOpenSessionExportFile() {
+  return new Promise(function(resolve) {
+    pickJsonFileFromUser().then(function(file) {
+      if (!file) {
+        resolve(false)
+        return
+      }
+      return readJsonFile(file).then(function(parsed) {
+        const exportEntry = normalizeImportedSandboxExport(parsed)
+        if (!exportEntry) throw new Error("export MJ invalide")
+        launchSessionFromExport(exportEntry)
+        resolve(true)
+      }).catch(function(error) {
+        console.error("promptOpenSessionExportFile failed:", error)
+        notifySessionStatus(/read|lecture/i.test(String(error && error.message || error || "")) ? "Lecture du fichier impossible" : "Export MJ invalide")
+        resolve(false)
+      })
+    }).catch(function(error) {
+      console.error("promptOpenSessionExportFile setup failed:", error)
+      notifySessionStatus("Ouverture du fichier impossible")
+      resolve(false)
+    })
   })
 }
 
@@ -941,10 +1502,24 @@ function openJoinSessionOverlay() {
 try {
   window.triggerSandboxExport = triggerSandboxExport
   window.exportSandbox = exportSandbox
+  window.performSandboxExportAction = performSandboxExportAction
+  window.exportSandboxFromMenu = function() {
+    performSandboxExportAction("")
+    return false
+  }
+  window.promptOpenSessionExportFile = promptOpenSessionExportFile
   window.launchSessionFromExport = launchSessionFromExport
   window.launchSessionFromLatestExport = launchSessionFromLatestExport
   window.launchSessionFromSandbox = launchSessionFromSandbox
   window.openJoinSessionOverlay = openJoinSessionOverlay
+} catch (_) {}
+
+try {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", installSandboxExportBindings, { once: true })
+  } else {
+    installSandboxExportBindings()
+  }
 } catch (_) {}
 
 window.groupMadness = 0
@@ -3856,6 +4431,24 @@ async function saveSandboxToLocalFolder() {
   return false
 }
 
+function clearSandboxImportedViewState() {
+  try {
+    document.querySelectorAll("[id^='elem_']").forEach(function(el) { el.remove() })
+  } catch (_) {}
+  try {
+    if (typeof closeVisibleSandboxPnjLocal === "function") closeVisibleSandboxPnjLocal()
+  } catch (_) {}
+  try {
+    ;["wantedOverlay", "wantedBoardOverlay", "allyPNJPanel", "allyViewerPanel", "mapLoreBookOverlay", "mapLoreBookToken", "sessionLobbyOverlay", "joinSessionOverlay"].forEach(function(id) {
+      const node = document.getElementById(id)
+      if (node && node.parentNode) node.parentNode.removeChild(node)
+    })
+  } catch (_) {}
+  try {
+    window.mapLoreBookData = null
+  } catch (_) {}
+}
+
 function applySandboxLocalLoadSnapshot(data, options) {
   try {
     const safeData = data && typeof data === "object" ? data : {}
@@ -3890,9 +4483,27 @@ function applySandboxLocalLoadSnapshot(data, options) {
         }
       } catch (_) {}
     }
+    clearSandboxImportedViewState()
     if (typeof saveCustomization === "function") {
       saveCustomization(customization)
     }
+    try {
+      const count = Math.max(1, Math.min(12, parseInt((customization.project && customization.project.playerCount) || 4, 10) || 4))
+      for (let slotIndex = 1; slotIndex <= 12; slotIndex += 1) {
+        const playerId = slotIndex === 1
+          ? "greg"
+          : slotIndex === 2
+            ? "ju"
+            : slotIndex === 3
+              ? "elo"
+              : slotIndex === 4
+                ? "bibi"
+                : ("slot_" + slotIndex)
+        if (typeof saveSimpleSheetLocal === "function") {
+          saveSimpleSheetLocal(playerId, slotIndex <= count ? {} : {})
+        }
+      }
+    } catch (_) {}
     try {
       const maps = customization && customization.content && Array.isArray(customization.content.maps)
         ? customization.content.maps
@@ -7186,6 +7797,21 @@ function watchFreePoints(playerId) {
 }
 
 function choosePlayer(id) {
+  if (isSandboxPlayerPreviewActive()) {
+    const nextToken = document.getElementById(id)
+    if (!nextToken) return
+    document.body.setAttribute("data-sandbox-preview-player", String(id || "").trim().toLowerCase())
+    myToken = nextToken
+    window.myToken = nextToken
+    document.querySelectorAll(".token").forEach(t => t.classList.remove("selectedPlayer", "gmSelected"))
+    nextToken.classList.add("selectedPlayer")
+    updateSandboxPreviewPlayerUI()
+    const menu = document.getElementById("playerMenu")
+    if (menu) menu.classList.remove("open")
+    const select = document.getElementById("playerSelect")
+    if (select) select.classList.add("previewHidden")
+    return
+  }
   if (isGM) {
     myToken = document.getElementById(id); window.myToken = myToken
     selected = null; _state.tokenDragging = false; _state.tokenDragStart = null
@@ -7236,7 +7862,15 @@ function _collapsePlayerMenu(id) {
 }
 
 function togglePlayerMenu() {
-  document.getElementById("playerMenu").classList.toggle("open")
+  const menu = document.getElementById("playerMenu")
+  if (!menu) return
+  if (isSandboxPlayerPreviewActive()) {
+    const select = document.getElementById("playerSelect")
+    if (select) select.classList.remove("previewHidden")
+    menu.classList.toggle("open")
+    return
+  }
+  menu.classList.toggle("open")
 }
 
 function openPlayerMenuOnStart() {
@@ -7293,6 +7927,7 @@ document.querySelectorAll(".token").forEach(token => {
     if (!document.body.classList.contains("sandbox-studio-mode")) return
     if (e.button !== 0) return
     if (token.id === "mobToken") return
+    if (isSandboxPlayerPreviewActive() && (!myToken || token.id !== myToken.id)) return
     const map = document.getElementById("map")
     if (!map) return
     const rect = map.getBoundingClientRect()
@@ -7315,6 +7950,7 @@ document.addEventListener("pointerdown", e => {
   if (!document.body.classList.contains("sandbox-studio-mode")) return
   const token = e.target && e.target.closest ? e.target.closest(".token") : null
   if (!token || token.id === "mobToken") return
+  if (isSandboxPlayerPreviewActive() && (!myToken || token.id !== myToken.id)) return
   const map = document.getElementById("map")
   if (!map) return
   const rect = map.getBoundingClientRect()

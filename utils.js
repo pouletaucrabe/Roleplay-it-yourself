@@ -211,6 +211,11 @@ function getSandboxSummary(data) {
 }
 
 function getSandboxExports() {
+  try {
+    if (typeof window !== "undefined" && window.__latestSandboxExportEntry && typeof window.__latestSandboxExportEntry === "object") {
+      return [window.__latestSandboxExportEntry]
+    }
+  } catch (_) {}
   const raw = parseLocalStorageJSON(SANDBOX_EXPORTS_STORAGE_KEY, [])
   if (!Array.isArray(raw)) return []
   return raw
@@ -234,7 +239,22 @@ function saveSandboxExports(exportsList) {
     summary: getSandboxSummary(item.sandbox),
     sandbox: createSandboxSnapshot(item.sandbox)
   })).filter(item => item.id) : []
-  localStorage.setItem(SANDBOX_EXPORTS_STORAGE_KEY, JSON.stringify(sanitized))
+  try {
+    localStorage.setItem(SANDBOX_EXPORTS_STORAGE_KEY, JSON.stringify(sanitized))
+  } catch (error) {
+    console.warn("saveSandboxExports failed, falling back to lightweight metadata:", error)
+    try {
+      const lightweight = sanitized.map(item => ({
+        id: item.id,
+        label: item.label,
+        createdAt: item.createdAt,
+        summary: item.summary
+      }))
+      localStorage.setItem(SANDBOX_EXPORTS_STORAGE_KEY, JSON.stringify(lightweight))
+    } catch (secondaryError) {
+      console.warn("saveSandboxExports lightweight fallback failed:", secondaryError)
+    }
+  }
 }
 
 function createSandboxExport(data, label) {
@@ -251,8 +271,15 @@ function createSandboxExport(data, label) {
     mjSandbox: snapshot,
     playerSandbox: playerSnapshot
   }
-  exportsList.unshift(exportEntry)
-  saveSandboxExports(exportsList)
+  try {
+    if (typeof window !== "undefined") window.__latestSandboxExportEntry = exportEntry
+  } catch (_) {}
+  try {
+    exportsList.unshift(exportEntry)
+    saveSandboxExports(exportsList)
+  } catch (error) {
+    console.warn("createSandboxExport storage skipped:", error)
+  }
   return exportEntry
 }
 

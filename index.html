@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English&family=Cormorant+SC:wght@500;700&family=Marcellus&family=Orbitron:wght@500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <title>Roleplay It Yourself</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='48'%3E%F0%9F%8E%B2%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?v=198">
+<link rel="stylesheet" href="style.css?v=205">
   <style>
     #playerCodeBtn, #playerCodeBtn * {
       color: #ffd700 !important;
@@ -38,7 +38,7 @@
         <div class="builderLandingDivider" aria-hidden="true"></div>
         <div class="builderLandingBlock">
           <div class="builderLandingSectionLabel">LANCER UNE PARTIE</div>
-          <button type="button" class="builderLandingButton" onclick="if (typeof launchSessionFromLatestExport === 'function') { launchSessionFromLatestExport() } else { forceOpenSandboxFromClick(false) }">OUVRIR PARTIE MJ</button>
+          <button type="button" class="builderLandingButton" onclick="if (typeof promptOpenSessionExportFile === 'function') { promptOpenSessionExportFile() } else if (typeof launchSessionFromLatestExport === 'function') { launchSessionFromLatestExport() } else { forceOpenSandboxFromClick(false) }">OUVRIR PARTIE MJ</button>
           <button type="button" class="builderLandingButton" onclick="openPlayerStudio()">REJOINDRE PARTIE JOUEURS</button>
         </div>
       </div>
@@ -415,10 +415,11 @@
 <div id="gmSaveBar">
   <div class="studioSaveMenu">
     <button id="gmSaveBtn" type="button" onclick="toggleStudioSaveMenu()">Save</button>
+    <button id="gmExportDirectBtn" type="button">Export</button>
     <div id="studioSaveDropdown" class="studioSaveDropdown">
       <button class="studioSaveAction" type="button" onclick="return saveSandboxFromMenu()">Sauvegarder</button>
       <button class="studioSaveAction" type="button" onclick="return loadSandboxFromLocalFileFromMenu()">Charger</button>
-      <button class="studioSaveAction" type="button" onclick="return exportSandboxFromMenu()">Exporter</button>
+      <button class="studioSaveAction" type="button" data-export-sandbox="1" onclick="return exportSandboxFromMenu()">Exporter</button>
       <button class="studioSaveAction studioSaveActionDanger" type="button" onclick="closeStudioSaveMenu(); window.location.reload()">Quitter</button>
     </div>
     <div id="studioSaveHelp" class="studioSaveHelpPanel" aria-live="polite">
@@ -469,7 +470,8 @@
 </div>
 
 <div id="sandboxPreviewBar">
-  <button id="sandboxPreviewBtn" type="button" onclick="return toggleSandboxPreviewMode()">Apercu</button>
+  <button id="sandboxPreviewMjBtn" type="button" onclick="return toggleSandboxPreviewMode(undefined, 'mj')">Apercu MJ</button>
+  <button id="sandboxPreviewPlayerBtn" type="button" onclick="return toggleSandboxPreviewMode(undefined, 'player')">Apercu joueur</button>
 </div>
 
 <div id="sharedNotebookDock">
@@ -481,6 +483,12 @@
 <div id="playerNotesDock" style="display:none;">
   <button id="playerNotesBtn" type="button" onclick="return togglePlayerNotesPanel()" title="Mes notes">
     <img src="images/book.png" alt="Mes notes">
+  </button>
+</div>
+
+<div id="playerSheetDock" style="display:none;">
+  <button id="playerSheetBtn" type="button" onclick="return openPreviewPlayerSheet()" title="Ma fiche">
+    <img src="images/afficheicon.png" alt="Ma fiche">
   </button>
 </div>
 
@@ -497,11 +505,23 @@
 
 <div id="playerNotesPanel" style="display:none;">
   <div id="playerNotesHeader">
-    <span id="playerNotesTitle">Mes notes</span>
-    <button id="playerNotesClose" type="button" onclick="return closePlayerNotesPanel()" aria-label="Fermer">×</button>
+    <span id="playerNotesTitle">Carnet</span>
+    <div id="playerNotesHeaderActions">
+      <button id="playerNotesAddPage" type="button" onclick="return addPlayerNotebookPage()" aria-label="Ajouter une page">+</button>
+      <button id="playerNotesClose" type="button" onclick="return closePlayerNotesPanel()" aria-label="Fermer">×</button>
+    </div>
   </div>
   <div id="playerNotesBody">
+    <div id="playerNotesPageIndicator">Page 1 / 1</div>
     <textarea id="playerNotesTextarea" placeholder="Tes notes personnelles..."></textarea>
+  </div>
+  <div id="playerNotesFooter">
+    <button id="playerNotesClearAll" type="button" onclick="return clearPlayerNotebook()">Vider carnet</button>
+    <div id="playerNotesNav">
+      <button id="playerNotesRemovePage" type="button" onclick="return removePlayerNotebookPage()">Retirer page</button>
+      <button id="playerNotesPrev" type="button" onclick="return turnPlayerNotebookPage(-1)" aria-label="Page precedente">‹ Page precedente</button>
+      <button id="playerNotesNext" type="button" onclick="return turnPlayerNotebookPage(1)" aria-label="Page suivante">Page suivante ›</button>
+    </div>
   </div>
 </div>
 
@@ -1106,10 +1126,10 @@
 <!-- 2. Variables d'Ã©tat -->
 <script src="state.js?v=2"></script>
 <!-- 3. Utilitaires (pas de dÃ©pendances Firebase) -->
-<script src="utils.js?v=17"></script>
-<script src="customization.js?v=59"></script>
+<script src="utils.js?v=19"></script>
+<script src="customization.js?v=60"></script>
 <!-- 4. Logique principale + Firebase listeners -->
-<script src="game.js?v=195"></script>
+<script src="game.js?v=211"></script>
 <!-- 5. Interface utilisateur -->
 <script src="ui.js?v=8"></script>
 <!-- 6. Combat -->
@@ -4335,6 +4355,24 @@ function forceShowIntroHub() {
     if (wrap.contains(event.target)) return
     closeStudioSaveMenu()
   })
+  document.addEventListener("click", function(event) {
+    var exportButton = event.target && event.target.closest ? event.target.closest("[data-export-sandbox]") : null
+    if (!exportButton) return
+    event.preventDefault()
+    event.stopPropagation()
+    try {
+      if (typeof window.exportSandboxFromMenu === "function") {
+        window.exportSandboxFromMenu()
+      } else if (typeof window.triggerSandboxExport === "function") {
+        window.triggerSandboxExport()
+      } else if (typeof showNotification === "function") {
+        showNotification("Export indisponible")
+      }
+    } catch (e) {
+      console.error("data-export-sandbox click failed:", e)
+      if (typeof showNotification === "function") showNotification("Export impossible")
+    }
+  }, true)
   document.addEventListener("pointerdown", playMenuMusicIfPossible, true)
   document.addEventListener("keydown", playMenuMusicIfPossible, true)
   document.addEventListener("touchstart", playMenuMusicIfPossible, true)
