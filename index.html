@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English&family=Cormorant+SC:wght@500;700&family=Marcellus&family=Orbitron:wght@500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <title>Roleplay It Yourself</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='48'%3E%F0%9F%8E%B2%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?v=213">
+<link rel="stylesheet" href="style.css?v=215">
   <style>
     #playerCodeBtn, #playerCodeBtn * {
       color: #ffd700 !important;
@@ -1067,36 +1067,38 @@
 <div id="mobSelectionMenu" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:1000000004;align-items:center;justify-content:center;flex-direction:column;gap:16px;" data-darkreader-ignore>
   <canvas id="mobMenuBg" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;"></canvas>
   <div style="position:relative;z-index:1;text-align:center;padding:30px;background:rgb(15,0,0)!important;border:2px solid rgb(180,40,40);border-radius:12px;min-width:400px;box-shadow:0 0 60px rgb(200,0,0);" data-darkreader-ignore>
-    <div id="mobMenuTitle" style="font-family:'Cinzel Decorative',serif;font-size:20px;color:rgb(255,100,100);letter-spacing:4px;margin-bottom:8px;">âš” CONFIGURATION DU COMBAT</div>
+    <div id="mobMenuTitle" style="font-family:'Cinzel Decorative',serif;font-size:20px;color:rgb(255,100,100);letter-spacing:4px;margin-bottom:8px;">CONFIGURATION DU COMBAT</div>
     <div id="mobMenuSub"   style="font-family:Cinzel,serif;font-size:12px;color:rgb(180,80,80);letter-spacing:2px;margin-bottom:20px;"></div>
     <div style="display:flex;gap:16px;justify-content:center;margin-bottom:20px;">
       <div style="background:rgb(25,5,5);border:1px solid rgb(120,30,30);border-radius:8px;padding:12px;width:160px;">
         <div style="font-family:Cinzel,serif;font-size:10px;color:rgb(160,60,60);margin-bottom:8px;letter-spacing:1px;">MOB 2 (optionnel)</div>
-        <div id="mobSlot2Select" data-value="" onmousedown="event.stopPropagation()" style="width:100%;padding:5px;font-family:Cinzel,serif;font-size:11px;background:rgb(20,5,5);color:rgb(255,180,180);border:1px solid rgb(120,30,30);border-radius:3px;cursor:pointer;text-align:center;" onclick="event.stopPropagation();toggleMobDropdown('slot2',this)">â€” Aucun â€”</div>
+        <div id="mobSlot2Select" data-value="" onmousedown="event.stopPropagation()" style="width:100%;padding:5px;font-family:Cinzel,serif;font-size:11px;background:rgb(20,5,5);color:rgb(255,180,180);border:1px solid rgb(120,30,30);border-radius:3px;cursor:pointer;text-align:center;" onclick="event.stopPropagation();toggleMobDropdown('slot2',this)">Aucun</div>
         <div id="mobDropdown_slot2" onmousedown="event.stopPropagation()" style="display:none;position:fixed;background:rgb(15,3,3);border:1px solid rgb(150,30,30);border-radius:4px;max-height:180px;overflow-y:auto;z-index:999999999;width:160px;"></div>
       </div>
       <div style="background:rgb(25,5,5);border:1px solid rgb(120,30,30);border-radius:8px;padding:12px;width:160px;">
         <div style="font-family:Cinzel,serif;font-size:10px;color:rgb(160,60,60);margin-bottom:8px;letter-spacing:1px;">MOB 3 (optionnel)</div>
-        <div id="mobSlot3Select" data-value="" onmousedown="event.stopPropagation()" style="width:100%;padding:5px;font-family:Cinzel,serif;font-size:11px;background:rgb(20,5,5);color:rgb(255,180,180);border:1px solid rgb(120,30,30);border-radius:3px;cursor:pointer;text-align:center;" onclick="event.stopPropagation();toggleMobDropdown('slot3',this)">â€” Aucun â€”</div>
+        <div id="mobSlot3Select" data-value="" onmousedown="event.stopPropagation()" style="width:100%;padding:5px;font-family:Cinzel,serif;font-size:11px;background:rgb(20,5,5);color:rgb(255,180,180);border:1px solid rgb(120,30,30);border-radius:3px;cursor:pointer;text-align:center;" onclick="event.stopPropagation();toggleMobDropdown('slot3',this)">Aucun</div>
         <div id="mobDropdown_slot3" onmousedown="event.stopPropagation()" style="display:none;position:fixed;background:rgb(15,3,3);border:1px solid rgb(150,30,30);border-radius:4px;max-height:180px;overflow-y:auto;z-index:999999999;width:160px;"></div>
       </div>
     </div>
     <div id="mobPreviewRow" style="display:flex;gap:24px;justify-content:center;margin-bottom:16px;min-height:70px;align-items:center;"></div>
     <div style="display:flex;gap:12px;justify-content:center;">
-      <button id="mobMenuLaunch" onclick="launchFromMobMenu()" style="padding:12px 30px;font-family:Cinzel,serif;font-size:13px;letter-spacing:2px;background:rgb(100,0,0);color:rgb(255,150,150);border:2px solid rgb(180,40,40);border-radius:6px;cursor:pointer;">âš” Lancer</button>
-      <button onclick="document.getElementById('mobSelectionMenu').style.display='none'" style="padding:12px 20px;font-family:Cinzel,serif;font-size:12px;background:rgb(30,30,30);color:rgb(150,150,150);border:1px solid rgb(80,80,80);border-radius:6px;cursor:pointer;">âœ• Annuler</button>
+      <button id="mobMenuLaunch" onclick="launchFromMobMenu()" style="padding:12px 30px;font-family:Cinzel,serif;font-size:13px;letter-spacing:2px;background:rgb(100,0,0);color:rgb(255,150,150);border:2px solid rgb(180,40,40);border-radius:6px;cursor:pointer;">Lancer</button>
+      <button onclick="document.getElementById('mobSelectionMenu').style.display='none'" style="padding:12px 20px;font-family:Cinzel,serif;font-size:12px;background:rgb(30,30,30);color:rgb(150,150,150);border:1px solid rgb(80,80,80);border-radius:6px;cursor:pointer;">Annuler</button>
     </div>
   </div>
 </div>
 
 <!-- POPUP DIFFICULTÃ‰ MOB -->
-<div id="mobDiffPopup" style="display:none;position:fixed;z-index:1000000005;background:rgb(15,3,3);border:1px solid rgb(180,40,40);border-radius:6px;padding:8px;box-shadow:0 0 20px rgba(180,0,0,0.4);" onmousedown="event.stopPropagation()">
-  <div id="mobDiffName" style="font-family:Cinzel,serif;font-size:10px;color:rgb(200,100,100);letter-spacing:2px;text-align:center;margin-bottom:6px;"></div>
+<div id="mobDiffPopup" style="display:none;position:fixed;z-index:1000000005;width:210px;background:linear-gradient(180deg, rgba(42,8,10,0.98), rgba(20,4,6,0.99));border:1px solid rgb(180,40,40);border-radius:10px;padding:10px;box-shadow:0 0 26px rgba(180,0,0,0.28);" onmousedown="event.stopPropagation()">
+  <div id="mobDiffName" style="font-family:Cinzel,serif;font-size:14px;color:rgb(214,175,125);letter-spacing:3px;text-align:center;margin-bottom:8px;"></div>
+  <div id="mobDiffHint" style="font-family:Cinzel,serif;font-size:11px;color:rgb(240,208,135);text-align:center;margin-bottom:10px;line-height:1.4;"></div>
   <div style="display:flex;flex-direction:column;gap:4px;">
-    <button onclick="launchMobDiff('weak')"   style="padding:4px 14px;font-family:Cinzel,serif;font-size:11px;background:rgb(30,10,10);color:rgb(180,220,180);border:1px solid rgb(60,120,60);border-radius:3px;cursor:pointer;">â— Faible</button>
-    <button onclick="launchMobDiff('medium')" style="padding:4px 14px;font-family:Cinzel,serif;font-size:11px;background:rgb(30,10,10);color:rgb(220,180,100);border:1px solid rgb(120,90,30);border-radius:3px;cursor:pointer;">â—â— Moyen</button>
-    <button onclick="launchMobDiff('high')"   style="padding:4px 14px;font-family:Cinzel,serif;font-size:11px;background:rgb(30,10,10);color:rgb(220,120,80);border:1px solid rgb(150,60,30);border-radius:3px;cursor:pointer;">â—â—â— Puissant</button>
-    <button onclick="launchMobDiff('boss')"   style="padding:4px 14px;font-family:Cinzel,serif;font-size:11px;background:rgb(30,10,10);color:rgb(255,180,80);border:1px solid rgb(180,100,0);border-radius:3px;cursor:pointer;">âš¡ Boss</button>
+    <button data-mob-diff-tier="weak" onclick="launchMobDiff('weak')" style="width:100%;padding:8px 12px;font-family:Cinzel,serif;font-size:11px;background:rgba(54,14,16,0.96);color:rgb(180,220,180);border:1px solid rgba(214,180,106,0.28);border-radius:7px;cursor:pointer;text-align:center;"></button>
+    <button data-mob-diff-tier="medium" onclick="launchMobDiff('medium')" style="width:100%;padding:8px 12px;font-family:Cinzel,serif;font-size:11px;background:rgba(54,14,16,0.96);color:rgb(220,180,100);border:1px solid rgba(214,180,106,0.28);border-radius:7px;cursor:pointer;text-align:center;"></button>
+    <button data-mob-diff-tier="high" onclick="launchMobDiff('high')" style="width:100%;padding:8px 12px;font-family:Cinzel,serif;font-size:11px;background:rgba(54,14,16,0.96);color:rgb(220,120,80);border:1px solid rgba(214,180,106,0.28);border-radius:7px;cursor:pointer;text-align:center;"></button>
+    <button data-mob-diff-tier="boss" onclick="launchMobDiff('boss')" style="width:100%;padding:8px 12px;font-family:Cinzel,serif;font-size:11px;background:rgba(54,14,16,0.96);color:rgb(255,180,80);border:1px solid rgba(214,180,106,0.28);border-radius:7px;cursor:pointer;text-align:center;"></button>
+    <button data-mob-diff-tier="worldboss" onclick="launchMobDiff('worldboss')" style="width:100%;padding:8px 12px;font-family:Cinzel,serif;font-size:11px;background:rgba(54,14,16,0.96);color:rgb(240,208,135);border:1px solid rgba(214,180,106,0.28);border-radius:7px;cursor:pointer;text-align:center;"></button>
   </div>
 </div>
 
@@ -1135,11 +1137,11 @@
 <script src="utils.js?v=30"></script>
 <script src="customization.js?v=60"></script>
 <!-- 4. Logique principale + Firebase listeners -->
-<script src="game.js?v=236"></script>
+<script src="game.js?v=249"></script>
 <!-- 5. Interface utilisateur -->
 <script src="ui.js?v=8"></script>
 <!-- 6. Combat -->
-<script src="combat.js?v=3"></script>
+<script src="combat.js?v=8"></script>
 <script>
 function applyMusicSliderToActiveAudio(normalized) {
   var safeValue = Math.max(0, Math.min(1, parseFloat(normalized) || 0))
@@ -1271,7 +1273,7 @@ function renderNativeStudioContentList() {
   if (!list) return
   try {
     var data = typeof getCustomization === "function" ? getCustomization() : null
-    var content = data && data.content ? data.content : { maps: [], pnjs: [], mobs: [], documents: [] }
+    var content = data && data.content ? data.content : { maps: [], pnjs: [], mobs: [], combatArenas: [], documents: [] }
     var groups = [
       { key: "maps", label: "Maps", type: "map" },
       { key: "pnjs", label: "PNJ", type: "pnj" },
@@ -1326,7 +1328,7 @@ function getNativeStudioCollectionInfo(type) {
 function updateNativeStudioCustomization(mutator) {
   if (typeof getCustomization !== "function" || typeof saveCustomization !== "function") return false
   var next = getCustomization()
-  next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+  next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], combatArenas: [], documents: [] }
   mutator(next)
   saveCustomization(next)
   if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
@@ -1483,7 +1485,7 @@ async function confirmNativeStudioDraft() {
     }
     var asset = await readNativeStudioFileAsDataURL(file)
     var next = getCustomization()
-    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], combatArenas: [], documents: [] }
     if (type === "map") next.content.maps.push({ label: label, category: category, map: asset || "background.jpg", section: "lieux", audio: audio })
     if (type === "pnj") next.content.pnjs.push({ label: label, category: category, image: asset || "" })
     if (type === "mob") {
@@ -1523,7 +1525,7 @@ async function saveNativeStudioContent() {
   try {
     if (typeof getCustomization !== "function" || typeof saveCustomization !== "function") return
     var next = getCustomization()
-    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], combatArenas: [], documents: [] }
     var type = String(document.getElementById("nativeStudioItemType").value || "")
     var category = String(document.getElementById("nativeStudioItemCategory").value || "").trim() || "Custom"
     var label = String(document.getElementById("nativeStudioItemLabel").value || "").trim()
@@ -4574,7 +4576,7 @@ function forceShowIntroHub() {
       <label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Titre</span><input id="nativeStudioTitle" type="text" value="Roleplay It Yourself" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"></label>
       <label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Ambiance</span><select id="nativeStudioTheme" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"><option value="medieval_fantasy">Medieval fantasy</option><option value="science_fiction">Science-fiction</option><option value="pirate">Pirate</option><option value="contemporain">Contemporaine</option></select></label>
       <label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Nombre de slots joueurs</span><input id="nativeStudioPlayers" type="number" min="1" max="4" value="4" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"></label>
-      <button type="button" onclick="try{var next=(typeof getCustomization==='function'?getCustomization():{project:{},players:{greg:{name:'Joueur 1'},ju:{name:'Joueur 2'},elo:{name:'Joueur 3'},bibi:{name:'Joueur 4'}},assets:{},content:{maps:[],pnjs:[],highPnjs:[],mobs:[],documents:[]}});next.project=next.project||{};next.project.title=document.getElementById('nativeStudioTitle').value||'Roleplay It Yourself';next.project.theme=document.getElementById('nativeStudioTheme').value||'medieval_fantasy';next.project.playerCount=Math.max(1,Math.min(4,parseInt(document.getElementById('nativeStudioPlayers').value,10)||4));if(typeof saveCustomization==='function')saveCustomization(next);if(typeof applyCustomizationToUI==='function')applyCustomizationToUI();}catch(e){}" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Appliquer</button>
+      <button type="button" onclick="try{var next=(typeof getCustomization==='function'?getCustomization():{project:{},players:{greg:{name:'Joueur 1'},ju:{name:'Joueur 2'},elo:{name:'Joueur 3'},bibi:{name:'Joueur 4'}},assets:{},content:{maps:[],pnjs:[],highPnjs:[],mobs:[],combatArenas:[],documents:[]}});next.project=next.project||{};next.project.title=document.getElementById('nativeStudioTitle').value||'Roleplay It Yourself';next.project.theme=document.getElementById('nativeStudioTheme').value||'medieval_fantasy';next.project.playerCount=Math.max(1,Math.min(4,parseInt(document.getElementById('nativeStudioPlayers').value,10)||4));if(typeof saveCustomization==='function')saveCustomization(next);if(typeof applyCustomizationToUI==='function')applyCustomizationToUI();}catch(e){}" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Appliquer</button>
     </section>
     <section data-native-tab="players" style="display:none;gap:12px;padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);">
       <div style="font-size:13px;line-height:1.7;color:#cdbb96;">Ici, pense a la table de jeu. Le nombre de joueurs se regle dans l'onglet Bac a sable, puis les slots, noms et fiches pourront etre ajustes plus finement au fur et a mesure de la creation.</div>

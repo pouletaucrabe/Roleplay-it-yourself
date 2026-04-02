@@ -3869,6 +3869,335 @@ function getPartyLevel(callback) {
   })
 }
 
+const SANDBOX_COMBAT_TIERS = [
+  { value: "weak", label: "Faible", shortLabel: "Faible", accent: "#8fbe6f" },
+  { value: "medium", label: "Moyen", shortLabel: "Moyen", accent: "#d5b66a" },
+  { value: "high", label: "Fort", shortLabel: "Fort", accent: "#d78b56" },
+  { value: "boss", label: "Boss", shortLabel: "Boss", accent: "#d76d56" },
+  { value: "worldboss", label: "Boss monde", shortLabel: "Boss monde", accent: "#f0d087" }
+]
+
+function normalizeSandboxCombatTier(tier) {
+  const raw = String(tier || "weak").trim().toLowerCase()
+  if (raw === "faible") return "weak"
+  if (raw === "moyen") return "medium"
+  if (raw === "fort" || raw === "puissant") return "high"
+  if (raw === "boss") return "boss"
+  if (raw === "worldboss" || raw === "world_boss" || raw === "world boss" || raw === "mondeboss" || raw === "bossmonde") return "worldboss"
+  return ["weak", "medium", "high", "boss"].includes(raw) ? raw : "weak"
+}
+
+function getSandboxCombatTierMeta(tier) {
+  const normalized = normalizeSandboxCombatTier(tier)
+  return SANDBOX_COMBAT_TIERS.find(entry => entry.value === normalized) || SANDBOX_COMBAT_TIERS[0]
+}
+
+function getSimpleSandboxCombatArenas() {
+  try {
+    if (Array.isArray(window.__sandboxCombatArenaCache)) {
+      return window.__sandboxCombatArenaCache.map(function(item, index) {
+        const normalizedTier = normalizeSandboxCombatTier(item && item.tier)
+        const normalizedTiers = Array.isArray(item && item.tiers)
+          ? item.tiers.map(function(entry) { return normalizeSandboxCombatTier(entry) }).filter(Boolean)
+          : []
+        const tiers = normalizedTiers.length ? Array.from(new Set(normalizedTiers)) : [normalizedTier]
+        return {
+          id: String(item && item.id || ("arena_" + index)),
+          label: String(item && item.label || "Arene"),
+          image: String(item && item.image || ""),
+          audio: String(item && item.audio || ""),
+          tier: tiers[0] || normalizedTier,
+          tiers: tiers,
+          category: String(item && item.category || "Combat")
+        }
+      })
+    }
+    if (typeof getCustomization !== "function") return []
+    const data = getCustomization()
+    const content = data && data.content ? data.content : {}
+    const normalizedItems = Array.isArray(content.combatArenas) ? content.combatArenas.map(function(item, index) {
+      const normalizedTier = normalizeSandboxCombatTier(item && item.tier)
+      const normalizedTiers = Array.isArray(item && item.tiers)
+        ? item.tiers.map(function(entry) { return normalizeSandboxCombatTier(entry) }).filter(Boolean)
+        : []
+      const tiers = normalizedTiers.length ? Array.from(new Set(normalizedTiers)) : [normalizedTier]
+      return {
+        id: String(item && item.id || ("arena_" + index)),
+        label: String(item && item.label || "Arene"),
+        image: String(item && item.image || ""),
+        audio: String(item && item.audio || ""),
+        tier: tiers[0] || normalizedTier,
+        tiers: tiers,
+        category: String(item && item.category || "Combat")
+      }
+    }) : []
+    window.__sandboxCombatArenaCache = normalizedItems.slice()
+    return normalizedItems
+  } catch (_) {}
+  return []
+}
+
+function saveSimpleSandboxCombatArenas(items) {
+  try {
+    if (typeof getCustomization !== "function" || typeof saveCustomization !== "function") return false
+    const safeItems = Array.isArray(items) ? items.map(function(item, index) {
+      const normalizedTiers = Array.isArray(item && item.tiers)
+        ? item.tiers.map(function(entry) { return normalizeSandboxCombatTier(entry) }).filter(Boolean)
+        : []
+      const tiers = normalizedTiers.length
+        ? Array.from(new Set(normalizedTiers))
+        : [normalizeSandboxCombatTier(item && item.tier)]
+      return {
+        id: String(item && item.id || ("arena_" + index)),
+        label: String(item && item.label || "Arene"),
+        image: String(item && item.image || ""),
+        audio: String(item && item.audio || ""),
+        tier: tiers[0] || "weak",
+        tiers: tiers,
+        category: String(item && item.category || "Combat")
+      }
+    }) : []
+    window.__sandboxCombatArenaCache = safeItems.slice()
+    const next = getCustomization()
+    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], combatArenas: [], documents: [] }
+    next.content.combatArenas = safeItems.map(function(item) {
+      return {
+        id: item.id,
+        label: item.label,
+        image: item.image,
+        audio: item.audio,
+        tier: item.tier,
+        tiers: item.tiers,
+        category: item.category
+      }
+    })
+    saveCustomization(next)
+    try { if (typeof applyCustomizationToUI === "function") applyCustomizationToUI() } catch (_) {}
+    return true
+  } catch (_) {}
+  return false
+}
+
+function buildSandboxCombatArenaId(label, items) {
+  const base = String(label || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "") || "arena"
+  const used = new Set((Array.isArray(items) ? items : []).map(function(item) {
+    return String(item && item.id || "").trim()
+  }).filter(Boolean))
+  if (!used.has(base)) return base
+  let index = 2
+  while (used.has(base + "_" + index)) index += 1
+  return base + "_" + index
+}
+
+function getSandboxCombatArenaForTier(tier) {
+  const normalized = normalizeSandboxCombatTier(tier)
+  const arenas = getSimpleSandboxCombatArenas()
+  const exact = arenas.find(function(item) {
+    const tiers = Array.isArray(item && item.tiers) ? item.tiers : [normalizeSandboxCombatTier(item && item.tier)]
+    return tiers.includes(normalized)
+  })
+  if (exact) return exact
+  if (normalized === "worldboss") {
+    const bossFallback = arenas.find(function(item) {
+      const tiers = Array.isArray(item && item.tiers) ? item.tiers : [normalizeSandboxCombatTier(item && item.tier)]
+      return tiers.includes("boss")
+    })
+    if (bossFallback) return bossFallback
+  }
+  return null
+}
+
+function resolveSandboxCombatArenaAssetPath(value) {
+  const raw = String(value || "").trim()
+  if (!raw) return ""
+  if (/^(data:|blob:|https?:|\/)/i.test(raw)) return raw
+  if (/^[a-z]:\\/i.test(raw)) return raw
+  return "images/" + raw.replace(/^images[\\/]/i, "").replace(/\\/g, "/")
+}
+
+function getSandboxCombatArenaImageForTier(tier) {
+  const arena = getSandboxCombatArenaForTier(tier)
+  return arena ? resolveSandboxCombatArenaAssetPath(arena.image) : ""
+}
+
+function getSandboxCombatArenaMusicForTier(tier) {
+  const arena = getSandboxCombatArenaForTier(tier)
+  return arena ? resolveSandboxCombatArenaAssetPath(arena.audio) : ""
+}
+
+function getSandboxApproxPartyLevel() {
+  try {
+    const ids = ["greg", "ju", "elo", "bibi"]
+    const levels = ids.map(function(id) {
+      if (typeof currentCharacters === "object" && currentCharacters && currentCharacters[id]) {
+        return Math.max(1, parseInt(currentCharacters[id].lvl, 10) || 1)
+      }
+      const field = document.getElementById("lvl")
+      if (field && document.getElementById("sheetTitle")) {
+        return Math.max(1, parseInt(field.value, 10) || 1)
+      }
+      return 1
+    })
+    return Math.max(1, Math.round(levels.reduce(function(sum, value) { return sum + value }, 0) / Math.max(1, levels.length)))
+  } catch (_) {}
+  return 1
+}
+
+function getSandboxManagerRefreshCallback(type) {
+  const normalized = String(type || "").trim().toLowerCase()
+  if (normalized === "mob") {
+    return function() {
+      try { renderSandboxManagerPanelById("mobMenu2") } catch (_) {}
+      try {
+        const panel = document.getElementById("mobMenu2")
+        if (panel) panel.style.display = "block"
+      } catch (_) {}
+    }
+  }
+  if (normalized === "pnj") {
+    return function() {
+      try { renderSandboxManagerPanelById("pnjMenu") } catch (_) {}
+      try { renderSandboxPnjManagerOverlayV2() } catch (_) {}
+    }
+  }
+  return function() {
+    try { renderSandboxManagerPanelById("mapMenu") } catch (_) {}
+    try { forceRenderMapMenuPanelList() } catch (_) {}
+    try { renderSandboxMapManagerOverlayV2() } catch (_) {}
+  }
+}
+
+function selectSandboxMobTab(tabName) {
+  setSandboxManagerActiveTab("mob", tabName || "all")
+  try { renderSandboxManagerPanelById("mobMenu2") } catch (_) {}
+  try {
+    const panel = document.getElementById("mobMenu2")
+    if (panel) panel.style.display = "block"
+  } catch (_) {}
+  return false
+}
+
+function escapeSandboxInlineArg(value) {
+  return String(value == null ? "" : value).replace(/\\/g, "\\\\").replace(/'/g, "\\'")
+}
+
+function getSandboxMobBaseDefinition(mobId) {
+  const stats = (typeof mobStats === "object" && mobStats) ? mobStats[mobId] : null
+  const runtimeItems = typeof getSandboxContentItems === "function" ? getSandboxContentItems("mob") : []
+  const custom = Array.isArray(runtimeItems) ? runtimeItems.find(item => String(item && item.id || "") === String(mobId || "")) : null
+  return {
+    id: mobId,
+    baseTier: normalizeSandboxCombatTier((custom && custom.tier) || (stats && stats.tier) || "weak"),
+    baseHP: Math.max(10, Number((custom && custom.baseHP) || (stats && stats.baseHP) || 30) || 30),
+    combatOnly: !!(custom && custom.combatOnly),
+    label: String((custom && custom.label) || mobId || "Mob")
+  }
+}
+
+function getSandboxCombatScalingForTier(tier, partyLevel) {
+  const normalized = normalizeSandboxCombatTier(tier)
+  const level = Math.max(1, Number(partyLevel) || 1)
+  const tierSettings = {
+    weak:      { mult: 1.0, scale: 0.12, levelOffset: -1, runtimeTier: "weak", reduceAfter10: 1.0 },
+    medium:    { mult: 1.6, scale: 0.18, levelOffset: 1,  runtimeTier: "medium", reduceAfter10: 1.0 },
+    high:      { mult: 2.8, scale: 0.25, levelOffset: 3,  runtimeTier: "high", reduceAfter10: 1.0 },
+    boss:      { mult: 5.0, scale: 0.35, levelOffset: 8,  runtimeTier: "boss", reduceAfter10: 0.65 },
+    worldboss: { mult: 8.4, scale: 0.44, levelOffset: 12, runtimeTier: "boss", reduceAfter10: 0.82 }
+  }
+  const selected = tierSettings[normalized] || tierSettings.weak
+  const effectiveLevel = level > 10 && selected.reduceAfter10 < 1
+    ? 10 + (level - 10) * selected.reduceAfter10
+    : level
+  return {
+    tier: normalized,
+    runtimeTier: selected.runtimeTier,
+    mult: selected.mult,
+    scale: selected.scale,
+    levelOffset: selected.levelOffset,
+    effectiveLevel
+  }
+}
+
+function getSandboxMobEncounterStats(mobId, tier, partyLevel) {
+  const mob = getSandboxMobBaseDefinition(mobId)
+  const scaling = getSandboxCombatScalingForTier(tier, partyLevel)
+  const hp = Math.max(1, Math.round(mob.baseHP * scaling.mult * Math.pow(1 + scaling.effectiveLevel * scaling.scale, 1.6)))
+  const level = Math.max(1, Math.round((Number(partyLevel) || 1) + scaling.levelOffset))
+  return {
+    mobId,
+    baseTier: mob.baseTier,
+    selectedTier: scaling.tier,
+    runtimeTier: scaling.runtimeTier,
+    level,
+    hp,
+    maxHP: hp,
+    baseHP: mob.baseHP
+  }
+}
+
+function getSandboxRecommendedMobTier(mobId, partyLevel) {
+  const mob = getSandboxMobBaseDefinition(mobId)
+  const level = Math.max(1, Number(partyLevel) || 1)
+  const scoreMap = { weak: 1, medium: 2, high: 3, boss: 4, worldboss: 5 }
+  const reverseMap = { 1: "weak", 2: "medium", 3: "high", 4: "boss", 5: "worldboss" }
+  let score = scoreMap[mob.baseTier] || 1
+
+  if (mob.baseTier === "boss" && mob.baseHP >= 420 && level >= 9) score = 5
+  if (mob.baseTier === "high" && mob.baseHP >= 120 && level >= 10) score = 4
+  if (mob.baseTier === "medium" && mob.baseHP <= 50 && level <= 3) score = 1
+  if (mob.baseTier === "weak" && level >= 8 && mob.baseHP >= 40) score = 2
+  if (mob.baseTier === "boss" && level <= 4) score = 3
+  if (mob.baseTier === "high" && level <= 2) score = 2
+
+  return reverseMap[Math.max(1, Math.min(5, score))] || mob.baseTier || "weak"
+}
+
+function refreshSandboxMobDifficultyCards() {
+  const cards = Array.from(document.querySelectorAll("[data-sandbox-mob-card]"))
+  if (!cards.length) return
+  getPartyLevel(level => {
+    cards.forEach(card => {
+      const mobId = String(card.dataset.mobId || "")
+      if (!mobId) return
+      const definition = getSandboxMobBaseDefinition(mobId)
+      const recommendedTier = getSandboxRecommendedMobTier(mobId, level)
+      const overview = card.querySelector("[data-sandbox-mob-overview]")
+      const recommendation = card.querySelector("[data-sandbox-mob-recommendation]")
+      if (overview) {
+        const nativeMeta = getSandboxCombatTierMeta(definition.baseTier)
+        overview.textContent = "Base : " + nativeMeta.label + " • Groupe niv. " + level
+      }
+      if (recommendation) {
+        const recMeta = getSandboxCombatTierMeta(recommendedTier)
+        recommendation.textContent = "Conseil : " + recMeta.label
+      }
+
+      card.querySelectorAll("[data-mob-tier-btn]").forEach(button => {
+        const tier = button.getAttribute("data-mob-tier") || "weak"
+        const meta = getSandboxCombatTierMeta(tier)
+        const stats = getSandboxMobEncounterStats(mobId, tier, level)
+        const isRecommended = normalizeSandboxCombatTier(tier) === recommendedTier
+        button.style.borderColor = isRecommended ? "rgba(240,208,135,0.95)" : "rgba(214,180,106,0.24)"
+        button.style.boxShadow = isRecommended ? "0 0 0 1px rgba(240,208,135,0.28), 0 12px 26px rgba(0,0,0,0.22)" : "none"
+        button.style.background = isRecommended
+          ? "linear-gradient(180deg, rgba(112,70,26,0.98), rgba(61,34,16,0.98))"
+          : "linear-gradient(180deg, rgba(28,24,20,0.98), rgba(16,12,10,0.98))"
+        button.innerHTML =
+          `<span style="display:block;font-size:11px;color:${meta.accent};letter-spacing:1px;">${meta.shortLabel}</span>` +
+          `<span style="display:block;font-size:10px;color:#f5e6c8;margin-top:4px;">Niv ${stats.level} • ${stats.hp} PV</span>` +
+          (isRecommended
+            ? `<span style="display:block;font-size:9px;color:#f0d087;margin-top:4px;letter-spacing:1px;">CONSEILLE</span>`
+            : "")
+      })
+    })
+  })
+}
+
 function ensureMapMusicPlayback(mapName, delay = 0) {
   setTimeout(() => {
     if (!mapName || !mapMusic[mapName]) return
@@ -4373,7 +4702,7 @@ function resolveLoadedSandboxCustomization(data) {
       project: {},
       players: {},
       assets: {},
-      content: { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+      content: { maps: [], pnjs: [], highPnjs: [], mobs: [], combatArenas: [], documents: [] }
     }
     const customization = safeData.customization && typeof safeData.customization === "object"
       ? JSON.parse(JSON.stringify(safeData.customization))
@@ -4383,13 +4712,14 @@ function resolveLoadedSandboxCustomization(data) {
     customization.assets = customization.assets && typeof customization.assets === "object" ? customization.assets : {}
     customization.content = customization.content && typeof customization.content === "object"
       ? customization.content
-      : { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+      : { maps: [], pnjs: [], highPnjs: [], mobs: [], combatArenas: [], documents: [] }
     customization.content.maps = Array.isArray(customization.content.maps) ? customization.content.maps : []
     customization.content.mapTabs = Array.isArray(customization.content.mapTabs) ? customization.content.mapTabs : []
     customization.content.pnjs = Array.isArray(customization.content.pnjs) ? customization.content.pnjs : []
     customization.content.pnjTabs = Array.isArray(customization.content.pnjTabs) ? customization.content.pnjTabs : []
     customization.content.highPnjs = Array.isArray(customization.content.highPnjs) ? customization.content.highPnjs : []
     customization.content.mobs = Array.isArray(customization.content.mobs) ? customization.content.mobs : []
+    customization.content.combatArenas = Array.isArray(customization.content.combatArenas) ? customization.content.combatArenas : []
     customization.content.documents = Array.isArray(customization.content.documents) ? customization.content.documents : []
 
     const sandboxState = safeData.sandboxState && typeof safeData.sandboxState === "object"
@@ -5555,7 +5885,6 @@ function triggerDiceResultFeedback(resultBox, mode) {
     const _c = resultBox.querySelector(".dice-3d"); if (_c) { _c.style.filter = "none"; if (_c.parentElement) _c.parentElement.style.filter = "drop-shadow(0 10px 22px rgba(0,0,0,0.45))" }
     if (mode === "crit") {
       resultBox.classList.add("dice-impact", "dice-crit-burst")
-      playDiceResultEffectAudio("pow.mp3", 0.78)
       playDiceResultEffectAudio("power.mp3", 0.92)
       screenShakeHard()
       setTimeout(() => screenShake(), 160)
@@ -5563,15 +5892,13 @@ function triggerDiceResultFeedback(resultBox, mode) {
       setTimeout(() => flashGold(), 120)
     } else if (mode === "fail") {
       resultBox.classList.add("dice-impact", "dice-fail-burst")
-      playDiceResultEffectAudio("pow.mp3", 0.74)
-      playDiceResultEffectAudio("BOOM.mp3", 0.9)
+      playDiceResultEffectAudio("pow.mp3", 0.9)
       screenShakeHard()
       setTimeout(() => screenShake(), 180)
       flashRed()
       setTimeout(() => flashRed(), 90)
     } else {
       resultBox.classList.add("dice-impact")
-      playDiceResultEffectAudio("pow.mp3", 0.78)
       screenShake()
     }
   } catch (_) {}
@@ -5781,7 +6108,7 @@ function persistSandboxMapRuntimeState() {
   try {
     if (typeof getCustomization !== "function" || typeof saveCustomization !== "function") return false
     const next = getCustomization()
-    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], combatArenas: [], documents: [] }
     next.content.maps = ensureSandboxMapRuntimeState().map(item => {
       const clone = { ...item }
       delete clone.__runtimeKey
@@ -5799,7 +6126,7 @@ function persistSandboxMapsDirect(maps) {
   try {
     if (typeof getCustomization !== "function" || typeof saveCustomization !== "function") return false
     const next = getCustomization()
-    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], combatArenas: [], documents: [] }
     next.content.maps = (Array.isArray(maps) ? maps : []).map((item, index) => ({
       label: String(item && item.label || "Sans titre"),
       category: String(item && item.category || "Custom"),
@@ -5824,7 +6151,7 @@ function updateSandboxCustomization(mutator) {
   try {
     if (typeof getCustomization !== "function" || typeof saveCustomization !== "function") return false
     const next = getCustomization()
-    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], combatArenas: [], documents: [] }
     mutator(next)
     saveCustomization(next)
     if (typeof applyCustomizationToUI === "function") applyCustomizationToUI()
@@ -5957,7 +6284,7 @@ function moveSandboxMapToTab(indexOrId) {
     saveSandboxItemTabOverride("map", String(item && item.id || ""), nextTab)
     maps[resolvedIndex] = { ...item, tab: nextTab }
     if (customization && typeof saveCustomization === "function") {
-      customization.content = customization.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+      customization.content = customization.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], combatArenas: [], documents: [] }
       customization.content.maps = maps.map(function(entry, idx) {
         return {
           id: String(entry && entry.id || ("map_" + idx)),
@@ -6085,6 +6412,483 @@ function createSandboxMapFromPanel() {
   return false
 }
 
+function buildSandboxMobIdFromLabel(label, existingItems) {
+  const base = String(label || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "") || "mob"
+  const used = new Set((Array.isArray(existingItems) ? existingItems : []).map(function(item) {
+    return String(item && item.id || "").trim()
+  }).filter(Boolean))
+  if (!used.has(base)) return base
+  let index = 2
+  while (used.has(base + "_" + index)) index += 1
+  return base + "_" + index
+}
+
+function getSimpleSandboxMobs() {
+  try {
+    if (typeof getCustomization !== "function") return []
+    const data = getCustomization()
+    const content = data && data.content ? data.content : {}
+    return Array.isArray(content.mobs) ? content.mobs.map(function(item, index) {
+      return {
+        id: String(item && item.id || ("mob_" + index)),
+        label: String(item && item.label || "Mob"),
+        category: String(item && item.category || "Custom"),
+        tier: normalizeSandboxCombatTier(item && item.tier),
+        baseHP: Math.max(10, Number(item && item.baseHP) || 30),
+        combatOnly: !!(item && item.combatOnly),
+        tab: normalizeSandboxManagerTabName(item && item.tab)
+      }
+    }) : []
+  } catch (_) {}
+  return []
+}
+
+function saveSimpleSandboxMobs(items) {
+  try {
+    if (typeof getCustomization !== "function" || typeof saveCustomization !== "function") return false
+    const safeItems = Array.isArray(items) ? items.map(function(item, index) {
+      return {
+        id: String(item && item.id || ("mob_" + index)),
+        label: String(item && item.label || "Mob"),
+        category: String(item && item.category || "Custom"),
+        tier: normalizeSandboxCombatTier(item && item.tier),
+        baseHP: Math.max(10, Number(item && item.baseHP) || 30),
+        combatOnly: !!(item && item.combatOnly),
+        action: item && item.action === "boss" ? "boss" : "diff",
+        tab: normalizeSandboxManagerTabName(item && item.tab)
+      }
+    }) : []
+    const next = getCustomization()
+    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], combatArenas: [], documents: [] }
+    next.content.mobs = safeItems.map(function(item) {
+      return {
+        id: item.id,
+        label: item.label,
+        category: item.category,
+        tier: item.tier,
+        baseHP: item.baseHP,
+        combatOnly: item.combatOnly,
+        action: item.action,
+        tab: item.tab || ""
+      }
+    })
+    saveCustomization(next)
+    try { if (typeof applyCustomizationToUI === "function") applyCustomizationToUI() } catch (_) {}
+    return true
+  } catch (_) {}
+  return false
+}
+
+function createSandboxMobFromPanel() {
+  try {
+    const chooser = document.createElement("input")
+    chooser.type = "file"
+    chooser.accept = "image/*"
+    chooser.style.display = "none"
+    chooser.addEventListener("change", async function() {
+      const file = chooser.files && chooser.files[0] ? chooser.files[0] : null
+      if (!file) {
+        if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+        return
+      }
+      const defaultLabel = String(file.name || "Nouveau mob").replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim() || "Nouveau mob"
+      const chosenLabel = prompt("Nom du mob :", defaultLabel)
+      if (chosenLabel == null) {
+        if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+        return
+      }
+      const trimmedLabel = String(chosenLabel).trim()
+      if (!trimmedLabel) {
+        if (typeof showNotification === "function") showNotification("Nom obligatoire")
+        if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+        return
+      }
+      try {
+        const asset = typeof readNativeStudioFileAsDataURL === "function"
+          ? String(await readNativeStudioFileAsDataURL(file) || "").trim()
+          : ""
+        if (!asset) {
+          if (typeof showNotification === "function") showNotification("Image invalide")
+          if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+          return
+        }
+        const items = getSimpleSandboxMobs()
+        const mobId = buildSandboxMobIdFromLabel(trimmedLabel, items)
+        const activeTab = getSandboxManagerActiveTab("mob")
+        const nextTab = activeTab !== "all" && activeTab !== "__untabbed__" ? activeTab : ""
+        items.push({
+          id: mobId,
+          label: trimmedLabel,
+          category: "Local",
+          tier: "weak",
+          baseHP: 30,
+          combatOnly: false,
+          action: "diff",
+          tab: nextTab
+        })
+        if (!saveSimpleSandboxMobs(items)) {
+          if (typeof showNotification === "function") showNotification("Ajout du mob impossible")
+          if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+          return
+        }
+        const customization = typeof getCustomization === "function" ? getCustomization() : null
+        if (customization && typeof saveCustomization === "function") {
+          customization.assets = customization.assets || {}
+          customization.assets[mobId + ".png"] = asset
+          saveCustomization(customization)
+        }
+        try { renderSandboxManagerPanelById("mobMenu2") } catch (_) {}
+        if (typeof showNotification === "function") showNotification("Mob ajoute")
+      } catch (_) {
+        if (typeof showNotification === "function") showNotification("Lecture du fichier impossible")
+      }
+      if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+    }, { once: true })
+    document.body.appendChild(chooser)
+    chooser.click()
+    return false
+  } catch (_) {}
+  return false
+}
+
+function createSandboxCombatArenaFromPanel() {
+  try {
+    const chooser = document.createElement("input")
+    chooser.type = "file"
+    chooser.accept = "image/*"
+    chooser.style.display = "none"
+    chooser.addEventListener("change", async function() {
+      const file = chooser.files && chooser.files[0] ? chooser.files[0] : null
+      if (!file) {
+        if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+        return
+      }
+      const defaultLabel = String(file.name || "Nouvelle arene").replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim() || "Nouvelle arene"
+      const chosenLabel = prompt("Nom de l'arene :", defaultLabel)
+      if (chosenLabel == null) {
+        if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+        return
+      }
+      const trimmedLabel = String(chosenLabel).trim()
+      if (!trimmedLabel) {
+        if (typeof showNotification === "function") showNotification("Nom obligatoire")
+        if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+        return
+      }
+      try {
+        const asset = typeof readNativeStudioFileAsDataURL === "function"
+          ? String(await readNativeStudioFileAsDataURL(file) || "").trim()
+          : ""
+        if (!asset) {
+          if (typeof showNotification === "function") showNotification("Image invalide")
+          if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+          return
+        }
+        const items = getSimpleSandboxCombatArenas()
+        const arenaId = buildSandboxCombatArenaId(trimmedLabel, items)
+        items.push({
+          id: arenaId,
+          label: trimmedLabel,
+          image: asset,
+          audio: "",
+          tier: "weak",
+          tiers: ["weak"],
+          category: "Combat"
+        })
+        if (!saveSimpleSandboxCombatArenas(items)) {
+          if (typeof showNotification === "function") showNotification("Ajout de l'arene impossible")
+          if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+          return
+        }
+        try { renderSandboxManagerPanelById("mobMenu2") } catch (_) {}
+        if (typeof showNotification === "function") showNotification("Arene ajoutee")
+      } catch (_) {
+        if (typeof showNotification === "function") showNotification("Lecture du fichier impossible")
+      }
+      if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+    }, { once: true })
+    document.body.appendChild(chooser)
+    chooser.click()
+    return false
+  } catch (_) {}
+  return false
+}
+
+function pickSandboxCombatArenaMusic(index) {
+  const items = getSimpleSandboxCombatArenas()
+  const item = items[Number(index)]
+  if (!item) return false
+  try {
+    const chooser = document.createElement("input")
+    chooser.type = "file"
+    chooser.accept = "audio/*"
+    chooser.style.display = "none"
+    chooser.addEventListener("change", async function() {
+      const file = chooser.files && chooser.files[0] ? chooser.files[0] : null
+      if (!file) {
+        if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+        return
+      }
+      try {
+        const asset = typeof readNativeStudioFileAsDataURL === "function"
+          ? String(await readNativeStudioFileAsDataURL(file) || "").trim()
+          : ""
+        if (!asset) {
+          if (typeof showNotification === "function") showNotification("Musique invalide")
+        } else {
+          items[index].audio = asset
+          saveSimpleSandboxCombatArenas(items)
+          try { renderSandboxManagerPanelById("mobMenu2") } catch (_) {}
+          if (typeof showNotification === "function") showNotification("Musique ajoutee")
+        }
+      } catch (_) {
+        if (typeof showNotification === "function") showNotification("Lecture audio impossible")
+      }
+      if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+    }, { once: true })
+    document.body.appendChild(chooser)
+    chooser.click()
+  } catch (_) {}
+  return false
+}
+
+function clearSandboxCombatArenaMusic(index) {
+  const items = getSimpleSandboxCombatArenas()
+  const item = items[Number(index)]
+  if (!item) return false
+  items[index].audio = ""
+  saveSimpleSandboxCombatArenas(items)
+  try { renderSandboxManagerPanelById("mobMenu2") } catch (_) {}
+  if (typeof showNotification === "function") showNotification("Musique retiree")
+  return false
+}
+
+function replaceSandboxCombatArenaImage(index) {
+  const items = getSimpleSandboxCombatArenas()
+  const item = items[Number(index)]
+  if (!item) return false
+  try {
+    const chooser = document.createElement("input")
+    chooser.type = "file"
+    chooser.accept = "image/*"
+    chooser.style.display = "none"
+    chooser.addEventListener("change", async function() {
+      const file = chooser.files && chooser.files[0] ? chooser.files[0] : null
+      if (!file) {
+        if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+        return
+      }
+      try {
+        const asset = typeof readNativeStudioFileAsDataURL === "function"
+          ? String(await readNativeStudioFileAsDataURL(file) || "").trim()
+          : ""
+        if (!asset) {
+          if (typeof showNotification === "function") showNotification("Image invalide")
+        } else {
+          items[index].image = asset
+          saveSimpleSandboxCombatArenas(items)
+          try { renderSandboxManagerPanelById("mobMenu2") } catch (_) {}
+          if (typeof showNotification === "function") showNotification("Arene mise a jour")
+        }
+      } catch (_) {
+        if (typeof showNotification === "function") showNotification("Lecture image impossible")
+      }
+      if (chooser.parentNode) chooser.parentNode.removeChild(chooser)
+    }, { once: true })
+    document.body.appendChild(chooser)
+    chooser.click()
+  } catch (_) {}
+  return false
+}
+
+function renameSandboxCombatArena(index) {
+  const items = getSimpleSandboxCombatArenas()
+  const item = items[Number(index)]
+  if (!item) return false
+  const nextLabel = prompt("Nom de l'arene :", String(item.label || ""))
+  if (nextLabel == null) return false
+  const trimmedLabel = String(nextLabel).trim()
+  if (!trimmedLabel) {
+    if (typeof showNotification === "function") showNotification("Nom obligatoire")
+    return false
+  }
+  items[index].label = trimmedLabel
+  saveSimpleSandboxCombatArenas(items)
+  try { renderSandboxManagerPanelById("mobMenu2") } catch (_) {}
+  return false
+}
+
+function configureSandboxCombatArena(index) {
+  const items = getSimpleSandboxCombatArenas()
+  const item = items[Number(index)]
+  if (!item) return false
+  openSandboxCombatArenaTierPicker(Number(index))
+  return false
+}
+
+function closeSandboxCombatArenaTierPicker() {
+  const overlay = document.getElementById("sandboxCombatArenaTierPicker")
+  if (overlay) overlay.remove()
+  window.__sandboxCombatArenaTierPickerIndex = null
+  return false
+}
+
+function saveSandboxCombatArenaTierPicker() {
+  const index = Number(window.__sandboxCombatArenaTierPickerIndex)
+  const items = getSimpleSandboxCombatArenas()
+  const item = items[index]
+  if (!item) return closeSandboxCombatArenaTierPicker()
+  const selected = Array.from(document.querySelectorAll('[data-sandbox-arena-tier-option]:checked')).map(function(input) {
+    return normalizeSandboxCombatTier(input.value)
+  }).filter(Boolean)
+  const tiers = selected.length ? Array.from(new Set(selected)) : ["weak"]
+  items[index].tiers = tiers
+  items[index].tier = tiers[0]
+  saveSimpleSandboxCombatArenas(items)
+  try { renderSandboxManagerPanelById("mobMenu2") } catch (_) {}
+  if (typeof showNotification === "function") showNotification("Difficultes reglees")
+  return closeSandboxCombatArenaTierPicker()
+}
+
+function openSandboxCombatArenaTierPicker(index) {
+  const items = getSimpleSandboxCombatArenas()
+  const item = items[Number(index)]
+  if (!item) return false
+  closeSandboxCombatArenaTierPicker()
+  window.__sandboxCombatArenaTierPickerIndex = Number(index)
+  const overlay = document.createElement("div")
+  overlay.id = "sandboxCombatArenaTierPicker"
+  overlay.setAttribute("data-keep-gm-open", "true")
+  const selected = Array.isArray(item.tiers) && item.tiers.length ? item.tiers : [normalizeSandboxCombatTier(item.tier)]
+  const options = SANDBOX_COMBAT_TIERS.map(function(meta) {
+    const checked = selected.includes(meta.value) ? "checked" : ""
+    return (
+      `<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid rgba(214,180,106,0.24);background:rgba(0,0,0,0.18);cursor:pointer;">` +
+        `<input type="checkbox" data-sandbox-arena-tier-option value="${meta.value}" ${checked} style="accent-color:${meta.accent};width:16px;height:16px;">` +
+        `<span style="font-family:Cinzel,serif;color:#f5e6c8;font-size:13px;">${meta.label}</span>` +
+      `</label>`
+    )
+  }).join("")
+  overlay.innerHTML =
+    `<div onclick="return closeSandboxCombatArenaTierPicker()" style="position:fixed;inset:0;background:rgba(0,0,0,0.42);"></div>` +
+    `<div style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,420px);display:grid;gap:12px;padding:16px;border-radius:16px;border:1px solid rgba(214,180,106,0.28);background:linear-gradient(180deg, rgba(36,25,18,0.98), rgba(16,9,5,0.98));box-shadow:0 22px 60px rgba(0,0,0,0.45);z-index:100002;">` +
+      `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">` +
+        `<div style="font-family:Cinzel,serif;color:#e6c27a;font-size:15px;letter-spacing:1.5px;">Difficultes de l'arene</div>` +
+        `<button type="button" onclick="return closeSandboxCombatArenaTierPicker()" style="width:36px;height:36px;border-radius:999px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f5e6c8;cursor:pointer;">×</button>` +
+      `</div>` +
+      `<div style="font-size:12px;line-height:1.6;color:rgba(255,240,210,0.82);">Coche une ou plusieurs difficultes. Cette arene sera utilisee pour tous les niveaux selectionnes.</div>` +
+      `<div style="display:grid;gap:8px;">${options}</div>` +
+      `<div style="display:flex;justify-content:flex-end;gap:8px;">` +
+        `<button type="button" onclick="return closeSandboxCombatArenaTierPicker()" style="padding:9px 12px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:10px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Annuler</button>` +
+        `<button type="button" onclick="return saveSandboxCombatArenaTierPicker()" style="padding:9px 12px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:10px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Valider</button>` +
+      `</div>` +
+    `</div>`
+  document.body.appendChild(overlay)
+  return false
+}
+
+function deleteSandboxCombatArena(index) {
+  const items = getSimpleSandboxCombatArenas()
+  const numericIndex = Number(index)
+  if (numericIndex < 0 || numericIndex >= items.length) return false
+  items.splice(numericIndex, 1)
+  saveSimpleSandboxCombatArenas(items)
+  try { renderSandboxManagerPanelById("mobMenu2") } catch (_) {}
+  return false
+}
+
+function startSandboxCombatArenaDrag(index) {
+  window.__sandboxDraggedCombatArenaIndex = Number(index)
+}
+
+function endSandboxCombatArenaDrag() {
+  window.__sandboxDraggedCombatArenaIndex = null
+}
+
+function dropSandboxCombatArena(targetIndex) {
+  const sourceIndex = Number(window.__sandboxDraggedCombatArenaIndex)
+  const destIndex = Number(targetIndex)
+  window.__sandboxDraggedCombatArenaIndex = null
+  if (!Number.isFinite(sourceIndex) || !Number.isFinite(destIndex) || sourceIndex === destIndex) return false
+  const items = getSimpleSandboxCombatArenas().slice()
+  if (sourceIndex < 0 || destIndex < 0 || sourceIndex >= items.length || destIndex >= items.length) return false
+  const moved = items.splice(sourceIndex, 1)[0]
+  items.splice(destIndex, 0, moved)
+  saveSimpleSandboxCombatArenas(items)
+  try { renderSandboxManagerPanelById("mobMenu2") } catch (_) {}
+  return false
+}
+
+function renameSandboxMob(index) {
+  const items = getSimpleSandboxMobs()
+  const item = items[Number(index)]
+  if (!item) return false
+  const nextLabel = prompt("Nom du mob :", String(item.label || ""))
+  if (nextLabel == null) return false
+  const trimmedLabel = String(nextLabel).trim()
+  if (!trimmedLabel) {
+    if (typeof showNotification === "function") showNotification("Nom obligatoire")
+    return false
+  }
+  items[index].label = trimmedLabel
+  saveSimpleSandboxMobs(items)
+  try { renderSandboxManagerPanelById("mobMenu2") } catch (_) {}
+  return false
+}
+
+function moveSandboxMobToTab(index) {
+  const items = getSimpleSandboxMobs()
+  const item = items[Number(index)]
+  if (!item) return false
+  const nextTab = promptSandboxManagerTabMove("mob", item)
+  if (nextTab == null) return false
+  if (nextTab) ensureSandboxManagerTabExists("mob", nextTab)
+  items[index].tab = nextTab
+  saveSandboxItemTabOverride("mob", String(item.id || ""), nextTab)
+  saveSimpleSandboxMobs(items)
+  setSandboxManagerActiveTab("mob", nextTab || "__untabbed__")
+  try { renderSandboxManagerPanelById("mobMenu2") } catch (_) {}
+  if (typeof showNotification === "function") showNotification(nextTab ? "Mob deplace" : "Mob retire de l'onglet")
+  return false
+}
+
+function deleteSandboxMob(index) {
+  const items = getSimpleSandboxMobs()
+  const numericIndex = Number(index)
+  if (numericIndex < 0 || numericIndex >= items.length) return false
+  items.splice(numericIndex, 1)
+  saveSimpleSandboxMobs(items)
+  try { renderSandboxManagerPanelById("mobMenu2") } catch (_) {}
+  return false
+}
+
+function startSandboxMobDrag(index) {
+  window.__sandboxDraggedMobIndex = Number(index)
+}
+
+function endSandboxMobDrag() {
+  window.__sandboxDraggedMobIndex = null
+}
+
+function dropSandboxMob(targetIndex) {
+  const sourceIndex = Number(window.__sandboxDraggedMobIndex)
+  const destIndex = Number(targetIndex)
+  window.__sandboxDraggedMobIndex = null
+  if (!Number.isFinite(sourceIndex) || !Number.isFinite(destIndex) || sourceIndex === destIndex) return false
+  const items = getSimpleSandboxMobs().slice()
+  if (sourceIndex < 0 || destIndex < 0 || sourceIndex >= items.length || destIndex >= items.length) return false
+  const moved = items.splice(sourceIndex, 1)[0]
+  items.splice(destIndex, 0, moved)
+  saveSimpleSandboxMobs(items)
+  try { renderSandboxManagerPanelById("mobMenu2") } catch (_) {}
+  return false
+}
+
 function startSandboxMapDrag(index) {
   window.__sandboxDraggedMapIndex = Number(index)
 }
@@ -6184,8 +6988,42 @@ function buildSandboxManagerPanel(options) {
         `<button type="button" onclick="return createSandboxMapFromPanel()" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Nouvelle map</button>` +
       `</div>`
     : ""
+  const mobItems = options.type === "mob" ? getSimpleSandboxMobs() : []
+  const mobTabs = options.type === "mob" ? getSandboxManagerTabs("mob") : []
+  const mobActiveTab = options.type === "mob" ? getSandboxManagerActiveTab("mob") : "all"
+  const visibleMobItems = options.type === "mob" ? getSandboxVisibleManagerItems("mob", mobItems) : []
+  const combatArenaItems = options.type === "mob" ? getSimpleSandboxCombatArenas() : []
   const actions = options.type === "map"
     ? ""
+    : options.type === "mob"
+    ? visibleMobItems.length
+      ? visibleMobItems.map((item) => {
+          const fullIndex = mobItems.findIndex(function(entry) { return String(entry && entry.id || "") === String(item && item.id || "") })
+          const label = String(item && item.label || "Sans titre")
+          const category = String(item && item.category || "Custom")
+          const mobId = String(item && item.id || "")
+          const tierMeta = getSandboxCombatTierMeta(item && item.tier)
+          const tabMeta = normalizeSandboxManagerTabName(item && item.tab)
+          const safeMobId = escapeSandboxInlineArg(mobId)
+          return (
+            `<div data-sandbox-mob-card data-mob-id="${mobId.replace(/"/g, "&quot;")}" ondragover="event.preventDefault();return false" ondrop="dropSandboxMob(${fullIndex});return false" style="display:grid;gap:8px;padding:10px;background:rgba(0,0,0,0.18);border:1px solid rgba(214,180,106,0.18);border-radius:10px;">` +
+              `<div style="display:flex;gap:8px;align-items:center;">` +
+                `<button type="button" data-keep-gm-open="true" onclick="openMobDiff('${safeMobId}', event)" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;">` +
+                  `<span>${label}</span>` +
+                  `<span style="font-size:11px;color:#bfae8b;">Combat</span>` +
+                `</button>` +
+                `<span title="Glisser pour reordonner" draggable="true" ondragstart="startSandboxMobDrag(${fullIndex})" ondragend="endSandboxMobDrag()" style="width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f0d087;font-size:16px;cursor:grab;">::</span>` +
+              `</div>` +
+              `<div style="font-size:11px;color:#bfae8b;">${category} • ${tierMeta.label}${tabMeta ? " • " + tabMeta : ""}${item && item.combatOnly ? " • PNJ combat" : ""}</div>` +
+              `<div style="display:flex;flex-wrap:wrap;gap:6px;">` +
+                `<button type="button" data-keep-gm-open="true" onclick="renameSandboxMob(${fullIndex})" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Renommer</button>` +
+                `<button type="button" data-keep-gm-open="true" onclick="moveSandboxMobToTab(${fullIndex})" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Onglet</button>` +
+                `<button type="button" data-keep-gm-open="true" onclick="deleteSandboxMob(${fullIndex})" style="padding:7px 9px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(214,110,110,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Supprimer</button>` +
+              `</div>` +
+            `</div>`
+          )
+        }).join("")
+      : `<div style="font-size:12px;color:#bfae8b;padding:10px;background:rgba(0,0,0,0.18);border:1px dashed rgba(214,180,106,0.18);border-radius:10px;">Aucun element pour le moment.</div>`
     : items.length
     ? items.map((item, index) => {
         const label = String(item.label || "Sans titre")
@@ -6224,12 +7062,66 @@ function buildSandboxManagerPanel(options) {
       `</div>` +
       (options.type === "map"
         ? mapActions
+        : options.type === "mob"
+        ? `<div style="display:grid;gap:10px;">` +
+            `<div data-mob-manager-tabs style="display:flex;flex-wrap:wrap;gap:8px;">` +
+              `<button type="button" data-keep-gm-open="true" onclick="return selectSandboxMobTab('all')" style="padding:8px 12px;border-radius:999px;border:1px solid ${mobActiveTab === "all" ? "#caa46b" : "rgba(214,180,106,0.24)"};background:${mobActiveTab === "all" ? "linear-gradient(#7a5533,#4b321c)" : "rgba(255,255,255,0.05)"};color:#f5e6c8;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Tous</button>` +
+              mobTabs.map(function(tab) {
+                const safeTab = escapeSandboxInlineArg(tab)
+                const active = mobActiveTab === tab
+                return `<button type="button" data-keep-gm-open="true" onclick="return selectSandboxMobTab('${safeTab}')" style="padding:8px 12px;border-radius:999px;border:1px solid ${active ? "#caa46b" : "rgba(214,180,106,0.24)"};background:${active ? "linear-gradient(#7a5533,#4b321c)" : "rgba(255,255,255,0.05)"};color:#f5e6c8;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">${tab}</button>`
+              }).join("") +
+              `<button type="button" data-keep-gm-open="true" onclick="return createSandboxManagerTab('mob')" style="padding:8px 12px;border-radius:999px;border:1px dashed rgba(214,180,106,0.34);background:rgba(0,0,0,0.12);color:#f0d087;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">+ Onglet</button>` +
+            `</div>` +
+            `<div style="display:flex;flex-wrap:wrap;gap:8px;">` +
+              `<button type="button" data-keep-gm-open="true" onclick="return createSandboxMobFromPanel()" style="padding:9px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter un mob</button>` +
+            `</div>` +
+          `</div>`
         : `<div style="display:flex;flex-wrap:wrap;gap:8px;">` +
             `<button type="button" onclick="triggerNativeStudioLocalAdd('${options.type}')" style="padding:9px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter un fichier local</button>` +
             `<button type="button" onclick="openNativeStudioQuickCreate('${options.type}')" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter manuellement</button>` +
           `</div>`
       ) +
       `<div data-sandbox-map-list style="display:grid;gap:10px;">${actions}</div>` +
+      (options.type === "mob"
+        ? `<div style="display:grid;gap:10px;padding-top:10px;border-top:1px solid rgba(214,180,106,0.18);">` +
+            `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">` +
+              `<div style="font-size:14px;letter-spacing:2px;color:#e6c27a;">Arenes de combat</div>` +
+              `<button type="button" data-keep-gm-open="true" onclick="return createSandboxCombatArenaFromPanel()" style="padding:9px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter une arene</button>` +
+            `</div>` +
+            `<div style="font-size:12px;line-height:1.6;color:rgba(255,240,210,0.82);">Le MJ choisit ici une image d'arene, une musique et une difficulte cible. Le combat prend ensuite automatiquement la bonne arene selon le niveau lance pour le mob.</div>` +
+            `<div style="display:grid;gap:10px;">` +
+              (combatArenaItems.length
+                ? combatArenaItems.map(function(item, index) {
+                    const tierValues = Array.isArray(item && item.tiers) && item.tiers.length ? item.tiers : [normalizeSandboxCombatTier(item && item.tier)]
+                    const tierLabels = tierValues.map(function(value) { return getSandboxCombatTierMeta(value).label }).join(", ")
+                    const imageState = item && item.image ? "image prete" : "image manquante"
+                    const audioState = item && item.audio ? "musique prete" : "musique par defaut"
+                    return (
+                      `<div ondragover="event.preventDefault();return false" ondrop="dropSandboxCombatArena(${index});return false" style="display:grid;gap:8px;padding:10px;background:rgba(0,0,0,0.18);border:1px solid rgba(214,180,106,0.18);border-radius:10px;">` +
+                        `<div style="display:flex;gap:8px;align-items:center;">` +
+                          `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;flex:1;">` +
+                            `<span>${String(item && item.label || "Arene")}</span>` +
+                            `<span style="font-size:11px;color:#bfae8b;">${tierLabels}</span>` +
+                          `</div>` +
+                          `<span title="Glisser pour reordonner" draggable="true" ondragstart="startSandboxCombatArenaDrag(${index})" ondragend="endSandboxCombatArenaDrag()" style="width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f0d087;font-size:16px;cursor:grab;">::</span>` +
+                        `</div>` +
+                        `<div style="font-size:11px;color:#bfae8b;">${String(item && item.category || "Combat")} • ${tierLabels} • ${imageState} • ${audioState}</div>` +
+                        `<div style="display:flex;flex-wrap:wrap;gap:6px;">` +
+                          `<button type="button" data-keep-gm-open="true" onclick="renameSandboxCombatArena(${index})" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Renommer</button>` +
+                          `<button type="button" data-keep-gm-open="true" onclick="configureSandboxCombatArena(${index})" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Difficulte</button>` +
+                          `<button type="button" data-keep-gm-open="true" onclick="replaceSandboxCombatArenaImage(${index})" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Image</button>` +
+                          `<button type="button" data-keep-gm-open="true" onclick="pickSandboxCombatArenaMusic(${index})" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Musique</button>` +
+                          `<button type="button" data-keep-gm-open="true" onclick="clearSandboxCombatArenaMusic(${index})" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Couper musique</button>` +
+                          `<button type="button" data-keep-gm-open="true" onclick="deleteSandboxCombatArena(${index})" style="padding:7px 9px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(214,110,110,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Supprimer</button>` +
+                        `</div>` +
+                      `</div>`
+                    )
+                  }).join("")
+                : `<div style="font-size:12px;color:#bfae8b;padding:10px;background:rgba(0,0,0,0.18);border:1px dashed rgba(214,180,106,0.18);border-radius:10px;">Aucune arene pour le moment.</div>`) +
+            `</div>` +
+          `</div>`
+        : "") +
     `</div>`
   )
 }
@@ -6501,25 +7393,31 @@ function normalizeSandboxManagerTabName(value) {
 }
 
 function getSandboxManagerTabStorageKey(type) {
-  return String(type || "").trim() === "pnj" ? "pnjTabs" : "mapTabs"
+  const normalized = String(type || "").trim()
+  if (normalized === "pnj") return "pnjTabs"
+  if (normalized === "mob") return "mobTabs"
+  return "mapTabs"
 }
 
 function getSandboxManagerLocalStorageKey(type) {
-  return String(type || "").trim() === "pnj"
-    ? "rpg_manager_tabs_pnj_v1"
-    : "rpg_manager_tabs_map_v1"
+  const normalized = String(type || "").trim()
+  if (normalized === "pnj") return "rpg_manager_tabs_pnj_v1"
+  if (normalized === "mob") return "rpg_manager_tabs_mob_v1"
+  return "rpg_manager_tabs_map_v1"
 }
 
 function getSandboxManagerActiveTabLocalStorageKey(type) {
-  return String(type || "").trim() === "pnj"
-    ? "rpg_manager_active_tab_pnj_v1"
-    : "rpg_manager_active_tab_map_v1"
+  const normalized = String(type || "").trim()
+  if (normalized === "pnj") return "rpg_manager_active_tab_pnj_v1"
+  if (normalized === "mob") return "rpg_manager_active_tab_mob_v1"
+  return "rpg_manager_active_tab_map_v1"
 }
 
 function getSandboxItemTabOverrideStorageKey(type) {
-  return String(type || "").trim() === "pnj"
-    ? "rpg_manager_item_tabs_pnj_v1"
-    : "rpg_manager_item_tabs_map_v1"
+  const normalized = String(type || "").trim()
+  if (normalized === "pnj") return "rpg_manager_item_tabs_pnj_v1"
+  if (normalized === "mob") return "rpg_manager_item_tabs_mob_v1"
+  return "rpg_manager_item_tabs_map_v1"
 }
 
 function getSandboxItemTabOverrides(type) {
@@ -6560,8 +7458,11 @@ function getSandboxManagerTabs(type) {
     } catch (_) {
       storedLocalTabs = []
     }
-    const runtimeItems = String(type || "").trim() === "pnj"
+    const normalized = String(type || "").trim()
+    const runtimeItems = normalized === "pnj"
       ? (typeof getSimpleSandboxPnjs === "function" ? getSimpleSandboxPnjs() : [])
+      : normalized === "mob"
+      ? (typeof getSandboxContentItems === "function" ? getSandboxContentItems("mob") : [])
       : (typeof getSimpleSandboxMaps === "function" ? getSimpleSandboxMaps() : [])
     const runtimeItemTabs = (Array.isArray(runtimeItems) ? runtimeItems : [])
       .map(function(item) { return normalizeSandboxManagerTabName(item && item.tab) })
@@ -6582,7 +7483,7 @@ function getSandboxManagerTabs(type) {
     const storedTabs = (Array.isArray(content[key]) ? content[key] : [])
       .map(normalizeSandboxManagerTabName)
       .filter(Boolean)
-    const itemKey = String(type || "").trim() === "pnj" ? "pnjs" : "maps"
+    const itemKey = normalized === "pnj" ? "pnjs" : normalized === "mob" ? "mobs" : "maps"
     const itemTabs = (Array.isArray(content[itemKey]) ? content[itemKey] : [])
       .map(function(item) { return normalizeSandboxManagerTabName(item && item.tab) })
       .filter(Boolean)
@@ -6613,7 +7514,7 @@ function saveSandboxManagerTabs(type, tabs) {
     } catch (_) {}
     if (typeof getCustomization !== "function" || typeof saveCustomization !== "function") return true
     const next = getCustomization()
-    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], combatArenas: [], documents: [] }
     next.content[key] = cleanTabs
     saveCustomization(next)
     return true
@@ -6663,14 +7564,15 @@ function getSandboxItemTab(item) {
 function getSandboxVisibleManagerItems(type, items) {
   const activeTab = getSandboxManagerActiveTab(type)
   const safeItems = Array.isArray(items) ? items : []
-  if (activeTab === "all" || activeTab === "__untabbed__") return safeItems
+  if (activeTab === "all") return safeItems
+  if (activeTab === "__untabbed__") return safeItems.filter(function(item) { return !getSandboxItemTab(item) })
   return safeItems.filter(function(item) { return getSandboxItemTab(item) === activeTab })
 }
 
 function promptSandboxManagerTabMove(type, item) {
   const tabs = getSandboxManagerTabs(type)
   const currentTab = getSandboxItemTab(item)
-  const label = String(item && item.label || "").trim() || (type === "pnj" ? "PNJ" : "Map")
+  const label = String(item && item.label || "").trim() || (type === "pnj" ? "PNJ" : type === "mob" ? "Mob" : "Map")
   const help = tabs.length
     ? "Onglets dispo : " + tabs.join(", ") + "\nLaisse vide pour retirer l'onglet."
     : "Aucun onglet cree pour le moment.\nEcris un nom pour creer et affecter un onglet."
@@ -6707,15 +7609,21 @@ function createSandboxManagerTab(type) {
     saveSandboxManagerTabs(type, currentTabs)
   } catch (_) {}
   setSandboxManagerActiveTab(type, clean)
-  if (type === "pnj") renderSandboxPnjManagerOverlayV2()
-  else renderSandboxMapManagerOverlayV2()
+  const refresh = getSandboxManagerRefreshCallback(type)
+  refresh()
   if (typeof showNotification === "function") showNotification("Onglet cree")
   return false
 }
 
 function renderSandboxManagerTabsRow(type, overlay, items) {
   if (!overlay) return
-  const host = overlay.querySelector(type === "pnj" ? "[data-pnj-manager-tabs]" : "[data-map-manager-tabs]")
+  const host = overlay.querySelector(
+    type === "pnj"
+      ? "[data-pnj-manager-tabs]"
+      : type === "mob"
+      ? "[data-mob-manager-tabs]"
+      : "[data-map-manager-tabs]"
+  )
   if (!host) return
   const previewMode = !!(document.body && document.body.classList.contains("sandbox-preview-mode"))
   const tabs = getSandboxManagerTabs(type)
@@ -6730,23 +7638,28 @@ function renderSandboxManagerTabsRow(type, overlay, items) {
     const btn = document.createElement("button")
     btn.type = "button"
     btn.textContent = label
+    btn.setAttribute("data-keep-gm-open", "true")
     btn.style.cssText = "padding:8px 12px;border-radius:999px;border:1px solid " + (isActive ? "#caa46b" : "rgba(214,180,106,0.24)") + ";background:" + (isActive ? "linear-gradient(#7a5533,#4b321c)" : "rgba(255,255,255,0.05)") + ";color:#f5e6c8;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
     btn.dataset.managerTab = id
-    btn.addEventListener("click", onClick)
+    btn.addEventListener("click", function(event) {
+      event.preventDefault()
+      event.stopPropagation()
+      onClick()
+    })
     return btn
   }
 
   host.appendChild(createTabButton("all", "Tous", activeTab === "all", function() {
     setSandboxManagerActiveTab(type, "all")
-    if (type === "pnj") renderSandboxPnjManagerOverlayV2()
-    else renderSandboxMapManagerOverlayV2()
+    const refresh = getSandboxManagerRefreshCallback(type)
+    refresh()
   }))
 
   tabs.forEach(function(tab) {
     host.appendChild(createTabButton(tab, tab, activeTab === tab, function() {
       setSandboxManagerActiveTab(type, tab)
-      if (type === "pnj") renderSandboxPnjManagerOverlayV2()
-      else renderSandboxMapManagerOverlayV2()
+      const refresh = getSandboxManagerRefreshCallback(type)
+      refresh()
     }))
   })
 
@@ -6754,8 +7667,11 @@ function renderSandboxManagerTabsRow(type, overlay, items) {
     const addBtn = document.createElement("button")
     addBtn.type = "button"
     addBtn.textContent = "+ Onglet"
+    addBtn.setAttribute("data-keep-gm-open", "true")
     addBtn.style.cssText = "padding:8px 12px;border-radius:999px;border:1px dashed rgba(214,180,106,0.34);background:rgba(0,0,0,0.12);color:#f0d087;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
-    addBtn.addEventListener("click", function() {
+    addBtn.addEventListener("click", function(event) {
+      event.preventDefault()
+      event.stopPropagation()
       createSandboxManagerTab(type)
     })
     host.appendChild(addBtn)
@@ -6805,7 +7721,7 @@ function saveSimpleSandboxPnjs(items) {
     window.__simpleSandboxPnjs = safeItems
     if (typeof getCustomization === "function" && typeof saveCustomization === "function") {
       const next = getCustomization()
-      next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+      next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], combatArenas: [], documents: [] }
       next.content.pnjs = safeItems.map(item => ({
         id: item.id,
         label: item.label,
@@ -7488,10 +8404,10 @@ function sanitizeLegacySandboxUI() {
   if (combatIntroText) combatIntroText.textContent = "? PREPAREZ-VOUS AU COMBAT ?"
 
   const mobMenuTitle = document.getElementById("mobMenuTitle")
-  if (mobMenuTitle) mobMenuTitle.textContent = "? CONFIGURATION DU COMBAT"
+  if (mobMenuTitle) mobMenuTitle.textContent = "CONFIGURATION DU COMBAT"
 
   const mobMenuLaunch = document.getElementById("mobMenuLaunch")
-  if (mobMenuLaunch) mobMenuLaunch.textContent = "? Lancer"
+  if (mobMenuLaunch) mobMenuLaunch.textContent = "Lancer"
 
   const wantedTitle = document.querySelector("#wantedEditor div")
   if (wantedTitle) wantedTitle.textContent = "? CREER UNE AFFICHE"
@@ -8070,6 +8986,7 @@ document.addEventListener("click", function(event) {
   if (!button) return
   if (button.classList.contains("pnjTab")) return
   if (button.classList.contains("mapCategoryButton")) return
+  if (button.hasAttribute("data-keep-gm-open")) return
   const panel = button.closest(".gmSection")
   if (!panel) return
   setTimeout(function() {
@@ -8342,7 +9259,7 @@ document.addEventListener("mousedown", e => {
       e.target.closest(".gmSection") || e.target.closest("#diceBar") ||
       e.target.closest("#characterSheet") || e.target.closest("#shopOverlay") ||
       e.target.closest("#spellMiniGame") || e.target.closest("#runeChallengeOverlay") ||
-      e.target.closest("#mobSelectionMenu") || e.target.closest("#wantedEditor")) return
+      e.target.closest("#mobSelectionMenu") || e.target.closest("#mobDiffPopup") || e.target.closest("#wantedEditor")) return
   if (e.button === 0 && !e.target.closest(".token")) {
     cameraDragging = true; cameraStartX = e.clientX - cameraX; cameraStartY = e.clientY - cameraY
     document.body.style.cursor = "grabbing"
@@ -8552,7 +9469,7 @@ function saveSimpleSandboxMaps(maps) {
     }))
     if (typeof getCustomization !== "function" || typeof saveCustomization !== "function") return false
     const next = getCustomization()
-    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], documents: [] }
+    next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], combatArenas: [], documents: [] }
     next.content.maps = window.__simpleSandboxMaps.map((item, index) => ({
       id: String(item && item.id || ("map_" + index)),
       label: String(item && item.label || "Sans titre"),

@@ -1,15 +1,22 @@
-"use strict"
+﻿"use strict"
 
 window.__combatOutcomeShowing = false
 window.__pendingLocalDefeat = false
 
 /* ========================= */
-/* DÉMARRAGE COMBAT          */
+/* DÃ‰MARRAGE COMBAT          */
 /* ========================= */
 
 function _getCombatArenaMap(mob, tier) {
+  const normalizedTier = typeof normalizeSandboxCombatTier === "function"
+    ? normalizeSandboxCombatTier(tier)
+    : tier
   if (mob === "kraken") return "tourbillon.jpg"
-  return tier === "boss" ? "arenefinal.jpg" : "arene.jpg"
+  if (typeof getSandboxCombatArenaImageForTier === "function") {
+    const customArena = String(getSandboxCombatArenaImageForTier(normalizedTier) || "").trim()
+    if (customArena) return customArena
+  }
+  return (normalizedTier === "boss" || normalizedTier === "worldboss") ? "arenefinal.jpg" : "arene.jpg"
 }
 
 function _syncCombatStart(mainMob, tier, extraMobs) {
@@ -31,12 +38,12 @@ function startCombat(mob, forceTier) {
   if (combatStarting || !isGM) return
   // Balraug uniquement sur sa map
   if (mob === "balraug" && currentMap !== "balraug.jpg") {
-    showNotification("⚠ Balraug ne peut être invoqué que dans sa map !")
+    showNotification("âš  Balraug ne peut Ãªtre invoquÃ© que dans sa map !")
     return
   }
   // Kraken uniquement sur le Maelstrom
   if (mob === "kraken" && currentMap !== "tourbillon.jpg") {
-    showNotification("⚠ Le Kraken ne peut être invoqué que sur le Maelstrom !")
+    showNotification("âš  Le Kraken ne peut Ãªtre invoquÃ© que sur le Maelstrom !")
     return
   }
   combatActive = false
@@ -50,14 +57,25 @@ function showMobSelectionMenu(mainMob, forceTier) {
   if (!menu) return
   ;["mobSlot2Select","mobSlot3Select"].forEach(id => {
     const el = document.getElementById(id)
-    if (el) { el.innerText = "— Aucun —"; el.dataset.value = "" }
+    if (el) { el.innerText = "Aucun"; el.dataset.value = "" }
   })
   ;["mobDropdown_slot2","mobDropdown_slot3"].forEach(id => {
     const dd = document.getElementById(id)
     if (dd) { dd.style.display = "none"; dd.innerHTML = ""; delete dd.dataset.built }
   })
   const sub = document.getElementById("mobMenuSub")
-  if (sub) sub.innerText = "Mob principal : " + mainMob.toUpperCase()
+  if (sub) {
+    const tierMeta = typeof getSandboxCombatTierMeta === "function"
+      ? getSandboxCombatTierMeta(forceTier || (mobStats[mainMob] ? mobStats[mainMob].tier : "weak"))
+      : { label: forceTier || "Faible" }
+    sub.innerText = "Principal : " + mainMob.toUpperCase() + " • " + tierMeta.label
+    if (typeof getPartyLevel === "function" && typeof getSandboxMobEncounterStats === "function") {
+      getPartyLevel(level => {
+        const stats = getSandboxMobEncounterStats(mainMob, forceTier || (mobStats[mainMob] ? mobStats[mainMob].tier : "weak"), level)
+        sub.innerText = "Principal : " + mainMob.toUpperCase() + " • " + tierMeta.label + " • Niv " + stats.level + " • " + stats.hp + " PV"
+      })
+    }
+  }
   menu.style.display = "flex"
   menu.style.setProperty("background-color", "rgb(8,0,0)", "important")
   setTimeout(() => updateMobPreview(), 50)
@@ -87,35 +105,36 @@ function _launchCombatWithMobs(mainMob, forceTier, extraMobs) {
   document.getElementById("mobD12").style.display = "inline-block"
   document.getElementById("mobD20").style.display = "inline-block"
 
-  const tier = forceTier || (mobStats[mainMob] ? mobStats[mainMob].tier : "weak")
+  const tier = typeof normalizeSandboxCombatTier === "function"
+    ? normalizeSandboxCombatTier(forceTier || (mobStats[mainMob] ? mobStats[mainMob].tier : "weak"))
+    : (forceTier || (mobStats[mainMob] ? mobStats[mainMob].tier : "weak"))
 
   getPartyLevel(level => {
-    const base = mobStats[mainMob] ? mobStats[mainMob].baseHP : 10
-    const tierMults  = { weak:1.0,  medium:1.6, high:2.8, boss:5.0  }
-    const tierScales = { weak:0.12, medium:0.18, high:0.25, boss:0.35 }
-    const tierLvlOff = { weak:-1,   medium:1,   high:3,    boss:8    }
-    const mult = tierMults[tier]  || 1.0
-    const sc   = tierScales[tier] || 0.12
-    // Après lvl 10 : réduire l'écart pour les world boss
-    const effLevel = (tier === "boss" && level > 10) ? 10 + (level - 10) * 0.65 : level
-    const hp   = Math.round(base * mult * Math.pow(1 + effLevel * sc, 1.6))
-    const lvl  = Math.max(1, level + (tierLvlOff[tier] || 0))
-    db.ref("combat/mob").set({ name:mainMob, hp, maxHP:hp, lvl, tier })
+    const primaryStats = typeof getSandboxMobEncounterStats === "function"
+      ? getSandboxMobEncounterStats(mainMob, tier, level)
+      : null
+    const hp = primaryStats ? primaryStats.hp : Math.round(((mobStats[mainMob] ? mobStats[mainMob].baseHP : 10)) * 1.0)
+    const lvl = primaryStats ? primaryStats.level : Math.max(1, level)
+    const runtimeTier = primaryStats ? primaryStats.runtimeTier : tier
+    db.ref("combat/mob").set({ name:mainMob, hp, maxHP:hp, lvl, tier: runtimeTier, difficulty: tier })
 
     _state.pendingExtraMobs = {}
     extraMobs.forEach((mob, i) => {
       const slot = ["mob2","mob3"][i]
       if (!slot || !mob) return
       _state.pendingExtraMobs[slot] = mob
-      const tier2 = mobStats[mob] ? mobStats[mob].tier : "weak"
+      const tier2 = typeof normalizeSandboxCombatTier === "function"
+        ? normalizeSandboxCombatTier(mobStats[mob] ? mobStats[mob].tier : "weak")
+        : (mobStats[mob] ? mobStats[mob].tier : "weak")
       const base2 = mobStats[mob] ? mobStats[mob].baseHP : 10
-      const mult2 = { weak:1.2, medium:2.0, high:3.5, boss:6.0 }[tier2] || 1.2
-      const lf2   = { weak:4,   medium:8,   high:14,  boss:30  }[tier2] || 4
+      const tier2Runtime = tier2 === "worldboss" ? "boss" : tier2
+      const mult2 = { weak:1.2, medium:2.0, high:3.5, boss:6.0 }[tier2Runtime] || 1.2
+      const lf2   = { weak:4,   medium:8,   high:14,  boss:30  }[tier2Runtime] || 4
       setTimeout(() => {
         getPartyLevel(lv => {
           const hp2  = Math.round(base2 * mult2 + lv * lf2 + Math.floor(lv * lv * 0.5))
-          const lvl2 = Math.max(1, lv + ({ weak:-1, medium:1, high:3, boss:8 }[tier2] || 0))
-          db.ref("combat/" + slot).set({ name:mob, hp:hp2, maxHP:hp2, lvl:lvl2, tier:tier2, slot })
+          const lvl2 = Math.max(1, lv + ({ weak:-1, medium:1, high:3, boss:8 }[tier2Runtime] || 0))
+          db.ref("combat/" + slot).set({ name:mob, hp:hp2, maxHP:hp2, lvl:lvl2, tier:tier2Runtime, difficulty:tier2, slot })
           activeMobSlots[slot] = true
         })
       }, i * 200)
@@ -127,12 +146,14 @@ function _launchCombatWithMobs(mainMob, forceTier, extraMobs) {
 }
 
 /* ========================= */
-/* SÉQUENCE COMBAT           */
+/* SÃ‰QUENCE COMBAT           */
 /* ========================= */
 
 function combatSequence(mob, forceTier) {
-  const tierMob = forceTier || (mobStats[mob] ? mobStats[mob].tier : "weak")
-  if (mob === "roi" && tierMob === "boss") playRoiIntro(mob, tierMob)
+  const tierMob = typeof normalizeSandboxCombatTier === "function"
+    ? normalizeSandboxCombatTier(forceTier || (mobStats[mob] ? mobStats[mob].tier : "weak"))
+    : (forceTier || (mobStats[mob] ? mobStats[mob].tier : "weak"))
+  if (mob === "roi" && (tierMob === "boss" || tierMob === "worldboss")) playRoiIntro(mob, tierMob)
   else _startCombatSequence(mob, tierMob)
 }
 
@@ -171,17 +192,23 @@ function playRoiIntro(mob, tierMob) {
 }
 
 function _startCombatSequence(mob, tierMob) {
+  const normalizedTier = typeof normalizeSandboxCombatTier === "function"
+    ? normalizeSandboxCombatTier(tierMob)
+    : tierMob
   const keepMapMusic =
     (mob === "kraken" && currentMap === "tourbillon.jpg") ||
     (mob === "balraug" && currentMap === "balraug.jpg")
 
   if (!keepMapMusic) {
     fadeMusicOut(() => {
-      const track = tierMob === "boss"
+      const customTrack = typeof getSandboxCombatArenaMusicForTier === "function"
+        ? String(getSandboxCombatArenaMusicForTier(normalizedTier) || "").trim()
+        : ""
+      const track = customTrack || ((normalizedTier === "boss" || normalizedTier === "worldboss")
         ? "audio/worldboss.mp3"
-        : tierMob === "high"
+        : normalizedTier === "high"
         ? "audio/highcombat.mp3"
-        : "audio/lowcombat.mp3"
+        : "audio/lowcombat.mp3")
       setTimeout(() => crossfadeMusic(track), 100)
     })
   }
@@ -190,8 +217,9 @@ function _startCombatSequence(mob, tierMob) {
   const cf    = document.getElementById("combatFilter")
   cf.style.display = "block"; cf.style.opacity = "1"; cf.style.transition = "none"
 
-  if (tierMob === "boss")       { cf.style.background = "rgba(120,0,0,0.7)"; screenShakeHard(); setTimeout(() => screenShakeHard(), 400); setTimeout(() => screenShakeHard(), 800) }
-  else if (tierMob === "high")  { cf.style.background = "rgba(80,0,0,0.6)";  screenShakeHard(); setTimeout(() => screenShake(), 500) }
+  if (normalizedTier === "worldboss") { cf.style.background = "rgba(145,0,0,0.8)"; screenShakeHard(); setTimeout(() => screenShakeHard(), 350); setTimeout(() => screenShakeHard(), 700) }
+  else if (normalizedTier === "boss") { cf.style.background = "rgba(120,0,0,0.7)"; screenShakeHard(); setTimeout(() => screenShakeHard(), 400); setTimeout(() => screenShakeHard(), 800) }
+  else if (normalizedTier === "high") { cf.style.background = "rgba(80,0,0,0.6)";  screenShakeHard(); setTimeout(() => screenShake(), 500) }
   else                          { cf.style.background = "rgba(60,0,0,0.5)";  screenShake() }
   playSound("combatSound", 0.4)
 
@@ -205,7 +233,11 @@ function _startCombatSequence(mob, tierMob) {
 
       setTimeout(() => {
         const map = document.getElementById("map")
-        map.style.backgroundImage = "url('images/" + _getCombatArenaMap(currentMob, tierMob) + "')"
+        const arenaMap = String(_getCombatArenaMap(currentMob, normalizedTier) || "").trim()
+        const arenaMapUrl = /^(data:|blob:|https?:|\/)/i.test(arenaMap)
+          ? arenaMap
+          : "images/" + arenaMap.replace(/^images[\\/]/i, "").replace(/\\/g, "/")
+        map.style.backgroundImage = "url('" + arenaMapUrl.replace(/'/g, "\\'") + "')"
         fadeToCombat()
         cf.style.display = "none"; cf.style.opacity = "1"
         fade.style.transition = "opacity 1s ease"; fade.style.opacity = "0"
@@ -313,7 +345,7 @@ function showMobIntro(mob) {
 }
 
 /* ========================= */
-/* ARÈNE                     */
+/* ARÃˆNE                     */
 /* ========================= */
 
 function fadeToCombat() {
@@ -377,7 +409,7 @@ function spawnMobToken(mob) {
 }
 
 /* ========================= */
-/* VICTOIRE / DÉFAITE        */
+/* VICTOIRE / DÃ‰FAITE        */
 /* ========================= */
 
 function showVictory() {
@@ -521,7 +553,7 @@ function returnToMap() {
 
     setTimeout(() => {
       fade.style.transition = "opacity 0.8s ease"; fade.style.opacity = "0"; fade.style.pointerEvents = "none"
-      // Balraug — musique déjà en cours, ne pas relancer
+      // Balraug â€” musique dÃ©jÃ  en cours, ne pas relancer
       if (currentMap && mapMusic[currentMap]) crossfadeMusic(mapMusic[currentMap])
       if (typeof updateThuumButton === "function") updateThuumButton()
     }, 300)
@@ -568,7 +600,7 @@ function stopBossFireEffect() {
 }
 
 /* ========================= */
-/* CINÉMATIQUE INTRO         */
+/* CINÃ‰MATIQUE INTRO         */
 /* ========================= */
 
 function playOpeningCinematic(callback) {
@@ -624,14 +656,14 @@ function playOpeningCinematic(callback) {
     }, 100)
   }, 6000)
 
-  setTimeout(() => showCinText("… alors, dans le lointain,\non entendra la fréquence sacrée.", 4000), 11000)
-  setTimeout(() => showCinText("… et les héros viendraient offrir\nune nouvelle ère de paix.", 4000), 16000)
+  setTimeout(() => showCinText("â€¦ alors, dans le lointain,\non entendra la frÃ©quence sacrÃ©e.", 4000), 11000)
+  setTimeout(() => showCinText("â€¦ et les hÃ©ros viendraient offrir\nune nouvelle Ã¨re de paix.", 4000), 16000)
   setTimeout(() => {
     const old = screen.querySelector(".cinText"); if (old) { old.style.opacity = "0"; setTimeout(() => { if (old.parentNode) old.remove() }, 1000) }
     const wrapper = document.createElement("div"); wrapper.className = "cinText"
     wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;max-width:680px;padding:0 50px;opacity:0;transition:opacity 1.5s ease;"
-    const t = document.createElement("div"); t.style.cssText = "font-family:'Cinzel Decorative','Cinzel',serif;font-size:18px;letter-spacing:5px;color:#c8a050;text-shadow:0 0 15px gold;text-align:center;margin-bottom:14px;"; t.innerText = "Prophétie des Enfants de Mouches"; wrapper.appendChild(t)
-    const v = document.createElement("div"); v.style.cssText = "font-family:'IM Fell English',serif;font-size:15px;color:rgba(200,160,50,0.8);line-height:2;text-align:center;font-style:italic;"; v.innerText = "— Livre I, Verset 1 —"; wrapper.appendChild(v)
+    const t = document.createElement("div"); t.style.cssText = "font-family:'Cinzel Decorative','Cinzel',serif;font-size:18px;letter-spacing:5px;color:#c8a050;text-shadow:0 0 15px gold;text-align:center;margin-bottom:14px;"; t.innerText = "ProphÃ©tie des Enfants de Mouches"; wrapper.appendChild(t)
+    const v = document.createElement("div"); v.style.cssText = "font-family:'IM Fell English',serif;font-size:15px;color:rgba(200,160,50,0.8);line-height:2;text-align:center;font-style:italic;"; v.innerText = "â€” Livre I, Verset 1 â€”"; wrapper.appendChild(v)
     screen.appendChild(wrapper); setTimeout(() => { wrapper.style.opacity = "1" }, 50)
     const prop = new Audio("audio/prophetie.mp3"); prop.volume = 0; prop.play().catch(() => {})
     let pIv = setInterval(() => { if (prop.volume<0.8) prop.volume=Math.min(0.8,prop.volume+0.04); else clearInterval(pIv) }, 100)
@@ -644,7 +676,7 @@ function playOpeningCinematic(callback) {
 }
 
 /* ========================= */
-/* DROP MOB DIFFICULTÉ       */
+/* DROP MOB DIFFICULTÃ‰       */
 /* ========================= */
 
 function openMobDiff(mobId, event) {
@@ -654,21 +686,67 @@ function openMobDiff(mobId, event) {
   const nameEl = document.getElementById("mobDiffName")
   if (!popup) return
 
-  const bossMobs = ["balraug","fenrir","jormungand","kraken","nhiddog","roi","odin","thor","freya"]
-  const noWeak   = ["golem","pretre","zombie","zombie2","maire","intendantbrume","conseillerroinord","generalmelenchon","jarl baldur","garde baldur"]
-
-  popup.querySelectorAll("button").forEach(btn => {
-    const match = btn.getAttribute("onclick")?.match(/launchMobDiff\('(\w+)'\)/)
-    const tier  = match?.[1]; if (!tier) return
-    if (bossMobs.includes(mobId))    btn.style.display = tier === "boss" ? "block" : "none"
-    else if (noWeak.includes(mobId)) btn.style.display = tier === "weak" ? "none"  : "block"
-    else                             btn.style.display = "block"
-  })
-
   nameEl.innerText = mobId.toUpperCase()
+  const overview = document.getElementById("mobDiffHint")
+  if (overview) overview.innerText = "Calcul en cours..."
+  const fallbackLevel = typeof getSandboxApproxPartyLevel === "function" ? getSandboxApproxPartyLevel() : 1
+  popup.querySelectorAll("[data-mob-diff-tier]").forEach(btn => {
+    const tier = btn.getAttribute("data-mob-diff-tier") || "weak"
+    const meta = typeof getSandboxCombatTierMeta === "function"
+      ? getSandboxCombatTierMeta(tier)
+      : { shortLabel: tier, accent: "#f5e6c8" }
+    const stats = typeof getSandboxMobEncounterStats === "function"
+      ? getSandboxMobEncounterStats(mobId, tier, fallbackLevel)
+      : { level: fallbackLevel, hp: 0 }
+    btn.style.display = "block"
+    btn.style.borderColor = "rgba(214,180,106,0.28)"
+    btn.style.boxShadow = "none"
+    btn.innerHTML =
+      `<span style="display:block;font-size:11px;color:${meta.accent || "#f5e6c8"};">${meta.shortLabel || meta.label || tier}</span>` +
+      `<span style="display:block;font-size:10px;color:#f5e6c8;margin-top:4px;">Niv ${stats.level} • ${stats.hp} PV</span>`
+  })
+  if (typeof getPartyLevel === "function") {
+    getPartyLevel(level => {
+      const recommendedTier = typeof getSandboxRecommendedMobTier === "function"
+        ? getSandboxRecommendedMobTier(mobId, level)
+        : "medium"
+      const recommendedMeta = typeof getSandboxCombatTierMeta === "function"
+        ? getSandboxCombatTierMeta(recommendedTier)
+        : { label: recommendedTier }
+      if (overview) overview.innerText = "Groupe niv. " + level + " • conseil : " + recommendedMeta.label
+      popup.querySelectorAll("[data-mob-diff-tier]").forEach(btn => {
+        const tier = btn.getAttribute("data-mob-diff-tier") || "weak"
+        const meta = typeof getSandboxCombatTierMeta === "function"
+          ? getSandboxCombatTierMeta(tier)
+          : { shortLabel: tier, accent: "#f5e6c8" }
+        const stats = typeof getSandboxMobEncounterStats === "function"
+          ? getSandboxMobEncounterStats(mobId, tier, level)
+          : { level, hp: 0 }
+        const isRecommended = typeof normalizeSandboxCombatTier === "function"
+          ? normalizeSandboxCombatTier(tier) === recommendedTier
+          : tier === recommendedTier
+        btn.style.display = "block"
+        btn.style.borderColor = isRecommended ? "rgba(240,208,135,0.95)" : "rgba(214,180,106,0.28)"
+        btn.style.boxShadow = isRecommended ? "0 0 0 1px rgba(240,208,135,0.22), 0 10px 18px rgba(0,0,0,0.2)" : "none"
+        btn.innerHTML =
+          `<span style="display:block;font-size:11px;color:${meta.accent || "#f5e6c8"};">${meta.shortLabel || meta.label || tier}</span>` +
+          `<span style="display:block;font-size:10px;color:#f5e6c8;margin-top:4px;">Niv ${stats.level} • ${stats.hp} PV</span>` +
+          (isRecommended ? `<span style="display:block;font-size:9px;color:#f0d087;margin-top:4px;">CONSEILLE</span>` : "")
+      })
+    })
+  }
+
+  const menu = document.getElementById("mobMenu2")
+  const menuRect = menu ? menu.getBoundingClientRect() : null
   let x = event.clientX, y = event.clientY
-  if (x + 150 > window.innerWidth)  x = window.innerWidth  - 160
-  if (y + 160 > window.innerHeight) y = window.innerHeight - 170
+  if (menuRect) {
+    x = Math.min(menuRect.right - 220, Math.max(menuRect.left + 18, event.clientX + 12))
+    y = Math.min(menuRect.bottom - 310, Math.max(menuRect.top + 18, event.clientY - 18))
+  }
+  if (x + 210 > window.innerWidth)  x = window.innerWidth  - 220
+  if (y + 300 > window.innerHeight) y = window.innerHeight - 310
+  if (x < 12) x = 12
+  if (y < 12) y = 12
   popup.style.left = x + "px"; popup.style.top = y + "px"; popup.style.display = "block"
   setTimeout(() => document.addEventListener("mousedown", closeMobDiffOnce), 10)
 }
@@ -696,7 +774,7 @@ function toggleMobDropdown(slot, triggerEl) {
   if (dd.style.display !== "none") { dd.style.display = "none"; return }
   if (!dd.dataset.built) {
     dd.dataset.built = "1"
-    const none = document.createElement("div"); none.style.cssText = "padding:5px 10px;font-family:Cinzel,serif;font-size:11px;color:rgb(180,100,100);cursor:pointer;"; none.innerText = "— Aucun —"; none.onmousedown = e => { e.stopPropagation(); selectMobOption(slot, "", "— Aucun —") }; dd.appendChild(none)
+    const none = document.createElement("div"); none.style.cssText = "padding:5px 10px;font-family:Cinzel,serif;font-size:11px;color:rgb(180,100,100);cursor:pointer;"; none.innerText = "Aucun"; none.onmousedown = e => { e.stopPropagation(); selectMobOption(slot, "", "Aucun") }; dd.appendChild(none)
     MOB_SELECT_LIST.forEach(m => {
       const item = document.createElement("div"); item.style.cssText = "padding:5px 10px;font-family:Cinzel,serif;font-size:11px;color:rgb(255,180,180);cursor:pointer;"; item.innerText = m.charAt(0).toUpperCase() + m.slice(1)
       item.onmousedown = e => { e.stopPropagation(); selectMobOption(slot, m, item.innerText) }; item.onmouseenter = () => item.style.background = "rgb(60,10,10)"; item.onmouseleave = () => item.style.background = ""; dd.appendChild(item)
@@ -849,3 +927,5 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!isGM) _startRemoteCombat(data)
   })
 })
+
+

@@ -1571,9 +1571,9 @@ body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #sharedNotebookB
 
 /* Stats token */
 .tokenStats {
-  position: absolute; top: -72px; left: 50%;
+  position: absolute; top: auto; bottom: calc(100% + 8px); left: 50%;
   transform: translateX(-50%);
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  display: flex; flex-direction: column-reverse; align-items: center; gap: 2px;
   pointer-events: none; white-space: nowrap;
   z-index: 40;
 }
@@ -7649,7 +7649,8 @@ body.sandbox-studio-mode .tokenStats {
 
 body.sandbox-studio-mode .tokenStats.tokenStats--has-gauges {
   display: flex !important;
-  top: -98px !important;
+  top: auto !important;
+  bottom: calc(100% + 8px) !important;
   gap: 2px !important;
   z-index: 60 !important;
 }
@@ -9273,6 +9274,24 @@ body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .gmSection {
     0 0 56px rgba(26, 52, 96, 0.16) !important;
   color: #ead6ab !important;
   overflow: hidden !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #mobMenu2 {
+  background:
+    linear-gradient(180deg, rgba(52,35,27,0.88), rgba(24,16,13,0.9)),
+    url("images/bois.png") center/360px auto !important;
+  border: 1px solid rgba(214,170,104,0.82) !important;
+  box-shadow:
+    0 24px 44px rgba(10,8,10,0.34),
+    inset 0 0 0 1px rgba(255,246,222,0.16),
+    inset 0 0 0 4px rgba(122,86,47,0.12),
+    0 0 34px rgba(96, 142, 212, 0.08) !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #mobMenu2::before {
+  background:
+    linear-gradient(90deg, rgba(214,170,104,0.22), transparent 12%, transparent 88%, rgba(214,170,104,0.22)),
+    linear-gradient(180deg, rgba(255,243,214,0.08), transparent 18%) !important;
 }
 
 body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .gmSection::before {

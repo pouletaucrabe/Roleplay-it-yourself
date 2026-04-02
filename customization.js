@@ -30,6 +30,7 @@
     data.content.pnjTabs = Array.isArray(data.content.pnjTabs) ? data.content.pnjTabs : []
     data.content.highPnjs = Array.isArray(data.content.highPnjs) ? data.content.highPnjs : []
     data.content.mobs = Array.isArray(data.content.mobs) ? data.content.mobs : []
+    data.content.combatArenas = Array.isArray(data.content.combatArenas) ? data.content.combatArenas : []
     data.content.documents = Array.isArray(data.content.documents) ? data.content.documents : []
     return data
   }
