@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English&family=Cormorant+SC:wght@500;700&family=Marcellus&family=Orbitron:wght@500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <title>Roleplay It Yourself</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='48'%3E%F0%9F%8E%B2%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?v=205">
+<link rel="stylesheet" href="style.css?v=213">
   <style>
     #playerCodeBtn, #playerCodeBtn * {
       color: #ffd700 !important;
@@ -150,7 +150,12 @@
 </div>
 
 <div id="diceResult"></div>
-<div id="diceLog"></div>
+<details id="diceLog">
+  <summary id="diceLogSummary">Historique des des</summary>
+  <div id="diceLogContent">
+    <div class="diceLogEmpty">Aucun lancer pour le moment.</div>
+  </div>
+</details>
 
 <!-- FICHE PERSONNAGE -->
 <div id="characterSheet">
@@ -407,8 +412,9 @@
 <audio id="thuumSound"></audio>
 <audio id="criSound"></audio>
 
-<div id="audioSliders" style="position:fixed;top:12px;right:18px;z-index:1000000002;display:flex;align-items:center;padding:8px 10px;background:rgba(0,0,0,0.45);border:1px solid rgba(212,168,53,0.35);border-radius:10px;backdrop-filter:blur(4px);">
+<div id="audioSliders" style="position:fixed;top:12px;right:18px;z-index:1000000002;display:flex;flex-direction:column;align-items:stretch;gap:8px;padding:8px 10px;background:rgba(0,0,0,0.45);border:1px solid rgba(212,168,53,0.35);border-radius:10px;backdrop-filter:blur(4px);">
   <input id="musicVolumeSlider" type="range" min="0" max="1" step="0.01" value="0.8" title="Volume" aria-label="Volume" oninput="handleMusicSliderDirect(this.value)" onchange="handleMusicSliderDirect(this.value)" style="width:140px;">
+  <button id="uiModeToggleBtn" type="button" onclick="return toggleGlobalUiMode()" title="Basculer l'interface claire ou sombre">UI sombre</button>
 </div>
 
 <!-- BARRE MJ SAUVEGARDE -->
@@ -495,8 +501,8 @@
 <!-- BARRE MJ -->
 <div id="gmBar">
   <button class="gmIcon" id="gmCharactersBtn" type="button" onclick="return openGMCharacterPickerInline(event)" title="Personnages (P)">ðŸŽ­</button>
-  <button class="gmIcon" id="gmMapsBtn" onclick="return openSandboxMapManagerV2()"      title="Maps (M)">ðŸ—º</button>
-  <button class="gmIcon" id="gmPnjBtn" onclick="return openSandboxPnjManagerV2()"      title="PNJ (R)">ðŸ‘¤</button>
+  <button class="gmIcon" id="gmMapsBtn" onclick="return toggleGMSection('mapMenu')"      title="Maps (M)">ðŸ—º</button>
+  <button class="gmIcon" id="gmPnjBtn" onclick="return toggleGMSection('pnjMenu')"      title="PNJ (R)">ðŸ‘¤</button>
   <button class="gmIcon" id="gmMobsBtn" onclick="toggleGMSection('mobMenu2')"     title="Mobs (T)">ðŸ‘¹</button>
   <button class="gmIcon" id="gmXpBtn" onclick="toggleGMSection('xpMenu')"       title="XP">â­</button>
   <button class="gmIcon" id="gmElementsBtn" onclick="toggleGMSection('elementsMenu')" title="Ã‰lÃ©ments (E)">ðŸ—</button>
@@ -1126,10 +1132,10 @@
 <!-- 2. Variables d'Ã©tat -->
 <script src="state.js?v=2"></script>
 <!-- 3. Utilitaires (pas de dÃ©pendances Firebase) -->
-<script src="utils.js?v=19"></script>
+<script src="utils.js?v=23"></script>
 <script src="customization.js?v=60"></script>
 <!-- 4. Logique principale + Firebase listeners -->
-<script src="game.js?v=211"></script>
+<script src="game.js?v=222"></script>
 <!-- 5. Interface utilisateur -->
 <script src="ui.js?v=8"></script>
 <!-- 6. Combat -->
@@ -1918,6 +1924,29 @@ function openCharacterSheetFallback(playerId) {
   return true
 }
 
+function closeSimpleCharacterSheetOverlay() {
+  try {
+    if (window.__simpleSheetAutoSaveTimer) {
+      clearTimeout(window.__simpleSheetAutoSaveTimer)
+      window.__simpleSheetAutoSaveTimer = null
+    }
+  } catch (e) {}
+  try {
+    if (typeof window.__simpleSheetRunAutoSave === "function") window.__simpleSheetRunAutoSave(false)
+  } catch (e) {}
+  try {
+    if (window.__simpleSheetKeydownHandler) {
+      document.removeEventListener("keydown", window.__simpleSheetKeydownHandler, true)
+      window.__simpleSheetKeydownHandler = null
+    }
+  } catch (e) {}
+  try {
+    var overlay = document.getElementById("simpleSheetTestOverlay")
+    if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay)
+  } catch (e) {}
+  return false
+}
+
 function openCharacterSheetFromMenuWithFallback(playerId, event) {
   try {
     if (typeof activateGM === "function") activateGM(true)
@@ -1938,7 +1967,7 @@ function openGMCharacterPickerInline(event) {
     if (typeof closeStudioMenusBeforeOpen === "function") closeStudioMenusBeforeOpen("gmCharacterPickerInline")
   } catch (e) {}
   var existing = document.getElementById("gmCharacterPickerInline")
-  if (existing) existing.remove()
+  if (existing) { existing.remove(); return false }
   var legacy = document.getElementById("gmCharacterPickerOverlay")
   if (legacy) legacy.remove()
   var gmCharacters = document.getElementById("gmCharacters")
@@ -2077,6 +2106,12 @@ function getSimpleSheetStorageKey(playerId) {
 function collectSimpleSheetData(root) {
   var data = {}
   if (!root) return data
+  data.tokenGaugeVisibility = {}
+  root.querySelectorAll("[data-simple-token-gauge]").forEach(function(field) {
+    var key = field.getAttribute("data-simple-token-gauge")
+    if (!key) return
+    data.tokenGaugeVisibility[key] = !!field.checked
+  })
   root.querySelectorAll("[data-simple-sheet-field]").forEach(function(field) {
     var key = field.getAttribute("data-simple-sheet-field")
     if (!key) return
@@ -2096,9 +2131,11 @@ function collectSimpleSheetData(root) {
       var valueField = block.querySelector("[data-block-value]")
       var maxField = block.querySelector("[data-block-max]")
       var colorField = block.querySelector("[data-block-color]")
+      var showOnTokenField = block.querySelector("[data-block-show-on-token]")
       entry.value = valueField ? valueField.value : "0"
       entry.max = maxField ? maxField.value : "100"
       entry.color = colorField ? colorField.value : "#db2b2b"
+      entry.showOnToken = !!(showOnTokenField && showOnTokenField.checked)
     } else if (entry.type === "stat") {
       var statValueField = block.querySelector("[data-block-value]")
       entry.value = statValueField ? statValueField.value : ""
@@ -2200,6 +2237,75 @@ function syncSimpleSheetVitalsToToken(playerId, data) {
     if (bar) bar.style.width = Math.max(0, Math.min(100, (hp / hpMax) * 100)) + "%"
     var label = document.getElementById("hp_label_" + tokenId)
     if (label) label.textContent = hp + "/" + hpMax
+    renderSimpleSheetTokenGauges(playerId, data)
+  } catch (e) {}
+}
+
+function renderSimpleSheetTokenGauges(playerId, data) {
+  if (!playerId) return
+  try {
+    var safePlayerId = String(playerId || "")
+    var tokenId = safePlayerId
+    var extraMatch = safePlayerId.match(/^slot_(\d+)$/)
+    if (extraMatch) tokenId = "sandbox_extra_" + extraMatch[1]
+    var statsRoot = document.getElementById("stats_" + tokenId)
+    if (!statsRoot) return
+    if (!document.body || !document.body.classList.contains("sandbox-studio-mode")) {
+      statsRoot.classList.remove("tokenStats--has-gauges")
+      statsRoot.innerHTML = ""
+      return
+    }
+    var safeData = data && typeof data === "object" ? data : {}
+    var visibility = safeData.tokenGaugeVisibility && typeof safeData.tokenGaugeVisibility === "object"
+      ? safeData.tokenGaugeVisibility
+      : {}
+    var gauges = []
+
+    function pushGauge(label, currentValue, maxValue, tone, color) {
+      var current = parseInt(currentValue, 10) || 0
+      var max = Math.max(1, parseInt(maxValue, 10) || 1)
+      var pct = Math.max(0, Math.min(100, (current / max) * 100))
+      gauges.push({
+        label: String(label || ""),
+        current: current,
+        max: max,
+        pct: pct,
+        tone: String(tone || "").trim().toLowerCase(),
+        color: color ? String(color) : ""
+      })
+    }
+
+    if (visibility.hp) pushGauge("HP", safeData.hp, safeData.hpMax, "hp", "")
+    if (visibility.mana) pushGauge("Mana", safeData.mana, safeData.manaMax, "mana", "")
+    if (visibility.stamina) pushGauge("Endu", safeData.stamina, safeData.staminaMax, "stamina", "")
+    ;(Array.isArray(safeData.customBlocks) ? safeData.customBlocks : []).forEach(function(block) {
+      if (!block || block.type !== "gauge" || !block.showOnToken) return
+      pushGauge(block.title || "Jauge", block.value, block.max, "custom", block.color || "")
+    })
+
+    if (!gauges.length) {
+      statsRoot.classList.remove("tokenStats--has-gauges")
+      statsRoot.innerHTML = ""
+      return
+    }
+
+    statsRoot.classList.add("tokenStats--has-gauges")
+    statsRoot.innerHTML = gauges.map(function(gauge) {
+      var fillStyle = gauge.color
+        ? ' style="width:' + gauge.pct + '%;background:' + String(gauge.color).replace(/"/g, "&quot;") + ';"'
+        : ' style="width:' + gauge.pct + '%;"'
+      return (
+        '<div class="tokenStatGauge tokenStatGauge--' + gauge.tone + '">' +
+          '<div class="tokenStatGaugeHead">' +
+            '<span class="tokenStatGaugeLabel">' + String(gauge.label || "").replace(/</g, "&lt;") + '</span>' +
+            '<span class="tokenStatGaugeValue">' + gauge.current + '/' + gauge.max + '</span>' +
+          '</div>' +
+          '<div class="tokenStatGaugeTrack">' +
+            '<div class="tokenStatGaugeFill tokenStatGaugeFill--' + gauge.tone + '"' + fillStyle + '></div>' +
+          '</div>' +
+        '</div>'
+      )
+    }).join("")
   } catch (e) {}
 }
 
@@ -2219,9 +2325,19 @@ function syncSimpleSheetVitalsFromPanel(playerId, panel) {
   if (!playerId || !panel) return
   var hpField = panel.querySelector('[data-simple-sheet-field="hp"]')
   var hpMaxField = panel.querySelector('[data-simple-sheet-field="hpMax"]')
+  var manaField = panel.querySelector('[data-simple-sheet-field="mana"]')
+  var manaMaxField = panel.querySelector('[data-simple-sheet-field="manaMax"]')
+  var staminaField = panel.querySelector('[data-simple-sheet-field="stamina"]')
+  var staminaMaxField = panel.querySelector('[data-simple-sheet-field="staminaMax"]')
   syncSimpleSheetVitalsToToken(playerId, {
     hp: hpField ? hpField.value : 0,
-    hpMax: hpMaxField ? hpMaxField.value : 0
+    hpMax: hpMaxField ? hpMaxField.value : 0,
+    mana: manaField ? manaField.value : 0,
+    manaMax: manaMaxField ? manaMaxField.value : 0,
+    stamina: staminaField ? staminaField.value : 0,
+    staminaMax: staminaMaxField ? staminaMaxField.value : 0,
+    tokenGaugeVisibility: collectSimpleSheetData(panel).tokenGaugeVisibility,
+    customBlocks: collectSimpleSheetData(panel).customBlocks
   })
 }
 
@@ -2252,6 +2368,7 @@ function saveSimpleCharacterSheet(playerId, root) {
   var data = collectSimpleSheetData(root)
   saveSimpleSheetLocal(playerId, data)
   syncSimpleSheetIdentityToCustomization(playerId, data)
+  syncSimpleSheetVitalsToToken(playerId, data)
   try {
     if (typeof db !== "undefined" && db && typeof db.ref === "function") {
       db.ref("characters/" + playerId).update(data).catch(function() {})
@@ -2266,7 +2383,11 @@ function openSimpleCharacterSheet(playerId, event) {
     try { event.stopPropagation() } catch (e) {}
   }
   var existing = document.getElementById("simpleSheetTestOverlay")
-  if (existing) existing.remove()
+  if (existing) {
+    var samePlayer = existing.querySelector('.simpleSheetPanel[data-player-id="' + String(playerId || "") + '"]')
+    if (samePlayer) return closeSimpleCharacterSheetOverlay()
+    closeSimpleCharacterSheetOverlay()
+  }
 
   var overlay = document.createElement("div")
   overlay.id = "simpleSheetTestOverlay"
@@ -2297,11 +2418,19 @@ function openSimpleCharacterSheet(playerId, event) {
     autoSaveTimer = setTimeout(function() {
       runAutoSave(false)
     }, 450)
+    try { window.__simpleSheetAutoSaveTimer = autoSaveTimer } catch (e) {}
   }
 
   function closeSimpleSheet() {
     runAutoSave(false)
-    document.removeEventListener("keydown", onSheetKeydown, true)
+    try {
+      if (window.__simpleSheetKeydownHandler) {
+        document.removeEventListener("keydown", window.__simpleSheetKeydownHandler, true)
+        window.__simpleSheetKeydownHandler = null
+      }
+    } catch (e) {}
+    try { window.__simpleSheetRunAutoSave = null } catch (e) {}
+    try { window.__simpleSheetAutoSaveTimer = null } catch (e) {}
     overlay.remove()
   }
 
@@ -2384,6 +2513,10 @@ function openSimpleCharacterSheet(playerId, event) {
         <div class="simpleSheetGauge">
           <div class="simpleSheetGaugeFill ${tone}" data-simple-gauge-fill="${tone}"></div>
         </div>
+        <label class="simpleSheetCheckboxRow simpleSheetTokenGaugeToggle">
+          <input type="checkbox" data-simple-token-gauge="${tone}">
+          <span>Afficher sur le token</span>
+        </label>
       </div>
     `
   }
@@ -2401,6 +2534,10 @@ function openSimpleCharacterSheet(playerId, event) {
         </div>
         <label class="simpleSheetFieldGroup"><span>Couleur</span><input class="simpleSheetColorField" data-block-color type="color" value="${String(safe.color || "#db2b2b").replace(/"/g, "&quot;")}"></label>
         <div class="simpleSheetGauge"><div class="simpleSheetGaugeFill hp" data-block-gauge-fill></div></div>
+        <label class="simpleSheetCheckboxRow simpleSheetTokenGaugeToggle">
+          <input type="checkbox" data-block-show-on-token${safe.showOnToken ? " checked" : ""}>
+          <span>Afficher sur le token</span>
+        </label>
       `
     } else if (type === "stat") {
       inner = field("Valeur", "__block_value_" + index, safe.value != null ? safe.value : "", "text").replace('data-simple-sheet-field="__block_value_' + index + '"', 'data-block-value')
@@ -2486,7 +2623,7 @@ function openSimpleCharacterSheet(playerId, event) {
   }
 
   function getDefaultCustomBlock(type) {
-    if (type === "gauge") return { type: "gauge", title: "Nouvelle jauge", value: "0", max: "100", color: "#db2b2b" }
+    if (type === "gauge") return { type: "gauge", title: "Nouvelle jauge", value: "0", max: "100", color: "#db2b2b", showOnToken: false }
     if (type === "stat") return { type: "stat", title: "Nouvelle stat", value: "" }
     if (type === "counter") return { type: "counter", title: "Nouveau compteur", value: "0" }
     if (type === "check") return { type: "check", title: "Nouvelle case", label: "", checked: false }
@@ -2557,7 +2694,15 @@ function openSimpleCharacterSheet(playerId, event) {
       var block = blockEvent.target && blockEvent.target.closest ? blockEvent.target.closest("[data-simple-custom-block]") : null
       if (!block) return
       refreshCustomBlockGauge(block)
+      renderSimpleSheetTokenGauges(playerId, collectSimpleSheetData(panel))
       queueAutoSave()
+    })
+
+    container.addEventListener("change", function(blockEvent) {
+      var block = blockEvent.target && blockEvent.target.closest ? blockEvent.target.closest("[data-simple-custom-block]") : null
+      if (!block) return
+      queueAutoSave()
+      renderSimpleSheetTokenGauges(playerId, collectSimpleSheetData(panel))
     })
 
     if (!canStructureCustomize) return
@@ -2914,19 +3059,28 @@ function openSimpleCharacterSheet(playerId, event) {
       if (field.getAttribute("data-simple-sheet-field") === "characterName") {
         syncSimpleSheetIdentityFromPanel(playerId, panel)
       }
-      if (field.getAttribute("data-simple-sheet-field") === "hp" || field.getAttribute("data-simple-sheet-field") === "hpMax") {
+      if (["hp", "hpMax", "mana", "manaMax", "stamina", "staminaMax"].indexOf(field.getAttribute("data-simple-sheet-field")) !== -1) {
         syncSimpleSheetVitalsFromPanel(playerId, panel)
       }
       queueAutoSave()
       refreshSimpleSheetGauges()
+      renderSimpleSheetTokenGauges(playerId, collectSimpleSheetData(panel))
     })
     field.addEventListener("change", function() {
       if (field.getAttribute("data-simple-sheet-field") === "characterName") {
         syncSimpleSheetIdentityFromPanel(playerId, panel)
       }
-      if (field.getAttribute("data-simple-sheet-field") === "hp" || field.getAttribute("data-simple-sheet-field") === "hpMax") {
+      if (["hp", "hpMax", "mana", "manaMax", "stamina", "staminaMax"].indexOf(field.getAttribute("data-simple-sheet-field")) !== -1) {
         syncSimpleSheetVitalsFromPanel(playerId, panel)
       }
+      queueAutoSave()
+      renderSimpleSheetTokenGauges(playerId, collectSimpleSheetData(panel))
+    })
+  })
+
+  panel.querySelectorAll("[data-simple-token-gauge]").forEach(function(toggle) {
+    toggle.addEventListener("change", function() {
+      renderSimpleSheetTokenGauges(playerId, collectSimpleSheetData(panel))
       queueAutoSave()
     })
   })
@@ -2936,6 +3090,10 @@ function openSimpleCharacterSheet(playerId, event) {
       var field = panel.querySelector('[data-simple-sheet-field="' + key + '"]')
       if (field) field.value = data[key]
     })
+    panel.querySelectorAll("[data-simple-token-gauge]").forEach(function(toggle) {
+      var key = toggle.getAttribute("data-simple-token-gauge")
+      toggle.checked = !!(data && data.tokenGaugeVisibility && data.tokenGaugeVisibility[key])
+    })
     if (profileImageInput) profileImageInput.value = (data && data.profileImage) || ""
     updateSimplePortrait((data && data.profileImage) || "")
     renderSimpleCustomBlocks((data && data.customBlocks) || [])
@@ -2944,7 +3102,13 @@ function openSimpleCharacterSheet(playerId, event) {
     refreshSimpleSheetIdentityPreview()
     syncSimpleSheetVitalsToToken(playerId, {
       hp: data && data.hp,
-      hpMax: data && data.hpMax
+      hpMax: data && data.hpMax,
+      mana: data && data.mana,
+      manaMax: data && data.manaMax,
+      stamina: data && data.stamina,
+      staminaMax: data && data.staminaMax,
+      tokenGaugeVisibility: data && data.tokenGaugeVisibility,
+      customBlocks: data && data.customBlocks
     })
   }
 
@@ -2965,6 +3129,11 @@ function openSimpleCharacterSheet(playerId, event) {
   document.body.appendChild(overlay)
   refreshSimpleSheetGauges()
   refreshAllCustomBlockGauges()
+  try {
+    window.__simpleSheetRunAutoSave = runAutoSave
+    window.__closeSimpleCharacterSheetOverlay = closeSimpleSheet
+    window.__simpleSheetKeydownHandler = onSheetKeydown
+  } catch (e) {}
   document.addEventListener("keydown", onSheetKeydown, true)
   return false
 }

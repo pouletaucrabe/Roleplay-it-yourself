@@ -29,6 +29,46 @@ function closeGMAuthModal() {}
 function closePlayerAuthModal() {}
 function tryAutoSelectAuthenticatedPlayer() { return false }
 
+function getGlobalUiModeStorageKey() {
+  return "rpg_ui_mode_v1"
+}
+
+function getGlobalUiMode() {
+  try {
+    const saved = String(localStorage.getItem(getGlobalUiModeStorageKey()) || "").trim().toLowerCase()
+    if (saved === "light") return "light"
+  } catch (_) {}
+  return "dark"
+}
+
+function updateGlobalUiModeButton() {
+  try {
+    const button = document.getElementById("uiModeToggleBtn")
+    if (!button) return
+    const mode = getGlobalUiMode()
+    const isLight = mode === "light"
+    button.textContent = isLight ? "UI claire" : "UI sombre"
+    button.setAttribute("aria-pressed", isLight ? "true" : "false")
+    button.setAttribute("data-ui-mode", mode)
+  } catch (_) {}
+}
+
+function applyGlobalUiMode(mode) {
+  try {
+    const nextMode = String(mode || "").trim().toLowerCase() === "light" ? "light" : "dark"
+    try { localStorage.setItem(getGlobalUiModeStorageKey(), nextMode) } catch (_) {}
+    if (document.body) document.body.setAttribute("data-ui-mode", nextMode)
+    if (document.documentElement) document.documentElement.setAttribute("data-ui-mode", nextMode)
+    updateGlobalUiModeButton()
+  } catch (_) {}
+  return false
+}
+
+function toggleGlobalUiMode() {
+  const nextMode = getGlobalUiMode() === "light" ? "dark" : "light"
+  return applyGlobalUiMode(nextMode)
+}
+
 function setSandboxStudioMode(enabled) {
   try {
     document.body.classList.toggle("sandbox-studio-mode", !!enabled)
@@ -127,6 +167,13 @@ function openPreviewPlayerSheet() {
   try {
     const previewPlayerId = getSandboxPreviewPlayerId()
     if (!previewPlayerId) return false
+    const sheet = document.getElementById("characterSheet")
+    const activePlayerId = String((sheet && sheet.dataset && sheet.dataset.playerId) || currentSheetPlayer || "").trim().toLowerCase()
+    const isSameSheetOpen = !!(sheet && sheet.style.display === "block" && activePlayerId === String(previewPlayerId).trim().toLowerCase())
+    if (isSameSheetOpen) {
+      if (typeof closeCharacterSheet === "function") closeCharacterSheet()
+      return false
+    }
     if (typeof openCharacterSheet === "function") openCharacterSheet(previewPlayerId)
   } catch (_) {}
   return false
@@ -168,6 +215,80 @@ function ensureDiceBarDefaultOpen() {
       toggle.setAttribute("aria-label", "Replier les des")
     }
     if (log) log.style.display = "block"
+  } catch (_) {}
+}
+
+function renderStudioDiceLogHistory() {
+  try {
+    const log = document.getElementById("diceLogContent")
+    if (!log) return
+    const history = Array.isArray(window.__diceLogHistory) ? window.__diceLogHistory : []
+    log.innerHTML = ""
+    if (!history.length) {
+      const empty = document.createElement("div")
+      empty.className = "diceLogEmpty"
+      empty.innerText = "Aucun lancer pour le moment."
+      log.appendChild(empty)
+      return
+    }
+    history.forEach(function(item) {
+      const entry = document.createElement("div")
+      entry.className = "logEntry"
+      if (item.player === "MJ") entry.classList.add("logMJ")
+      if (item.isCrit) entry.classList.add("logCrit")
+      if (item.isFail) entry.classList.add("logFail")
+      entry.innerText = item.text || ""
+      log.appendChild(entry)
+    })
+  } catch (_) {}
+}
+
+function resolveStudioDiceLogPlayerLabel(player) {
+  try {
+    const raw = String(player || "").trim()
+    if (!raw) return ""
+    const upper = raw.toUpperCase()
+    if (upper === "MJ" || upper === "MOB") return upper
+
+    const token = document.getElementById(raw)
+    if (token) {
+      const tag = token.querySelector(".nameTag")
+      const tagText = String((tag && (tag.textContent || tag.innerText)) || "").trim()
+      if (tagText) return tagText
+    }
+
+    if (typeof getPlayerDisplayName === "function") {
+      const displayName = String(getPlayerDisplayName(raw) || "").trim()
+      if (displayName) return displayName
+    }
+
+    return raw
+  } catch (_) {}
+  return String(player || "").trim()
+}
+
+function addStudioDiceLog(player, dice, result) {
+  try {
+    if (!Array.isArray(window.__diceLogHistory)) window.__diceLogHistory = []
+    const playerLabel = resolveStudioDiceLogPlayerLabel(player)
+    let text = String(playerLabel || "") + " -> d" + String(dice || "") + " -> " + String(result || "")
+    const isCrit = Number(result) === Number(dice)
+    const isFail = Number(result) === 1
+    if (isCrit) text += " *"
+    if (isFail) text += " !"
+    window.__diceLogHistory.unshift({
+      player: playerLabel,
+      dice: dice,
+      result: result,
+      text: text,
+      isCrit: isCrit,
+      isFail: isFail
+    })
+    window.__diceLogHistory = window.__diceLogHistory.slice(0, 5)
+    renderStudioDiceLogHistory()
+    try {
+      if (typeof addMJLog === "function") addMJLog(text)
+    } catch (_) {}
   } catch (_) {}
 }
 
@@ -3586,7 +3707,7 @@ function updateTokenStats(id) {
     for (let i = 0; i < curse; i++) curseIcons += "?"
     powerIcon = corruption >= 10 ? "?" : ""
 
-    if (stats) {
+    if (stats && !(document.body && document.body.classList.contains("sandbox-studio-mode"))) {
       stats.innerHTML = `
         <div class="powerText">? Niv ${lvl}</div>
         <div class="hpText" style="color:${hpColor}">? ${hp}/${maxHP}</div>
@@ -3595,6 +3716,10 @@ function updateTokenStats(id) {
         ${powerIcon  ? `<div class="powerText">${powerIcon}</div>` : ""}
       `
     }
+
+    try {
+      if (typeof renderSimpleSheetTokenGauges === "function") renderSimpleSheetTokenGauges(id, data || {})
+    } catch (_) {}
 
     if (bar) bar.style.width = Math.max(0, Math.min(100, (hp / maxHP) * 100)) + "%"
     if (barLabel) barLabel.textContent = hp + "/" + maxHP
@@ -5299,6 +5424,7 @@ function mobRoll(max) {
 }
 
 const _DICE_FACE_ROTS = { 1:{rx:0,ry:0}, 2:{rx:90,ry:0}, 3:{rx:0,ry:-90}, 4:{rx:0,ry:90}, 5:{rx:-90,ry:0}, 6:{rx:0,ry:180} }
+const _DICE_FINAL_TILT = { rx: -18, ry: 22, rz: -6 }
 
 function _buildDice3D(resultBox) {
   resultBox.innerHTML = ""
@@ -5309,15 +5435,19 @@ function _buildDice3D(resultBox) {
 
   const wrap = document.createElement("div")
   wrap.className = "dice-3d-wrap"
+  wrap.style.cssText = "perspective:500px;width:110px;height:110px;filter:drop-shadow(0 10px 22px rgba(0,0,0,0.45));"
   const cube = document.createElement("div")
   cube.className = "dice-3d"
   cube.id = "dice3d"
+  cube.style.cssText = "width:110px;height:110px;position:relative;transform-style:preserve-3d;filter:none;"
+  const faceBgs = ["linear-gradient(145deg,#3a2510,#2a1a0c)","linear-gradient(145deg,#180d06,#100804)","linear-gradient(145deg,#221508,#1a0e06)","linear-gradient(145deg,#1a0e06,#140b04)","linear-gradient(145deg,#2e1c0a,#221508)","linear-gradient(145deg,#160c05,#100804)"]
   const faceVals = [1, 6, 3, 4, 5, 2]
   const faceClasses = ["df1","df2","df3","df4","df5","df6"]
   faceClasses.forEach((cls, i) => {
     const f = document.createElement("div")
     f.className = "dice-face " + cls
     f.textContent = faceVals[i]
+    f.style.cssText = "position:absolute;width:110px;height:110px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-family:'Cinzel',Georgia,serif;font-size:44px;font-weight:700;color:#f0c060;text-shadow:0 0 12px rgba(240,192,96,0.6),0 2px 0 rgba(40,20,0,0.9);backface-visibility:hidden;border:2px solid rgba(214,180,106,0.5);background:" + faceBgs[i]
     cube.appendChild(f)
   })
   wrap.appendChild(cube)
@@ -5328,6 +5458,46 @@ function _buildDice3D(resultBox) {
   resLabel.id = "diceResultLabel"
   resultBox.appendChild(resLabel)
   return { cube, label, resLabel }
+}
+
+function playDiceResultEffectAudio(fileName, volume) {
+  try {
+    const src = typeof resolveAudioPath === "function" ? resolveAudioPath(fileName) : "audio/" + String(fileName || "")
+    const snd = new Audio(src)
+    if (typeof setManagedAudioBaseVolume === "function") setManagedAudioBaseVolume(snd, volume == null ? 0.82 : volume, "effects")
+    else snd.volume = volume == null ? 0.82 : volume
+    snd.play().catch(() => {})
+  } catch (_) {}
+}
+
+function triggerDiceResultFeedback(resultBox, mode) {
+  try {
+    if (!resultBox) return
+    resultBox.classList.remove("dice-impact", "dice-crit-burst", "dice-fail-burst")
+    void resultBox.offsetWidth
+    const _c = resultBox.querySelector(".dice-3d"); if (_c) { _c.style.filter = "none"; if (_c.parentElement) _c.parentElement.style.filter = "drop-shadow(0 10px 22px rgba(0,0,0,0.45))" }
+    if (mode === "crit") {
+      resultBox.classList.add("dice-impact", "dice-crit-burst")
+      playDiceResultEffectAudio("pow.mp3", 0.78)
+      playDiceResultEffectAudio("power.mp3", 0.92)
+      screenShakeHard()
+      setTimeout(() => screenShake(), 160)
+      flashGold()
+      setTimeout(() => flashGold(), 120)
+    } else if (mode === "fail") {
+      resultBox.classList.add("dice-impact", "dice-fail-burst")
+      playDiceResultEffectAudio("pow.mp3", 0.74)
+      playDiceResultEffectAudio("BOOM.mp3", 0.9)
+      screenShakeHard()
+      setTimeout(() => screenShake(), 180)
+      flashRed()
+      setTimeout(() => flashRed(), 90)
+    } else {
+      resultBox.classList.add("dice-impact")
+      playDiceResultEffectAudio("pow.mp3", 0.78)
+      screenShake()
+    }
+  } catch (_) {}
 }
 
 function hideDiceResultNow() {
@@ -5345,7 +5515,7 @@ function hideDiceResultNow() {
     clearTimeout(window.__diceResultAbsoluteHideTimer)
     window.__diceResultAbsoluteHideTimer = null
   }
-  resultBox.classList.remove("crit", "fail", "mjRoll", "fading-out")
+  resultBox.classList.remove("crit", "fail", "mjRoll", "fading-out", "dice-impact", "dice-crit-burst", "dice-fail-burst")
   resultBox.style.opacity = 0
   resultBox.style.display = "none"
   const cube = resultBox.querySelector(".dice-3d")
@@ -5396,18 +5566,23 @@ function showDiceAnimation(playerName, max, final) {
     const displayVal = ((final - 1) % 6) + 1
     const rot = _DICE_FACE_ROTS[displayVal]
     cube.style.transition = "transform 0.45s cubic-bezier(0.2,0.8,0.3,1.15)"
-    cube.style.transform = "rotateX(" + rot.rx + "deg) rotateY(" + rot.ry + "deg)"
+    cube.style.transform =
+      "rotateX(" + (rot.rx + _DICE_FINAL_TILT.rx) + "deg) " +
+      "rotateY(" + (rot.ry + _DICE_FINAL_TILT.ry) + "deg) " +
+      "rotateZ(" + _DICE_FINAL_TILT.rz + "deg)"
 
     setTimeout(() => {
       resLabel.textContent = String(final)
-      addDiceLog(playerName, max, final)
+      addStudioDiceLog(playerName, max, final)
+      const isCrit = Number(final) === Number(max)
+      const isFail = Number(final) === 1
+      triggerDiceResultFeedback(resultBox, isCrit ? "crit" : (isFail ? "fail" : "normal"))
 
-      if (playerName === "MJ") { resultBox.classList.add("mjRoll"); flashGold(); screenShake() }
+      if (playerName === "MJ") { resultBox.classList.add("mjRoll") }
 
-      if (final === max) {
+      if (isCrit) {
         resultBox.classList.add("crit")
         resLabel.textContent = "? " + final + " ?"
-        playSound("critSound"); screenShake(); flashGold()
         tryRuneEventOnDice()
         if (playerName !== "MJ" && playerName !== "MOB") {
           db.ref("characters/" + playerName + "/corruption").once("value", snap => {
@@ -5417,9 +5592,8 @@ function showDiceAnimation(playerName, max, final) {
         }
       }
 
-      if (final === 1) {
+      if (isFail) {
         resultBox.classList.add("fail")
-        playSound("failSound"); screenShakeHard(); flashRed()
         tryRuneEventOnDice()
         if (playerName !== "MJ" && playerName !== "MOB") {
           db.ref("characters/" + playerName + "/curse").once("value", snap => {
@@ -6183,6 +6357,32 @@ function closeSandboxMapManagerV2() {
   const overlay = document.getElementById("sandboxMapManagerOverlay")
   if (overlay) overlay.style.display = "none"
   return false
+}
+
+function isSandboxMapManagerOpen() {
+  try {
+    const overlay = document.getElementById("sandboxMapManagerOverlay")
+    return !!(overlay && overlay.style.display !== "none")
+  } catch (_) {}
+  return false
+}
+
+function isSandboxPnjManagerOpen() {
+  try {
+    const overlay = document.getElementById("sandboxPnjManagerOverlay")
+    return !!(overlay && overlay.parentNode)
+  } catch (_) {}
+  return false
+}
+
+function toggleSandboxMapManagerV2() {
+  if (isSandboxMapManagerOpen()) return closeSandboxMapManagerV2()
+  return openSandboxMapManagerV2()
+}
+
+function toggleSandboxPnjManagerV2() {
+  if (isSandboxPnjManagerOpen()) return closeSandboxPnjManagerV2()
+  return openSandboxPnjManagerV2()
 }
 
 function closeStudioMenusBeforeOpen(exceptId) {
@@ -7666,6 +7866,14 @@ function openGMCharacterPicker() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  try { applyGlobalUiMode(getGlobalUiMode()) } catch (_) {}
+  try {
+    if (typeof renderStudioDiceLogHistory === "function") renderStudioDiceLogHistory()
+  } catch (_) {}
+  try {
+    window.addDiceLog = addStudioDiceLog
+    window.renderDiceLogHistory = renderStudioDiceLogHistory
+  } catch (_) {}
   const btn = document.getElementById("gmCharactersBtn")
   if (!btn || btn.dataset.sheetPickerBound === "true") return
   if (btn.hasAttribute("onclick")) return
@@ -7678,19 +7886,28 @@ document.addEventListener("DOMContentLoaded", () => {
 })
 
 function toggleGMSection(id) {
-  closeStudioMenusBeforeOpen(id === "mapMenu" ? "sandboxMapManagerOverlay" : id === "pnjMenu" ? "sandboxPnjManagerOverlay" : id === "gmCharacters" ? "gmCharacterPickerInline" : id)
   if (id === "gmCharacters") {
+    if (typeof window !== "undefined" && typeof window.openGMCharacterPickerInline === "function") {
+      return window.openGMCharacterPickerInline()
+    }
+    const legacyPicker = document.getElementById("gmCharacterPickerOverlay")
+    if (legacyPicker) {
+      legacyPicker.remove()
+      return
+    }
+    closeStudioMenusBeforeOpen("gmCharacterPickerOverlay")
     openGMCharacterPicker()
     return
   }
   if (id === "mapMenu") {
-    openSandboxMapManagerV2()
+    toggleSandboxMapManagerV2()
     return
   }
   if (id === "pnjMenu") {
-    openSandboxPnjManagerV2()
+    toggleSandboxPnjManagerV2()
     return
   }
+  closeStudioMenusBeforeOpen(id)
   const section = document.getElementById(id); if (!section) return
   const isOpen = section.style.display === "block"
   document.querySelectorAll(".gmSection").forEach(sec => {
@@ -8095,6 +8312,12 @@ document.addEventListener("keydown", e => {
   ))
   if (simpleSheetActive) {
     if (key === "escape") return
+    if (key === "j") {
+      e.preventDefault()
+      e.stopPropagation()
+      if (typeof closeSimpleCharacterSheetOverlay === "function") closeSimpleCharacterSheetOverlay()
+      return
+    }
     return
   }
   if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) {
@@ -8953,6 +9176,3 @@ try {
   window.dropSandboxPnj = dropSandboxPnj
   window.endSandboxPnjDrag = endSandboxPnjDrag
 } catch (_) {}
-
-
-

@@ -24,6 +24,14 @@
   --font-text:    'IM Fell English', serif;
 }
 
+body[data-ui-mode="light"] {
+  --panel-bg: rgba(242, 234, 217, 0.96);
+  --cream: #2f2418;
+  --cream-dim: #5f503c;
+  --teal-border: #8d7651;
+  --gold-dim: #b08a46;
+}
+
 html, body {
   margin: 0; padding: 0;
   width: 100%; height: 100%;
@@ -119,6 +127,93 @@ html, body {
   pointer-events: auto !important;
 }
 
+#uiModeToggleBtn {
+  min-width: 140px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(212,168,53,0.42);
+  background: linear-gradient(180deg, rgba(28,21,12,0.96), rgba(11,10,8,0.98));
+  color: #f1dfb0;
+  font-family: "Cinzel", serif;
+  font-size: 12px;
+  letter-spacing: 0.8px;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.24);
+}
+
+#uiModeToggleBtn:hover {
+  filter: brightness(1.06);
+}
+
+body[data-ui-mode="light"] #audioSliders {
+  background: rgba(247, 239, 224, 0.88) !important;
+  border-color: rgba(153, 126, 72, 0.46) !important;
+}
+
+body[data-ui-mode="light"] #uiModeToggleBtn {
+  background: linear-gradient(180deg, rgba(244,232,207,0.98), rgba(214,193,156,0.98));
+  color: #4b351d;
+  border-color: rgba(153, 126, 72, 0.56);
+}
+
+body[data-ui-mode="light"] #playerMenu,
+body[data-ui-mode="light"] #diceLog,
+body[data-ui-mode="light"] #mjLog,
+body[data-ui-mode="light"] .gmSection,
+body[data-ui-mode="light"] .studioSaveDropdown,
+body[data-ui-mode="light"] .sandboxPlayersDropdown,
+body[data-ui-mode="light"] .sandboxStyleDropdown,
+body[data-ui-mode="light"] #characterSheet,
+body[data-ui-mode="light"] .gmCharacterPickerPanel,
+body[data-ui-mode="light"] .sandboxMapManagerPanel,
+body[data-ui-mode="light"] .simpleSheetPanel {
+  color: #3e2d1a !important;
+  background: linear-gradient(180deg, rgba(247,239,224,0.97), rgba(224,208,182,0.98)) !important;
+  border-color: rgba(152, 118, 64, 0.42) !important;
+  box-shadow:
+    0 18px 42px rgba(0,0,0,0.2),
+    inset 0 0 0 1px rgba(255,248,235,0.62) !important;
+}
+
+body[data-ui-mode="light"] #playerMenu::before,
+body[data-ui-mode="light"] .gmSection::before,
+body[data-ui-mode="light"] #diceBar::before {
+  opacity: 0.35 !important;
+}
+
+body[data-ui-mode="light"] .studioSaveAction,
+body[data-ui-mode="light"] .sandboxPlayersAction,
+body[data-ui-mode="light"] .gmSection button,
+body[data-ui-mode="light"] .gmButton,
+body[data-ui-mode="light"] .map-simple-btn,
+body[data-ui-mode="light"] .elem-doc-btn,
+body[data-ui-mode="light"] .mapCategoryButton,
+body[data-ui-mode="light"] .pnjTab,
+body[data-ui-mode="light"] .gmCharacterPickerButton,
+body[data-ui-mode="light"] .gmCharacterPickerClose,
+body[data-ui-mode="light"] .sandboxMapManagerActionButton {
+  color: #3e2d1a !important;
+  border-color: rgba(152, 118, 64, 0.46) !important;
+  background: linear-gradient(180deg, rgba(243,230,203,0.98), rgba(205,180,139,0.98)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,250,240,0.65), 0 8px 18px rgba(0,0,0,0.12) !important;
+}
+
+body[data-ui-mode="light"] #playerToggle,
+body[data-ui-mode="light"] #sandboxPreviewMjBtn,
+body[data-ui-mode="light"] #sandboxPreviewPlayerBtn {
+  color: #3e2d1a !important;
+}
+
+body[data-ui-mode="light"] #sharedNotebookTitle,
+body[data-ui-mode="light"] #playerNotesTitle,
+body[data-ui-mode="light"] #sharedNotebookPageIndicator,
+body[data-ui-mode="light"] #playerNotesPageIndicator,
+body[data-ui-mode="light"] #sheetTitle {
+  color: #4a3216 !important;
+  text-shadow: 0 1px 0 rgba(255,245,220,0.72) !important;
+}
+
 #sharedNotebookDock {
   position: fixed;
   left: 50%;
@@ -183,7 +278,7 @@ html, body {
   overflow: hidden;
   border: 1px solid rgba(120,88,45,0.22);
   box-shadow: 0 28px 80px rgba(0,0,0,0.48);
-  background: linear-gradient(180deg, rgba(40,31,20,0.96), rgba(22,16,11,0.98));
+  background: transparent;
 }
 
 #playerNotesPanel {
@@ -200,9 +295,7 @@ html, body {
   overflow: hidden;
   border: none;
   box-shadow: 0 28px 80px rgba(0,0,0,0.48);
-  background:
-    linear-gradient(rgba(255,244,214,0.18), rgba(239,220,178,0.2)),
-    url("images/notebook.png") center center/contain no-repeat;
+  background: url("images/notebook.png") center center/contain no-repeat;
 }
 
 #playerNotesHeader {
@@ -546,9 +639,7 @@ html, body {
 }
 
 body[data-project-theme="medieval_fantasy"] #sharedNotebookPanel {
-  background:
-    linear-gradient(rgba(255,244,214,0.18), rgba(239,220,178,0.2)),
-    url("images/notebook.png") center center/contain no-repeat;
+  background: url("images/notebook.png") center center/contain no-repeat;
   border: none;
 }
 
@@ -1484,6 +1575,60 @@ body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #sharedNotebookB
   transform: translateX(-50%);
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   pointer-events: none; white-space: nowrap;
+  z-index: 40;
+}
+
+.tokenStatGauge {
+  min-width: 94px;
+  padding: 3px 5px;
+  border-radius: 8px;
+  background: rgba(8,20,24,0.88);
+  border: 1px solid rgba(212,168,53,0.28);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.22);
+}
+
+.tokenStatGaugeHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 3px;
+  font-family: var(--font-body);
+  font-size: 9px;
+  color: #f4e3be;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.82);
+}
+
+.tokenStatGaugeTrack {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(0,0,0,0.42);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.tokenStatGaugeFill {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.tokenStatGaugeFill--hp {
+  background: linear-gradient(90deg, #ff6c5c, #b51515);
+}
+
+.tokenStatGaugeFill--mana {
+  background: linear-gradient(90deg, #63b8ff, #2354d3);
+}
+
+.tokenStatGaugeFill--stamina {
+  background: linear-gradient(90deg, #7fdc6b, #2f8f2c);
+}
+
+.tokenStatGaugeFill--custom {
+  background: linear-gradient(90deg, #f0c25f, #a86a11);
 }
 
 .tokenStats .powerText {
@@ -2025,18 +2170,59 @@ body[data-project-theme="contemporain"] .hpBarTokenValue {
 
 #diceLog {
   position: fixed; right: 20px; bottom: 90px;
-  width: 220px; max-height: 260px; overflow-y: auto;
+  width: 260px;
   background:
     linear-gradient(180deg, rgba(18,14,10,0.97), rgba(8,8,8,0.98));
   border: 1px solid rgba(181,145,82,0.68);
   box-shadow: 0 0 0 1px rgba(72,46,16,0.95), 0 0 24px rgba(0,0,0,0.86);
   color: #f0e1bc;
   font-family: var(--font-body);
-  padding: 12px 12px 10px; border-radius: 10px;
+  padding: 0;
+  border-radius: 14px;
   z-index: 9999999;
+  overflow: hidden;
+}
+
+#diceLogSummary {
+  list-style: none;
+  cursor: pointer;
+  padding: 10px 14px;
+  font-size: 12px;
+  letter-spacing: 1.2px;
+  color: #e8d2a2;
+  user-select: none;
+}
+
+#diceLogSummary::-webkit-details-marker {
+  display: none;
+}
+
+#diceLogSummary::after {
+  content: "▾";
+  float: right;
+  opacity: 0.8;
+  transition: transform 0.2s ease;
+}
+
+#diceLog:not([open]) #diceLogSummary::after {
+  transform: rotate(-90deg);
+}
+
+#diceLogContent {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 0 12px 10px;
+  border-top: 1px solid rgba(181,145,82,0.16);
+}
+
+.diceLogEmpty {
+  padding: 10px 0 2px;
+  font-size: 11px;
+  color: rgba(240,225,188,0.6);
 }
 
 .logEntry { padding: 5px 0; border-bottom: 1px solid rgba(181,145,82,0.16); }
+.logEntry:first-child { padding-top: 8px; }
 .logMJ { color: var(--gold); }
 .logCrit { color: var(--gold); text-shadow: 0 0 8px gold; }
 .logFail { color: #ff5050; text-shadow: 0 0 8px red; }
@@ -2056,6 +2242,19 @@ body[data-project-theme="contemporain"] .hpBarTokenValue {
   opacity: 0; transition: opacity 0.4s;
   z-index: 9999999; pointer-events: none;
   width: auto; height: auto;
+  isolation: isolate;
+}
+
+#diceResult::before {
+  content: "";
+  position: absolute;
+  inset: -42px;
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+  background: radial-gradient(circle, rgba(255,220,140,0.22) 0%, rgba(255,220,140,0.12) 28%, rgba(255,220,140,0.04) 55%, transparent 74%);
+  transition: opacity 0.2s ease;
 }
 
 #diceResult.fading-out {
@@ -2082,6 +2281,7 @@ body[data-project-theme="contemporain"] .hpBarTokenValue {
 #diceResult .dice-3d {
   width: 110px; height: 110px;
   position: relative; transform-style: preserve-3d;
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,0.45));
 }
 
 #diceResult .dice-face {
@@ -2134,6 +2334,52 @@ body[data-project-theme="contemporain"] .hpBarTokenValue {
   text-shadow: 0 0 8px rgba(212,168,53,0.5);
 }
 
+#diceResult.dice-impact .dice-3d-wrap {
+  animation: diceImpactLift 0.34s ease-out;
+}
+
+#diceResult.dice-impact .dice-3d {
+  animation: diceImpactPulse3D 0.42s ease-out;
+}
+
+#diceResult.dice-crit-burst::before {
+  opacity: 1;
+  background: radial-gradient(circle, rgba(255,218,106,0.42) 0%, rgba(255,218,106,0.22) 26%, rgba(255,218,106,0.1) 48%, transparent 72%);
+  animation: diceRadiancePulse 0.95s ease-out 2;
+}
+
+#diceResult.dice-crit-burst .dice-3d {
+  filter:
+    drop-shadow(0 0 18px rgba(255,220,140,0.7))
+    drop-shadow(0 0 36px rgba(255,196,64,0.55))
+    drop-shadow(0 12px 26px rgba(0,0,0,0.5));
+}
+
+#diceResult.dice-crit-burst .dice-face {
+  box-shadow:
+    inset 0 0 30px rgba(255,208,96,0.24),
+    0 0 20px rgba(255,208,96,0.22);
+}
+
+#diceResult.dice-fail-burst::before {
+  opacity: 1;
+  background: radial-gradient(circle, rgba(255,70,70,0.34) 0%, rgba(255,30,30,0.16) 34%, rgba(255,30,30,0.08) 52%, transparent 72%);
+  animation: diceFailPulse 0.8s ease-out 2;
+}
+
+#diceResult.dice-fail-burst .dice-3d {
+  filter:
+    drop-shadow(0 0 16px rgba(255,70,70,0.6))
+    drop-shadow(0 0 30px rgba(180,0,0,0.45))
+    drop-shadow(0 12px 26px rgba(0,0,0,0.5));
+}
+
+#diceResult.dice-fail-burst .dice-face {
+  box-shadow:
+    inset 0 0 28px rgba(255,50,50,0.22),
+    0 0 20px rgba(255,40,40,0.2);
+}
+
 @keyframes diceIdle {
   0%   { transform: rotateX(20deg) rotateY(0deg); }
   100% { transform: rotateX(20deg) rotateY(360deg); }
@@ -2141,6 +2387,39 @@ body[data-project-theme="contemporain"] .hpBarTokenValue {
 @keyframes diceRolling {
   0%   { transform: rotateX(0deg)   rotateY(0deg)   rotateZ(0deg); }
   100% { transform: rotateX(137deg) rotateY(247deg) rotateZ(83deg); }
+}
+
+@keyframes diceRadiancePulse {
+  0% { transform: scale(0.84); opacity: 0; }
+  30% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.22); opacity: 0; }
+}
+
+@keyframes diceFailPulse {
+  0% { transform: scale(0.88); opacity: 0; }
+  35% { transform: scale(1); opacity: 0.95; }
+  100% { transform: scale(1.18); opacity: 0; }
+}
+
+@keyframes diceImpactLift {
+  0% { transform: translateY(0) scale(1); }
+  35% { transform: translateY(-4px) scale(1.035); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes diceImpactPulse3D {
+  0% {
+    filter: brightness(1) drop-shadow(0 10px 22px rgba(0,0,0,0.45));
+  }
+  45% {
+    filter:
+      brightness(1.18)
+      drop-shadow(0 0 14px rgba(255,244,188,0.32))
+      drop-shadow(0 12px 28px rgba(0,0,0,0.5));
+  }
+  100% {
+    filter: brightness(1) drop-shadow(0 10px 22px rgba(0,0,0,0.45));
+  }
 }
 
 /* ========================= */
@@ -4189,6 +4468,17 @@ body.sandbox-preview-mode .simpleSheetPanel [data-base-block] {
   height: 18px;
 }
 
+.simpleSheetTokenGaugeToggle {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(214,180,106,0.12);
+}
+
+.simpleSheetTokenGaugeToggle span {
+  font-family: "Cinzel", serif;
+  font-size: 11px;
+}
+
 body[data-project-theme="medieval_fantasy"] .simpleSheetPanel {
   background:
     linear-gradient(180deg, rgba(28,18,10,0.78), rgba(17,12,8,0.9)),
@@ -5320,7 +5610,7 @@ body[data-project-theme="contemporain"] .simpleSheetPortrait {
   display: none;
   position: fixed;
   top: 18px;
-  left: 590px;
+  left: 700px;
   z-index: 99999999;
   gap: 10px;
 }
@@ -7357,6 +7647,13 @@ body.sandbox-studio-mode .tokenStats {
   display: none !important;
 }
 
+body.sandbox-studio-mode .tokenStats.tokenStats--has-gauges {
+  display: flex !important;
+  top: -98px !important;
+  gap: 2px !important;
+  z-index: 60 !important;
+}
+
 body.sandbox-studio-mode .hpBarToken {
   bottom: -8px !important;
   background: rgba(66, 52, 29, 0.2) !important;
@@ -9068,7 +9365,7 @@ body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .token::before {
   border-radius: 28px !important;
   background:
     linear-gradient(rgba(40,24,10,0.18), rgba(40,24,10,0.18)),
-    url("images/bois.png") center/180px auto repeat,
+    url("images/gold.jpg") center/180px auto repeat,
     linear-gradient(135deg, rgba(121,83,42,0.98), rgba(73,47,24,0.99) 48%, rgba(47,29,13,1)) !important;
   box-shadow:
     0 0 0 2px rgba(212,174,104,0.78),
@@ -9103,9 +9400,10 @@ body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .nameTag {
   bottom: -44px !important;
   min-width: 110px !important;
   padding: 9px 18px 11px !important;
+  border-radius: 10px !important;
   background:
     linear-gradient(rgba(35,20,9,0.16), rgba(35,20,9,0.16)),
-    url("images/bois.png") center/160px auto repeat,
+    url("images/bois.jpg") center/160px auto repeat,
     linear-gradient(180deg, rgba(109,76,40,0.98), rgba(62,40,21,0.99)) !important;
   border: 1px solid rgba(191,154,93,0.36) !important;
   color: #f2dfb3 !important;
@@ -9120,25 +9418,8 @@ body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .nameTag {
 
 body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .nameTag::before,
 body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .nameTag::after {
-  content: "" !important;
-  position: absolute !important;
-  top: 50% !important;
-  width: 8px !important;
-  height: 8px !important;
-  border-radius: 50% !important;
-  background: radial-gradient(circle, rgba(232,196,125,0.95), rgba(120,82,39,0.98)) !important;
-  box-shadow:
-    0 0 0 1px rgba(52,30,11,0.78),
-    0 0 0 2px rgba(214,181,111,0.24) !important;
-  transform: translateY(-50%) !important;
-}
-
-body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .nameTag::before {
-  left: 10px !important;
-}
-
-body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .nameTag::after {
-  right: 10px !important;
+  content: none !important;
+  display: none !important;
 }
 
 body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .hpBarToken {
@@ -10124,9 +10405,9 @@ body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] button#sandboxPr
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  min-width: 188px !important;
-  height: 74px !important;
-  padding: 0 40px !important;
+  min-width: 152px !important;
+  height: 58px !important;
+  padding: 0 24px !important;
   background: transparent !important;
   background-image: url("images/cadremed.png") !important;
   background-repeat: no-repeat !important;
@@ -10143,7 +10424,7 @@ body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] button#sandboxPr
     0 2px 0 rgba(132,90,48,0.48),
     0 0 2px rgba(255,236,198,0.26) !important;
   -webkit-text-stroke: 0.35px rgba(101,64,33,0.38) !important;
-  font-size: 15px !important;
+  font-size: 13px !important;
   font-weight: 700 !important;
   letter-spacing: 1.4px !important;
   -webkit-appearance: none !important;

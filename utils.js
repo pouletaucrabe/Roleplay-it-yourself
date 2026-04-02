@@ -399,8 +399,10 @@ function addMJLog(text) {
 }
 
 function addDiceLog(player, dice, result) {
-  const log = document.getElementById("diceLog")
+  const log = document.getElementById("diceLogContent")
   if (!log) return
+  const empty = log.querySelector(".diceLogEmpty")
+  if (empty) empty.remove()
   const entry = document.createElement("div")
   entry.classList.add("logEntry")
   if (player === "MJ") entry.classList.add("logMJ")
@@ -431,6 +433,54 @@ function typeWriter(text, element, speed = 60) {
   }
   type()
 }
+
+function renderDiceLogHistory() {
+  const log = document.getElementById("diceLogContent")
+  if (!log) return
+  const history = Array.isArray(window.__diceLogHistory) ? window.__diceLogHistory : []
+  log.innerHTML = ""
+  if (!history.length) {
+    const empty = document.createElement("div")
+    empty.className = "diceLogEmpty"
+    empty.innerText = "Aucun lancer pour le moment."
+    log.appendChild(empty)
+    return
+  }
+  history.forEach(function(item) {
+    const entry = document.createElement("div")
+    entry.className = "logEntry"
+    if (item.player === "MJ") entry.classList.add("logMJ")
+    if (item.isCrit) entry.classList.add("logCrit")
+    if (item.isFail) entry.classList.add("logFail")
+    entry.innerText = item.text || ""
+    log.appendChild(entry)
+  })
+}
+
+function addDiceLog(player, dice, result) {
+  if (!Array.isArray(window.__diceLogHistory)) window.__diceLogHistory = []
+  let text = player + " -> d" + dice + " -> " + result
+  const isCrit = result === dice
+  const isFail = result === 1
+  if (isCrit) text += " *"
+  if (isFail) text += " !"
+  window.__diceLogHistory.unshift({
+    player: player,
+    dice: dice,
+    result: result,
+    text: text,
+    isCrit: isCrit,
+    isFail: isFail
+  })
+  window.__diceLogHistory = window.__diceLogHistory.slice(0, 5)
+  renderDiceLogHistory()
+  addMJLog(text)
+}
+
+try {
+  window.addDiceLog = addDiceLog
+  window.renderDiceLogHistory = renderDiceLogHistory
+} catch (e) {}
 
 /* ========================= */
 /* EFFETS VISUELS            */
