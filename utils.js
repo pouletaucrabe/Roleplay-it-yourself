@@ -74,6 +74,7 @@ function getDefaultCustomization() {
       pnjTabs: [],
       highPnjs: [],
       mobs: [],
+      combatArenas: [],
       documents: []
     }
   }
@@ -109,6 +110,7 @@ function normalizeCustomization(raw) {
           pnjTabs: Array.isArray(raw.content.pnjTabs) ? raw.content.pnjTabs.slice() : [],
           highPnjs: Array.isArray(raw.content.highPnjs) ? raw.content.highPnjs.map(item => ({ ...item })) : [],
           mobs: Array.isArray(raw.content.mobs) ? raw.content.mobs.map(item => ({ ...item })) : [],
+          combatArenas: Array.isArray(raw.content.combatArenas) ? raw.content.combatArenas.map(item => ({ ...item })) : [],
           documents: Array.isArray(raw.content.documents) ? raw.content.documents.map(item => ({ ...item })) : []
         }
       : {
@@ -118,6 +120,7 @@ function normalizeCustomization(raw) {
           pnjTabs: [],
           highPnjs: [],
           mobs: [],
+          combatArenas: [],
           documents: []
         }
   }

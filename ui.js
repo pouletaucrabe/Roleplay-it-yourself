@@ -309,6 +309,144 @@ function populateAttackBlock(block, attack) {
   appendAttackLine(block, "Crit", attack.crit)
 }
 
+function getVisibleCombatPlayerIds() {
+  const rawCount = document.body && document.body.getAttribute("data-sandbox-player-count")
+  const count = Math.max(1, Math.min(12, parseInt(rawCount, 10) || 4))
+  return Array.from({ length: count }, function(_, index) {
+    const slotIndex = index + 1
+    if (slotIndex === 1) return "greg"
+    if (slotIndex === 2) return "ju"
+    if (slotIndex === 3) return "elo"
+    if (slotIndex === 4) return "bibi"
+    return "slot_" + slotIndex
+  })
+}
+
+function getCombatPlayerPortraitPath(playerID) {
+  try {
+    if (typeof resolveImagePath === "function") {
+      return resolveImagePath(playerID + ".png")
+    }
+  } catch (_) {}
+  return "images/" + sanitizeAssetName(playerID + ".png")
+}
+
+function cloneCombatAttack(attack) {
+  return {
+    name: String(attack && attack.name || "Nouvelle attaque"),
+    type: String(attack && attack.type || "Attaque"),
+    dice: Math.max(2, parseInt(attack && attack.dice, 10) || 12),
+    stat: String(attack && attack.stat || "Force"),
+    effect: String(attack && attack.effect || ""),
+    crit: String(attack && attack.crit || "")
+  }
+}
+
+function getPlayerCombatAttacks(playerID) {
+  try {
+    const customization = typeof getCustomization === "function" ? getCustomization() : null
+    const player = customization && customization.players && customization.players[playerID]
+      ? customization.players[playerID]
+      : null
+    if (player && Array.isArray(player.combatAttacks) && player.combatAttacks.length) {
+      return player.combatAttacks.map(cloneCombatAttack)
+    }
+  } catch (_) {}
+  const legacy = attacks && Array.isArray(attacks[playerID]) ? attacks[playerID] : []
+  return legacy.map(cloneCombatAttack)
+}
+
+function savePlayerCombatAttacks(playerID, items) {
+  try {
+    if (typeof getCustomization !== "function" || typeof saveCustomization !== "function") return false
+    const next = getCustomization()
+    next.players = next.players && typeof next.players === "object" ? next.players : {}
+    next.players[playerID] = next.players[playerID] && typeof next.players[playerID] === "object"
+      ? next.players[playerID]
+      : { name: typeof getPlayerDisplayName === "function" ? getPlayerDisplayName(playerID) : playerID, image: "", enabled: true }
+    next.players[playerID].combatAttacks = (Array.isArray(items) ? items : []).map(cloneCombatAttack)
+    saveCustomization(next)
+    return true
+  } catch (_) {}
+  return false
+}
+
+function movePlayerCombatAttack(playerID, attackIndex, direction) {
+  const items = getPlayerCombatAttacks(playerID)
+  const sourceIndex = Number(attackIndex)
+  const destIndex = sourceIndex + Number(direction || 0)
+  if (sourceIndex < 0 || sourceIndex >= items.length || destIndex < 0 || destIndex >= items.length) return false
+  const moved = items.splice(sourceIndex, 1)[0]
+  items.splice(destIndex, 0, moved)
+  if (!savePlayerCombatAttacks(playerID, items)) return false
+  const old = document.getElementById("gmMini_" + playerID)
+  if (old) { cleanupGMPlayerSheetListener(playerID); old.remove() }
+  openGMPlayerSheet(playerID)
+  return false
+}
+
+function deletePlayerCombatAttack(playerID, attackIndex) {
+  const items = getPlayerCombatAttacks(playerID)
+  const sourceIndex = Number(attackIndex)
+  if (sourceIndex < 0 || sourceIndex >= items.length) return false
+  items.splice(sourceIndex, 1)
+  if (!savePlayerCombatAttacks(playerID, items)) return false
+  const old = document.getElementById("gmMini_" + playerID)
+  if (old) { cleanupGMPlayerSheetListener(playerID); old.remove() }
+  openGMPlayerSheet(playerID)
+  return false
+}
+
+function addPlayerCombatAttack(playerID) {
+  const items = getPlayerCombatAttacks(playerID)
+  items.push(cloneCombatAttack(null))
+  if (!savePlayerCombatAttacks(playerID, items)) return false
+  const old = document.getElementById("gmMini_" + playerID)
+  if (old) { cleanupGMPlayerSheetListener(playerID); old.remove() }
+  openGMPlayerSheet(playerID)
+  return false
+}
+
+function updatePlayerCombatAttackField(playerID, attackIndex, field, value) {
+  const items = getPlayerCombatAttacks(playerID)
+  const target = items[Number(attackIndex)]
+  if (!target) return false
+  if (field === "dice") target[field] = Math.max(2, parseInt(value, 10) || 12)
+  else target[field] = String(value || "").trim()
+  return savePlayerCombatAttacks(playerID, items)
+}
+
+function buildGMEditableAttackBlock(playerID, attack, attackIndex) {
+  const block = document.createElement("div")
+  block.className = "combatBlock gmEditableAttackBlock"
+  block.innerHTML =
+    `<label class="gmAttackField"><span>Nom</span><input type="text" value="${String(attack.name || "").replace(/"/g, "&quot;")}"></label>` +
+    `<div class="gmAttackRow">` +
+      `<label class="gmAttackField"><span>Type</span><input type="text" value="${String(attack.type || "").replace(/"/g, "&quot;")}"></label>` +
+      `<label class="gmAttackField gmAttackDiceField"><span>De</span><input type="number" min="2" max="100" value="${Math.max(2, parseInt(attack.dice, 10) || 12)}"></label>` +
+      `<label class="gmAttackField"><span>Stat</span><input type="text" value="${String(attack.stat || "").replace(/"/g, "&quot;")}"></label>` +
+    `</div>` +
+    `<label class="gmAttackField"><span>Effet</span><textarea rows="2">${String(attack.effect || "")}</textarea></label>` +
+    `<label class="gmAttackField"><span>Crit</span><textarea rows="2">${String(attack.crit || "")}</textarea></label>` +
+    `<div class="gmAttackControls">` +
+      `<button type="button">Monter</button>` +
+      `<button type="button">Descendre</button>` +
+      `<button type="button" class="danger">Supprimer</button>` +
+    `</div>`
+  const inputs = block.querySelectorAll("input, textarea")
+  const fields = ["name", "type", "dice", "stat", "effect", "crit"]
+  inputs.forEach(function(input, index) {
+    input.addEventListener("change", function() {
+      updatePlayerCombatAttackField(playerID, attackIndex, fields[index], input.value)
+    })
+  })
+  const controls = block.querySelectorAll(".gmAttackControls button")
+  controls[0].onclick = function() { return movePlayerCombatAttack(playerID, attackIndex, -1) }
+  controls[1].onclick = function() { return movePlayerCombatAttack(playerID, attackIndex, 1) }
+  controls[2].onclick = function() { return deletePlayerCombatAttack(playerID, attackIndex) }
+  return block
+}
+
 function cleanupGMPlayerSheetListener(playerID) {
   if (!window.__gmMiniRefs || !window.__gmMiniRefs[playerID]) return
   const binding = window.__gmMiniRefs[playerID]
@@ -318,9 +456,10 @@ function cleanupGMPlayerSheetListener(playerID) {
 
 function showCombatHUD() {
   if (!myToken) return
-  const player = myToken.id, playerAttacks = attacks[player]
-  document.getElementById("combatHUDPortrait").src   = "images/" + player + ".png"
-  document.getElementById("combatHUDName").innerText  = player.toUpperCase()
+  const player = myToken.id
+  const playerAttacks = getPlayerCombatAttacks(player)
+  document.getElementById("combatHUDPortrait").src = getCombatPlayerPortraitPath(player)
+  document.getElementById("combatHUDName").innerText = typeof getPlayerDisplayName === "function" ? getPlayerDisplayName(player) : player.toUpperCase()
   const box = document.getElementById("combatHUDAttacks"); box.innerHTML = ""
   if (playerAttacks) playerAttacks.forEach(a => {
     const block = document.createElement("div"); block.className = "combatBlock"
@@ -341,12 +480,8 @@ function showGMCombatPanel() {
   if (!isGM) return
   if (window.__gmMiniRefs) Object.keys(window.__gmMiniRefs).forEach(cleanupGMPlayerSheetListener)
   const panel = document.getElementById("gmCombatPanel"); panel.innerHTML = ""
-  ;[
-    { id:"greg", name: getPlayerDisplayName("greg") },
-    { id:"ju",   name: getPlayerDisplayName("ju") },
-    { id:"elo",  name: getPlayerDisplayName("elo") },
-    { id:"bibi", name: getPlayerDisplayName("bibi") }
-  ].forEach(p => {
+  getVisibleCombatPlayerIds().forEach(function(playerId) {
+    const p = { id: playerId, name: typeof getPlayerDisplayName === "function" ? getPlayerDisplayName(playerId) : playerId }
     const btn = document.createElement("button"); btn.className = "gmAttackButton"; btn.innerText = p.name
     btn.onclick = () => openGMPlayerSheet(p.id); panel.appendChild(btn)
   })
@@ -360,18 +495,30 @@ function openGMPlayerSheet(playerID) {
   const title = document.createElement("div"); title.className = "gmMiniTitle"
   const titleImg = document.createElement("img")
   titleImg.className = "gmMiniToken"
-  titleImg.src = "images/" + sanitizeAssetName(playerID + ".png")
+  titleImg.src = getCombatPlayerPortraitPath(playerID)
   title.appendChild(titleImg)
   title.appendChild(document.createTextNode(getPlayerDisplayName(playerID)))
   box.appendChild(title)
   const hpc = document.createElement("div"); hpc.className = "gmMiniHPContainer"
   const hpb = document.createElement("div"); hpb.className = "gmMiniHPBar"; hpb.id = "gmHPBar_"+playerID; hpc.appendChild(hpb); box.appendChild(hpc)
   const stats = document.createElement("div"); stats.className = "gmMiniStats"; stats.id = "gmStats_"+playerID; box.appendChild(stats)
-  const pa = attacks[playerID]
-  if (pa) pa.forEach(a => {
-    const block = document.createElement("div"); block.className = "combatBlock"
-    populateAttackBlock(block, a)
-    box.appendChild(block)
+  const pa = getPlayerCombatAttacks(playerID)
+  const isSandboxStudio = !!(document.body && document.body.classList.contains("sandbox-studio-mode"))
+  if (isSandboxStudio) {
+    const addBtn = document.createElement("button")
+    addBtn.type = "button"
+    addBtn.className = "gmAttackAddButton"
+    addBtn.innerText = "+ Ajouter une attaque"
+    addBtn.onclick = function() { return addPlayerCombatAttack(playerID) }
+    box.appendChild(addBtn)
+  }
+  if (pa) pa.forEach(function(a, attackIndex) {
+    if (isSandboxStudio) box.appendChild(buildGMEditableAttackBlock(playerID, a, attackIndex))
+    else {
+      const block = document.createElement("div"); block.className = "combatBlock"
+      populateAttackBlock(block, a)
+      box.appendChild(block)
+    }
   })
   panel.appendChild(box); makeDraggable(box)
   const ref = db.ref("characters/" + playerID)

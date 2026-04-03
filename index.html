@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English&family=Cormorant+SC:wght@500;700&family=Marcellus&family=Orbitron:wght@500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <title>Roleplay It Yourself</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='48'%3E%F0%9F%8E%B2%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?v=215">
+<link rel="stylesheet" href="style.css?v=218">
   <style>
     #playerCodeBtn, #playerCodeBtn * {
       color: #ffd700 !important;
@@ -421,7 +421,6 @@
 <div id="gmSaveBar">
   <div class="studioSaveMenu">
     <button id="gmSaveBtn" type="button" onclick="toggleStudioSaveMenu()">Save</button>
-    <button id="gmExportDirectBtn" type="button">Export</button>
     <div id="studioSaveDropdown" class="studioSaveDropdown">
       <button class="studioSaveAction" type="button" onclick="return saveSandboxFromMenu()">Sauvegarder</button>
       <button class="studioSaveAction" type="button" onclick="return loadSandboxFromLocalFileFromMenu()">Charger</button>
@@ -506,7 +505,7 @@
   <button class="gmIcon" id="gmMobsBtn" onclick="toggleGMSection('mobMenu2')"     title="Mobs (T)">ðŸ‘¹</button>
   <button class="gmIcon" id="gmXpBtn" onclick="toggleGMSection('xpMenu')"       title="XP">â­</button>
   <button class="gmIcon" id="gmElementsBtn" onclick="toggleGMSection('elementsMenu')" title="Ã‰lÃ©ments (E)">ðŸ—</button>
-  <button class="gmIcon" id="allyBtn" onclick="openAllyPNJPanel()" title="AlliÃ©s (A)" style="display:none;">âš”</button>
+  <button class="gmIcon" id="allyBtn" onclick="openAllyPNJPanel()" title="Allies (A)" style="display:none;">⚔</button>
 </div>
 
 <div id="playerNotesPanel" style="display:none;">
@@ -988,7 +987,7 @@
 <div id="storyImage2" style="display:none;"><img id="storyImageContent2"></div>
 <div id="storyImage3" style="display:none;"><img id="storyImageContent3"></div>
 
-<div id="combatIntro"><div id="combatIntroText">âš” PREPAREZ-VOUS Ã€ COMBATTRE âš”</div></div>
+<div id="combatIntro"><div id="combatIntroText">⚔ PREPAREZ-VOUS A COMBATTRE ⚔</div></div>
 <div id="victoryScreen"><div id="victoryText">VICTOIRE!</div></div>
 <div id="combatFilter"></div>
 <div id="thuumUnlockScreen">
@@ -1000,7 +999,7 @@
   </div>
 </div>
 
-<button id="playerAttackBtn" onclick="togglePlayerAttacks()" style="display:none;">âš”</button>
+<button id="playerAttackBtn" onclick="togglePlayerAttacks()" style="display:none;">⚔</button>
 <button id="playerThuumBtn" onclick="togglePlayerThuumPanel()" style="display:none;" aria-label="Thuum"><img src="images/runeskraa.png" alt="SKRAA"></button>
 <div id="playerThuumPanel" style="display:none;"></div>
 
@@ -1015,16 +1014,16 @@
 <div id="gmDamagePanel">
   <div id="gmDamagePanelInner">
     <div id="mobHPDisplay">
-      <div id="mobHPBarTop"><span id="mobHPTopText">â€” / â€”</span></div>
+      <div id="mobHPBarTop"><span id="mobHPTopText">— / —</span></div>
       <div id="mobHPBarTopContainer"><div id="mobHPBarTop"></div></div>
     </div>
     <div id="gmDamageRow">
-      <label>DÃ©gÃ¢ts :</label>
+      <label>Degats :</label>
       <input id="mobDamageInput" type="number" placeholder="0">
     </div>
     <div id="gmCombatButtons">
-      <button id="btnVictoire" onclick="showVictory()">âš” VICTOIRE</button>
-      <button id="btnDefaite"  onclick="showDefeat()">ðŸ’€ DÃ‰FAITE</button>
+      <button id="btnVictoire" onclick="showVictory()">⚔ VICTOIRE</button>
+      <button id="btnDefaite"  onclick="showDefeat()">☠ DEFAITE</button>
     </div>
   </div>
 </div>
@@ -1048,8 +1047,8 @@
   <div class="playerStat">Charme :  <input id="combat_charme"></div>
   <div class="playerStat">Perspi :  <input id="combat_perspi"></div>
   <div class="playerStat">Chance :  <input id="combat_chance"></div>
-  <div class="playerStat">DÃ©fense : <input id="combat_defense"></div>
-  <div class="playerStat">â¤ï¸ HP :   <input id="combat_hp">
+  <div class="playerStat">Defense : <input id="combat_defense"></div>
+  <div class="playerStat">HP :   <input id="combat_hp">
     <div id="combatHPBarContainer"><div id="combatHPBar"></div></div>
   </div>
 </div>
@@ -1058,33 +1057,33 @@
   <div id="combatGrid"></div>
   <div id="combatTokens"></div>
   <div id="defeatScreen">
-    <div id="defeatText">DÃ‰FAITE</div>
-    <div id="defeatSubText">Vos hÃ©ros tombent dans l'obscuritÃ©...<br>La prophÃ©tie n'est pas encore accomplie.</div>
+    <div id="defeatText">DEFAITE</div>
+    <div id="defeatSubText">Vos heros tombent dans l'obscurite...<br>La prophetie n'est pas encore accomplie.</div>
   </div>
 </div>
 
 <!-- MENU SÃ‰LECTION MOBS PRÃ‰-COMBAT -->
 <div id="mobSelectionMenu" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:1000000004;align-items:center;justify-content:center;flex-direction:column;gap:16px;" data-darkreader-ignore>
   <canvas id="mobMenuBg" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;"></canvas>
-  <div style="position:relative;z-index:1;text-align:center;padding:30px;background:rgb(15,0,0)!important;border:2px solid rgb(180,40,40);border-radius:12px;min-width:400px;box-shadow:0 0 60px rgb(200,0,0);" data-darkreader-ignore>
-    <div id="mobMenuTitle" style="font-family:'Cinzel Decorative',serif;font-size:20px;color:rgb(255,100,100);letter-spacing:4px;margin-bottom:8px;">CONFIGURATION DU COMBAT</div>
-    <div id="mobMenuSub"   style="font-family:Cinzel,serif;font-size:12px;color:rgb(180,80,80);letter-spacing:2px;margin-bottom:20px;"></div>
-    <div style="display:flex;gap:16px;justify-content:center;margin-bottom:20px;">
-      <div style="background:rgb(25,5,5);border:1px solid rgb(120,30,30);border-radius:8px;padding:12px;width:160px;">
-        <div style="font-family:Cinzel,serif;font-size:10px;color:rgb(160,60,60);margin-bottom:8px;letter-spacing:1px;">MOB 2 (optionnel)</div>
-        <div id="mobSlot2Select" data-value="" onmousedown="event.stopPropagation()" style="width:100%;padding:5px;font-family:Cinzel,serif;font-size:11px;background:rgb(20,5,5);color:rgb(255,180,180);border:1px solid rgb(120,30,30);border-radius:3px;cursor:pointer;text-align:center;" onclick="event.stopPropagation();toggleMobDropdown('slot2',this)">Aucun</div>
+  <div id="mobSelectionPanel" data-darkreader-ignore>
+    <div id="mobMenuTitle">CONFIGURATION DU COMBAT</div>
+    <div id="mobMenuSub"></div>
+    <div class="mobSelectionSlots">
+      <div class="mobSelectionSlotCard">
+        <div class="mobSelectionSlotLabel">MOB 2 OPTIONNEL</div>
+        <div id="mobSlot2Select" class="mobSelectionSlotButton" data-value="" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();toggleMobDropdown('slot2',this)">Aucun</div>
         <div id="mobDropdown_slot2" onmousedown="event.stopPropagation()" style="display:none;position:fixed;background:rgb(15,3,3);border:1px solid rgb(150,30,30);border-radius:4px;max-height:180px;overflow-y:auto;z-index:999999999;width:160px;"></div>
       </div>
-      <div style="background:rgb(25,5,5);border:1px solid rgb(120,30,30);border-radius:8px;padding:12px;width:160px;">
-        <div style="font-family:Cinzel,serif;font-size:10px;color:rgb(160,60,60);margin-bottom:8px;letter-spacing:1px;">MOB 3 (optionnel)</div>
-        <div id="mobSlot3Select" data-value="" onmousedown="event.stopPropagation()" style="width:100%;padding:5px;font-family:Cinzel,serif;font-size:11px;background:rgb(20,5,5);color:rgb(255,180,180);border:1px solid rgb(120,30,30);border-radius:3px;cursor:pointer;text-align:center;" onclick="event.stopPropagation();toggleMobDropdown('slot3',this)">Aucun</div>
+      <div class="mobSelectionSlotCard">
+        <div class="mobSelectionSlotLabel">MOB 3 OPTIONNEL</div>
+        <div id="mobSlot3Select" class="mobSelectionSlotButton" data-value="" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();toggleMobDropdown('slot3',this)">Aucun</div>
         <div id="mobDropdown_slot3" onmousedown="event.stopPropagation()" style="display:none;position:fixed;background:rgb(15,3,3);border:1px solid rgb(150,30,30);border-radius:4px;max-height:180px;overflow-y:auto;z-index:999999999;width:160px;"></div>
       </div>
     </div>
-    <div id="mobPreviewRow" style="display:flex;gap:24px;justify-content:center;margin-bottom:16px;min-height:70px;align-items:center;"></div>
-    <div style="display:flex;gap:12px;justify-content:center;">
-      <button id="mobMenuLaunch" onclick="launchFromMobMenu()" style="padding:12px 30px;font-family:Cinzel,serif;font-size:13px;letter-spacing:2px;background:rgb(100,0,0);color:rgb(255,150,150);border:2px solid rgb(180,40,40);border-radius:6px;cursor:pointer;">Lancer</button>
-      <button onclick="document.getElementById('mobSelectionMenu').style.display='none'" style="padding:12px 20px;font-family:Cinzel,serif;font-size:12px;background:rgb(30,30,30);color:rgb(150,150,150);border:1px solid rgb(80,80,80);border-radius:6px;cursor:pointer;">Annuler</button>
+    <div id="mobPreviewRow" class="mobPreviewRow"></div>
+    <div class="mobSelectionActions">
+      <button id="mobMenuLaunch" onclick="launchFromMobMenu()">Lancer le combat</button>
+      <button type="button" class="mobSelectionCancel" onclick="document.getElementById('mobSelectionMenu').style.display='none'">Annuler</button>
     </div>
   </div>
 </div>
@@ -1134,14 +1133,14 @@
 <!-- 2. Variables d'Ã©tat -->
 <script src="state.js?v=2"></script>
 <!-- 3. Utilitaires (pas de dÃ©pendances Firebase) -->
-<script src="utils.js?v=30"></script>
+<script src="utils.js?v=31"></script>
 <script src="customization.js?v=60"></script>
 <!-- 4. Logique principale + Firebase listeners -->
-<script src="game.js?v=249"></script>
+<script src="game.js?v=256"></script>
 <!-- 5. Interface utilisateur -->
-<script src="ui.js?v=8"></script>
+<script src="ui.js?v=9"></script>
 <!-- 6. Combat -->
-<script src="combat.js?v=8"></script>
+<script src="combat.js?v=15"></script>
 <script>
 function applyMusicSliderToActiveAudio(normalized) {
   var safeValue = Math.max(0, Math.min(1, parseFloat(normalized) || 0))

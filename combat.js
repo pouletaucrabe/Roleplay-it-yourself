@@ -110,38 +110,45 @@ function _launchCombatWithMobs(mainMob, forceTier, extraMobs) {
     : (forceTier || (mobStats[mainMob] ? mobStats[mainMob].tier : "weak"))
 
   getPartyLevel(level => {
-    const primaryStats = typeof getSandboxMobEncounterStats === "function"
-      ? getSandboxMobEncounterStats(mainMob, tier, level)
-      : null
-    const hp = primaryStats ? primaryStats.hp : Math.round(((mobStats[mainMob] ? mobStats[mainMob].baseHP : 10)) * 1.0)
-    const lvl = primaryStats ? primaryStats.level : Math.max(1, level)
-    const runtimeTier = primaryStats ? primaryStats.runtimeTier : tier
-    db.ref("combat/mob").set({ name:mainMob, hp, maxHP:hp, lvl, tier: runtimeTier, difficulty: tier })
+    try {
+      const primaryStats = typeof getSandboxMobEncounterStats === "function"
+        ? getSandboxMobEncounterStats(mainMob, tier, level)
+        : null
+      const hp = primaryStats ? primaryStats.hp : Math.round(((mobStats[mainMob] ? mobStats[mainMob].baseHP : 10)) * 1.0)
+      const lvl = primaryStats ? primaryStats.level : Math.max(1, level)
+      const runtimeTier = primaryStats ? primaryStats.runtimeTier : tier
+      try {
+        db.ref("combat/mob").set({ name:mainMob, hp, maxHP:hp, lvl, tier: runtimeTier, difficulty: tier }).catch(() => {})
+      } catch (_) {}
 
-    _state.pendingExtraMobs = {}
-    extraMobs.forEach((mob, i) => {
-      const slot = ["mob2","mob3"][i]
-      if (!slot || !mob) return
-      _state.pendingExtraMobs[slot] = mob
-      const tier2 = typeof normalizeSandboxCombatTier === "function"
-        ? normalizeSandboxCombatTier(mobStats[mob] ? mobStats[mob].tier : "weak")
-        : (mobStats[mob] ? mobStats[mob].tier : "weak")
-      const base2 = mobStats[mob] ? mobStats[mob].baseHP : 10
-      const tier2Runtime = tier2 === "worldboss" ? "boss" : tier2
-      const mult2 = { weak:1.2, medium:2.0, high:3.5, boss:6.0 }[tier2Runtime] || 1.2
-      const lf2   = { weak:4,   medium:8,   high:14,  boss:30  }[tier2Runtime] || 4
-      setTimeout(() => {
-        getPartyLevel(lv => {
-          const hp2  = Math.round(base2 * mult2 + lv * lf2 + Math.floor(lv * lv * 0.5))
-          const lvl2 = Math.max(1, lv + ({ weak:-1, medium:1, high:3, boss:8 }[tier2Runtime] || 0))
-          db.ref("combat/" + slot).set({ name:mob, hp:hp2, maxHP:hp2, lvl:lvl2, tier:tier2Runtime, difficulty:tier2, slot })
-          activeMobSlots[slot] = true
-        })
-      }, i * 200)
-    })
-    _syncCombatStart(mainMob, tier, extraMobs.filter(Boolean))
-    combatSequence(mainMob, forceTier)
-    combatStarting = false
+      _state.pendingExtraMobs = {}
+      extraMobs.forEach((mob, i) => {
+        const slot = ["mob2","mob3"][i]
+        if (!slot || !mob) return
+        _state.pendingExtraMobs[slot] = mob
+        const tier2 = typeof normalizeSandboxCombatTier === "function"
+          ? normalizeSandboxCombatTier(mobStats[mob] ? mobStats[mob].tier : "weak")
+          : (mobStats[mob] ? mobStats[mob].tier : "weak")
+        const base2 = mobStats[mob] ? mobStats[mob].baseHP : 10
+        const tier2Runtime = tier2 === "worldboss" ? "boss" : tier2
+        const mult2 = { weak:1.2, medium:2.0, high:3.5, boss:6.0 }[tier2Runtime] || 1.2
+        const lf2   = { weak:4,   medium:8,   high:14,  boss:30  }[tier2Runtime] || 4
+        const hp2  = Math.round(base2 * mult2 + level * lf2 + Math.floor(level * level * 0.5))
+        const lvl2 = Math.max(1, level + ({ weak:-1, medium:1, high:3, boss:8 }[tier2Runtime] || 0))
+        try {
+          db.ref("combat/" + slot).set({ name:mob, hp:hp2, maxHP:hp2, lvl:lvl2, tier:tier2Runtime, difficulty:tier2, slot }).catch(() => {})
+        } catch (_) {}
+        activeMobSlots[slot] = true
+      })
+      try { _syncCombatStart(mainMob, tier, extraMobs.filter(Boolean)).catch(() => {}) } catch (_) {}
+      combatSequence(mainMob, forceTier)
+    } catch (error) {
+      console.error("_launchCombatWithMobs failed:", error)
+      combatActive = false
+      if (typeof showNotification === "function") showNotification("Lancement du combat impossible")
+    } finally {
+      combatStarting = false
+    }
   })
 }
 
@@ -157,13 +164,32 @@ function combatSequence(mob, forceTier) {
   else _startCombatSequence(mob, tierMob)
 }
 
+function getCombatIntroMessage() {
+  try {
+    if (typeof getCustomization === "function") {
+      const customization = getCustomization()
+      const message = String(customization?.project?.combatIntroMessage || "").trim()
+      if (message) return message
+    }
+  } catch (_) {}
+  return "PREPAREZ-VOUS A COMBATTRE"
+}
+
+function prepareCombatIntroDisplay() {
+  const intro = document.getElementById("combatIntro")
+  const introText = document.getElementById("combatIntroText")
+  if (introText) introText.textContent = getCombatIntroMessage()
+  if (intro) intro.style.display = "flex"
+  return intro
+}
+
 function playRoiIntro(mob, tierMob) {
   stopAllMusic()
-  const intro = document.getElementById("combatIntro"); intro.style.display = "flex"
+  const intro = prepareCombatIntroDisplay()
   const cf    = document.getElementById("combatFilter")
   cf.style.cssText = "display:block;opacity:1;transition:none;background:rgba(120,0,0,0.7);"
   screenShakeHard(); setTimeout(() => screenShakeHard(), 400); setTimeout(() => screenShakeHard(), 800)
-  playSound("combatSound", 0.4)
+  playSound("combatSound", 0.24)
 
   setTimeout(() => {
     intro.style.display = "none"
@@ -199,7 +225,8 @@ function _startCombatSequence(mob, tierMob) {
     (mob === "kraken" && currentMap === "tourbillon.jpg") ||
     (mob === "balraug" && currentMap === "balraug.jpg")
 
-  if (!keepMapMusic) {
+  const startCombatMusic = function() {
+    if (keepMapMusic) return
     fadeMusicOut(() => {
       const customTrack = typeof getSandboxCombatArenaMusicForTier === "function"
         ? String(getSandboxCombatArenaMusicForTier(normalizedTier) || "").trim()
@@ -209,23 +236,27 @@ function _startCombatSequence(mob, tierMob) {
         : normalizedTier === "high"
         ? "audio/highcombat.mp3"
         : "audio/lowcombat.mp3")
-      setTimeout(() => crossfadeMusic(track), 100)
+      setTimeout(() => crossfadeMusic(track), 120)
     })
   }
 
-  const intro = document.getElementById("combatIntro"); intro.style.display = "flex"
+  const intro = prepareCombatIntroDisplay()
   const cf    = document.getElementById("combatFilter")
+  if (!keepMapMusic) {
+    try { fadeMusicOut(() => {}) } catch (_) {}
+  }
   cf.style.display = "block"; cf.style.opacity = "1"; cf.style.transition = "none"
 
   if (normalizedTier === "worldboss") { cf.style.background = "rgba(145,0,0,0.8)"; screenShakeHard(); setTimeout(() => screenShakeHard(), 350); setTimeout(() => screenShakeHard(), 700) }
   else if (normalizedTier === "boss") { cf.style.background = "rgba(120,0,0,0.7)"; screenShakeHard(); setTimeout(() => screenShakeHard(), 400); setTimeout(() => screenShakeHard(), 800) }
   else if (normalizedTier === "high") { cf.style.background = "rgba(80,0,0,0.6)";  screenShakeHard(); setTimeout(() => screenShake(), 500) }
   else                          { cf.style.background = "rgba(60,0,0,0.5)";  screenShake() }
-  playSound("combatSound", 0.4)
+  playSound("combatSound", 0.24)
 
   setTimeout(() => {
     intro.style.display = "none"
     showMobIntro(mob)
+    startCombatMusic()
 
     setTimeout(() => {
       const fade = document.getElementById("fadeScreen")
@@ -233,11 +264,17 @@ function _startCombatSequence(mob, tierMob) {
 
       setTimeout(() => {
         const map = document.getElementById("map")
+        const arena = document.getElementById("combatArena")
         const arenaMap = String(_getCombatArenaMap(currentMob, normalizedTier) || "").trim()
-        const arenaMapUrl = /^(data:|blob:|https?:|\/)/i.test(arenaMap)
-          ? arenaMap
-          : "images/" + arenaMap.replace(/^images[\\/]/i, "").replace(/\\/g, "/")
+        const arenaMapUrl = typeof resolveImagePath === "function"
+          ? resolveImagePath(arenaMap)
+          : (/^(data:|blob:|https?:|\/)/i.test(arenaMap)
+              ? arenaMap
+              : "images/" + arenaMap.replace(/^images[\\/]/i, "").replace(/\\/g, "/"))
         map.style.backgroundImage = "url('" + arenaMapUrl.replace(/'/g, "\\'") + "')"
+        if (arena) {
+          arena.style.backgroundImage = "url('" + arenaMapUrl.replace(/'/g, "\\'") + "')"
+        }
         fadeToCombat()
         cf.style.display = "none"; cf.style.opacity = "1"
         fade.style.transition = "opacity 1s ease"; fade.style.opacity = "0"
@@ -316,7 +353,7 @@ function showMobIntro(mob) {
       if (!box || !img) return
       box.style.left = p.left; box.style.transform = p.transform; box.style.right = p.right || "auto"
       box.style.display = "flex"; box.style.opacity = "1"
-      img.src = "images/" + mobName + ".png"
+      img.src = getCombatMobImagePath(mobName)
       if (mobName === "witch" && !window.__witchIntroSoundPlaying) {
         window.__witchIntroSoundPlaying = true
         const witchSound = new Audio("audio/witch.mp3")
@@ -382,7 +419,7 @@ function spawnMobToken(mob) {
 
   token.style.pointerEvents = "auto"; token.style.cursor = "grab"
   if (tokenZone) tokenZone.appendChild(token)
-  img.src = "images/" + mob + ".png"
+  img.src = getCombatMobImagePath(mob)
   token.style.width = "130px"; token.style.height = "130px"
   img.style.width   = "130px"; img.style.height  = "130px"
   token.style.left  = "600px"; token.style.top   = "180px"
@@ -530,7 +567,12 @@ function returnToMap() {
 
   setTimeout(() => {
     const map = document.getElementById("map")
-    if (currentMap) map.style.backgroundImage = "url('images/" + currentMap + "')"
+    if (currentMap && map) {
+      const mapUrl = typeof resolveImagePath === "function"
+        ? resolveImagePath(currentMap)
+        : "images/" + currentMap
+      map.style.backgroundImage = "url('" + String(mapUrl || "").replace(/'/g, "\\'") + "')"
+    }
 
     ;["greg","ju","elo","bibi","mobToken"].forEach(id => {
       const token = document.getElementById(id)
@@ -553,8 +595,11 @@ function returnToMap() {
 
     setTimeout(() => {
       fade.style.transition = "opacity 0.8s ease"; fade.style.opacity = "0"; fade.style.pointerEvents = "none"
-      // Balraug â€” musique dÃ©jÃ  en cours, ne pas relancer
-      if (currentMap && mapMusic[currentMap]) crossfadeMusic(mapMusic[currentMap])
+      if (typeof syncAudioForMapValue === "function") {
+        syncAudioForMapValue(currentMap, 0)
+      } else if (currentMap && mapMusic[currentMap]) {
+        crossfadeMusic(mapMusic[currentMap])
+      }
       if (typeof updateThuumButton === "function") updateThuumButton()
     }, 300)
   }, 600)
@@ -769,17 +814,61 @@ function launchMobDiff(tier) {
 
 const MOB_SELECT_LIST = []
 
+function getCombatMobImagePath(mobId) {
+  const safeId = String(mobId || "").trim()
+  if (!safeId) return ""
+  try {
+    if (typeof getCustomization === "function") {
+      const customization = getCustomization()
+      const assets = customization && customization.assets && typeof customization.assets === "object"
+        ? customization.assets
+        : {}
+      const customAsset = String(
+        assets[safeId + ".png"]
+        || assets[safeId + ".jpg"]
+        || assets[safeId + ".jpeg"]
+        || assets[safeId + ".webp"]
+        || ""
+      ).trim()
+      if (customAsset) return customAsset
+    }
+  } catch (_) {}
+  return "images/" + safeId + ".png"
+}
+
+function getCombatSelectableMobIds() {
+  const ids = []
+  const seen = new Set()
+  const pushId = function(value) {
+    const safe = String(value || "").trim()
+    if (!safe || seen.has(safe)) return
+    seen.add(safe)
+    ids.push(safe)
+  }
+  try {
+    if (typeof getSimpleSandboxMobs === "function") {
+      getSimpleSandboxMobs().forEach(function(item) {
+        pushId(item && item.id)
+      })
+    }
+  } catch (_) {}
+  pushId(_state && _state.pendingMob)
+  return ids
+}
+
 function toggleMobDropdown(slot, triggerEl) {
   const dd = document.getElementById("mobDropdown_" + slot); if (!dd) return
   if (dd.style.display !== "none") { dd.style.display = "none"; return }
-  if (!dd.dataset.built) {
-    dd.dataset.built = "1"
-    const none = document.createElement("div"); none.style.cssText = "padding:5px 10px;font-family:Cinzel,serif;font-size:11px;color:rgb(180,100,100);cursor:pointer;"; none.innerText = "Aucun"; none.onmousedown = e => { e.stopPropagation(); selectMobOption(slot, "", "Aucun") }; dd.appendChild(none)
-    MOB_SELECT_LIST.forEach(m => {
-      const item = document.createElement("div"); item.style.cssText = "padding:5px 10px;font-family:Cinzel,serif;font-size:11px;color:rgb(255,180,180);cursor:pointer;"; item.innerText = m.charAt(0).toUpperCase() + m.slice(1)
-      item.onmousedown = e => { e.stopPropagation(); selectMobOption(slot, m, item.innerText) }; item.onmouseenter = () => item.style.background = "rgb(60,10,10)"; item.onmouseleave = () => item.style.background = ""; dd.appendChild(item)
-    })
-  }
+  dd.innerHTML = ""
+  const none = document.createElement("div"); none.style.cssText = "padding:5px 10px;font-family:Cinzel,serif;font-size:11px;color:rgb(180,100,100);cursor:pointer;"; none.innerText = "Aucun"; none.onmousedown = e => { e.stopPropagation(); selectMobOption(slot, "", "Aucun") }; dd.appendChild(none)
+  getCombatSelectableMobIds().forEach(m => {
+    const item = document.createElement("div"); item.style.cssText = "padding:5px 10px;font-family:Cinzel,serif;font-size:11px;color:rgb(255,180,180);cursor:pointer;"
+    item.innerText = m.charAt(0).toUpperCase() + m.slice(1)
+    item.onmousedown = e => { e.stopPropagation(); selectMobOption(slot, m, item.innerText) }
+    item.onmouseenter = () => item.style.background = "rgb(60,10,10)"
+    item.onmouseleave = () => item.style.background = ""
+    dd.appendChild(item)
+  })
   const rect = triggerEl.getBoundingClientRect()
   dd.style.position = "fixed"; dd.style.top = (rect.bottom+4)+"px"; dd.style.left = rect.left+"px"; dd.style.width = rect.width+"px"; dd.style.display = "block"
 }
@@ -801,9 +890,15 @@ function updateMobPreview() {
   ].filter(s => s.name)
 
   slots.forEach(s => {
-    const div = document.createElement("div"); div.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:4px;"
-    const img = document.createElement("img"); img.src = "images/" + s.name + ".png"; img.style.cssText = "width:60px;height:60px;object-fit:contain;border-radius:50%;border:2px solid rgb(180,40,40);box-shadow:0 0 10px rgb(150,0,0);"; img.onerror = () => img.style.opacity = "0.3"; div.appendChild(img)
-    const lbl = document.createElement("div"); lbl.style.cssText = "font-family:Cinzel,serif;font-size:9px;color:rgb(255,150,150);letter-spacing:1px;"; lbl.innerText = s.name.toUpperCase(); div.appendChild(lbl)
+    const div = document.createElement("div"); div.className = "mobPreviewCard"
+    const img = document.createElement("img")
+    img.src = getCombatMobImagePath(s.name)
+    img.onerror = () => img.style.opacity = "0.3"
+    div.appendChild(img)
+    const lbl = document.createElement("div")
+    lbl.className = "mobPreviewName"
+    lbl.innerText = s.name.toUpperCase()
+    div.appendChild(lbl)
     preview.appendChild(div)
   })
 }

@@ -3859,13 +3859,68 @@ function updateGMStats(playerID, data) {
 }
 
 function getPartyLevel(callback) {
-  const players = ["greg", "ju", "elo", "bibi"]
-  let total = 0, count = 0
-  players.forEach(p => {
-    db.ref("characters/" + p + "/lvl").once("value", snap => {
-      total += parseInt(snap.val()) || 1
-      if (++count === players.length) callback(Math.round(total / players.length))
-    })
+  const done = typeof callback === "function" ? callback : function() {}
+  const rawCount = document.body && document.body.getAttribute("data-sandbox-player-count")
+  const visibleCount = Math.max(1, Math.min(12, parseInt(rawCount, 10) || 4))
+  const players = Array.from({ length: visibleCount }, function(_, index) {
+    const slotIndex = index + 1
+    if (slotIndex === 1) return "greg"
+    if (slotIndex === 2) return "ju"
+    if (slotIndex === 3) return "elo"
+    if (slotIndex === 4) return "bibi"
+    return "slot_" + slotIndex
+  })
+  let total = 0
+  let count = 0
+  let resolved = false
+  const finish = function(level) {
+    if (resolved) return
+    resolved = true
+    done(Math.max(1, parseInt(level, 10) || 1))
+  }
+  const fallbackTimer = setTimeout(function() {
+    try {
+      let fallbackTotal = 0
+      players.forEach(function(playerId) {
+        let lvl = 1
+        try {
+          if (typeof loadSimpleSheetLocal === "function") {
+            const sheet = loadSimpleSheetLocal(playerId) || {}
+            lvl = parseInt(sheet.lvl, 10) || 1
+          }
+        } catch (_) {}
+        fallbackTotal += lvl
+      })
+      finish(Math.round(fallbackTotal / Math.max(1, players.length)))
+    } catch (_) {
+      finish(1)
+    }
+  }, 450)
+  players.forEach(function(p) {
+    try {
+      db.ref("characters/" + p + "/lvl").once("value", function(snap) {
+        total += parseInt(snap.val(), 10) || 1
+        count += 1
+        if (count === players.length) {
+          clearTimeout(fallbackTimer)
+          finish(Math.round(total / Math.max(1, players.length)))
+        }
+      }, function() {
+        total += 1
+        count += 1
+        if (count === players.length) {
+          clearTimeout(fallbackTimer)
+          finish(Math.round(total / Math.max(1, players.length)))
+        }
+      })
+    } catch (_) {
+      total += 1
+      count += 1
+      if (count === players.length) {
+        clearTimeout(fallbackTimer)
+        finish(Math.round(total / Math.max(1, players.length)))
+      }
+    }
   })
 }
 
@@ -4563,6 +4618,21 @@ function collectSandboxLocalSaveData() {
       runtimePnjsSnapshot = getSimpleSandboxPnjs().map(function(item) { return { ...item } })
       customization.content.pnjs = runtimePnjsSnapshot.map(function(item) { return { ...item } })
     }
+    if (typeof getSimpleSandboxCombatArenas === "function") {
+      customization.content.combatArenas = getSimpleSandboxCombatArenas().map(function(item) {
+        return {
+          id: String(item && item.id || ""),
+          label: String(item && item.label || "Arene"),
+          image: String(item && item.image || ""),
+          audio: String(item && item.audio || ""),
+          tier: normalizeSandboxCombatTier(item && item.tier),
+          tiers: Array.isArray(item && item.tiers) ? item.tiers.map(function(entry) { return normalizeSandboxCombatTier(entry) }).filter(Boolean) : [normalizeSandboxCombatTier(item && item.tier)],
+          category: String(item && item.category || "Combat")
+        }
+      })
+    } else {
+      customization.content.combatArenas = Array.isArray(customization.content.combatArenas) ? customization.content.combatArenas : []
+    }
   } catch (_) {}
   const playerIds = Object.keys((customization && customization.players) || {}).filter(Boolean)
   const visiblePlayerCount = Math.max(1, Math.min(12, parseInt(customization && customization.project && customization.project.playerCount, 10) || 4))
@@ -4852,10 +4922,12 @@ async function saveSandboxToLocalFolder() {
     if (typeof window.showDirectoryPicker !== "function") {
       return downloadSandboxLocalSaveFile()
     }
-    let directoryHandle = window.__sandboxDirectoryHandle || null
-    if (!directoryHandle) {
-      directoryHandle = await window.showDirectoryPicker({ mode: "readwrite" })
-    }
+    try {
+      if (typeof getSimpleSandboxCombatArenas === "function" && typeof saveSimpleSandboxCombatArenas === "function") {
+        saveSimpleSandboxCombatArenas(getSimpleSandboxCombatArenas())
+      }
+    } catch (_) {}
+    const directoryHandle = await window.showDirectoryPicker({ mode: "readwrite" })
     if (directoryHandle && typeof directoryHandle.requestPermission === "function") {
       const permission = await directoryHandle.requestPermission({ mode: "readwrite" })
       if (permission !== "granted") throw new Error("directory permission denied")
@@ -4997,6 +5069,34 @@ function applySandboxLocalLoadSnapshot(data, options) {
         category: String(item && item.category || "Custom"),
         tab: normalizeSandboxManagerTabName(item && item.tab)
       }))
+    } catch (_) {}
+    snapshotStage = "setRuntimeCombatArenas"
+    try {
+      const combatArenas = customization && customization.content && Array.isArray(customization.content.combatArenas)
+        ? customization.content.combatArenas
+        : []
+      window.__sandboxCombatArenaCache = combatArenas.map(function(item, index) {
+        const normalizedTier = typeof normalizeSandboxCombatTier === "function"
+          ? normalizeSandboxCombatTier(item && item.tier)
+          : String(item && item.tier || "weak")
+        const normalizedTiers = Array.isArray(item && item.tiers)
+          ? item.tiers.map(function(entry) {
+              return typeof normalizeSandboxCombatTier === "function"
+                ? normalizeSandboxCombatTier(entry)
+                : String(entry || "").trim()
+            }).filter(Boolean)
+          : []
+        const tiers = normalizedTiers.length ? Array.from(new Set(normalizedTiers)) : [normalizedTier]
+        return {
+          id: String(item && item.id || ("arena_" + index)),
+          label: String(item && item.label || "Arene"),
+          image: String(item && item.image || ""),
+          audio: String(item && item.audio || ""),
+          tier: tiers[0] || normalizedTier,
+          tiers: tiers,
+          category: String(item && item.category || "Combat")
+        }
+      })
     } catch (_) {}
     snapshotStage = "persistCharacters"
     try {
@@ -6727,23 +6827,24 @@ function configureSandboxCombatArena(index) {
   const items = getSimpleSandboxCombatArenas()
   const item = items[Number(index)]
   if (!item) return false
-  openSandboxCombatArenaTierPicker(Number(index))
+  const numericIndex = Number(index)
+  window.__sandboxCombatArenaEditingIndex = window.__sandboxCombatArenaEditingIndex === numericIndex ? null : numericIndex
+  try { renderSandboxManagerPanelById("mobMenu2") } catch (_) {}
   return false
 }
 
 function closeSandboxCombatArenaTierPicker() {
-  const overlay = document.getElementById("sandboxCombatArenaTierPicker")
-  if (overlay) overlay.remove()
-  window.__sandboxCombatArenaTierPickerIndex = null
+  window.__sandboxCombatArenaEditingIndex = null
+  try { renderSandboxManagerPanelById("mobMenu2") } catch (_) {}
   return false
 }
 
 function saveSandboxCombatArenaTierPicker() {
-  const index = Number(window.__sandboxCombatArenaTierPickerIndex)
+  const index = Number(window.__sandboxCombatArenaEditingIndex)
   const items = getSimpleSandboxCombatArenas()
   const item = items[index]
   if (!item) return closeSandboxCombatArenaTierPicker()
-  const selected = Array.from(document.querySelectorAll('[data-sandbox-arena-tier-option]:checked')).map(function(input) {
+  const selected = Array.from(document.querySelectorAll('[data-sandbox-arena-tier-option="' + index + '"]:checked')).map(function(input) {
     return normalizeSandboxCombatTier(input.value)
   }).filter(Boolean)
   const tiers = selected.length ? Array.from(new Set(selected)) : ["weak"]
@@ -6756,40 +6857,7 @@ function saveSandboxCombatArenaTierPicker() {
 }
 
 function openSandboxCombatArenaTierPicker(index) {
-  const items = getSimpleSandboxCombatArenas()
-  const item = items[Number(index)]
-  if (!item) return false
-  closeSandboxCombatArenaTierPicker()
-  window.__sandboxCombatArenaTierPickerIndex = Number(index)
-  const overlay = document.createElement("div")
-  overlay.id = "sandboxCombatArenaTierPicker"
-  overlay.setAttribute("data-keep-gm-open", "true")
-  const selected = Array.isArray(item.tiers) && item.tiers.length ? item.tiers : [normalizeSandboxCombatTier(item.tier)]
-  const options = SANDBOX_COMBAT_TIERS.map(function(meta) {
-    const checked = selected.includes(meta.value) ? "checked" : ""
-    return (
-      `<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid rgba(214,180,106,0.24);background:rgba(0,0,0,0.18);cursor:pointer;">` +
-        `<input type="checkbox" data-sandbox-arena-tier-option value="${meta.value}" ${checked} style="accent-color:${meta.accent};width:16px;height:16px;">` +
-        `<span style="font-family:Cinzel,serif;color:#f5e6c8;font-size:13px;">${meta.label}</span>` +
-      `</label>`
-    )
-  }).join("")
-  overlay.innerHTML =
-    `<div onclick="return closeSandboxCombatArenaTierPicker()" style="position:fixed;inset:0;background:rgba(0,0,0,0.42);"></div>` +
-    `<div style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(92vw,420px);display:grid;gap:12px;padding:16px;border-radius:16px;border:1px solid rgba(214,180,106,0.28);background:linear-gradient(180deg, rgba(36,25,18,0.98), rgba(16,9,5,0.98));box-shadow:0 22px 60px rgba(0,0,0,0.45);z-index:100002;">` +
-      `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">` +
-        `<div style="font-family:Cinzel,serif;color:#e6c27a;font-size:15px;letter-spacing:1.5px;">Difficultes de l'arene</div>` +
-        `<button type="button" onclick="return closeSandboxCombatArenaTierPicker()" style="width:36px;height:36px;border-radius:999px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f5e6c8;cursor:pointer;">×</button>` +
-      `</div>` +
-      `<div style="font-size:12px;line-height:1.6;color:rgba(255,240,210,0.82);">Coche une ou plusieurs difficultes. Cette arene sera utilisee pour tous les niveaux selectionnes.</div>` +
-      `<div style="display:grid;gap:8px;">${options}</div>` +
-      `<div style="display:flex;justify-content:flex-end;gap:8px;">` +
-        `<button type="button" onclick="return closeSandboxCombatArenaTierPicker()" style="padding:9px 12px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:10px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Annuler</button>` +
-        `<button type="button" onclick="return saveSandboxCombatArenaTierPicker()" style="padding:9px 12px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:10px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Valider</button>` +
-      `</div>` +
-    `</div>`
-  document.body.appendChild(overlay)
-  return false
+  return configureSandboxCombatArena(index)
 }
 
 function deleteSandboxCombatArena(index) {
@@ -7097,6 +7165,25 @@ function buildSandboxManagerPanel(options) {
                     const tierLabels = tierValues.map(function(value) { return getSandboxCombatTierMeta(value).label }).join(", ")
                     const imageState = item && item.image ? "image prete" : "image manquante"
                     const audioState = item && item.audio ? "musique prete" : "musique par defaut"
+                    const isEditingTiers = window.__sandboxCombatArenaEditingIndex != null && Number(window.__sandboxCombatArenaEditingIndex) === Number(index)
+                    const tierEditor = isEditingTiers
+                      ? `<div style="display:grid;gap:10px;padding:12px;border-radius:12px;border:1px solid rgba(214,180,106,0.22);background:rgba(12,8,5,0.38);">` +
+                          `<div style="font-size:11px;color:#e6c27a;letter-spacing:1px;">CHOIX DES DIFFICULTES</div>` +
+                          `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;">` +
+                            SANDBOX_COMBAT_TIERS.map(function(meta) {
+                              const checked = tierValues.includes(meta.value) ? "checked" : ""
+                              return `<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.04);cursor:pointer;">` +
+                                `<input type="checkbox" data-sandbox-arena-tier-option="${index}" value="${meta.value}" ${checked} style="accent-color:${meta.accent};width:16px;height:16px;">` +
+                                `<span style="font-size:12px;color:#f5e6c8;font-family:Cinzel,serif;">${meta.label}</span>` +
+                              `</label>`
+                            }).join("") +
+                          `</div>` +
+                          `<div style="display:flex;justify-content:flex-end;gap:8px;">` +
+                            `<button type="button" data-keep-gm-open="true" onclick="return closeSandboxCombatArenaTierPicker()" style="padding:8px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Annuler</button>` +
+                            `<button type="button" data-keep-gm-open="true" onclick="return saveSandboxCombatArenaTierPicker()" style="padding:8px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Valider</button>` +
+                          `</div>` +
+                        `</div>`
+                      : ""
                     return (
                       `<div ondragover="event.preventDefault();return false" ondrop="dropSandboxCombatArena(${index});return false" style="display:grid;gap:8px;padding:10px;background:rgba(0,0,0,0.18);border:1px solid rgba(214,180,106,0.18);border-radius:10px;">` +
                         `<div style="display:flex;gap:8px;align-items:center;">` +
@@ -7112,9 +7199,9 @@ function buildSandboxManagerPanel(options) {
                           `<button type="button" data-keep-gm-open="true" onclick="configureSandboxCombatArena(${index})" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Difficulte</button>` +
                           `<button type="button" data-keep-gm-open="true" onclick="replaceSandboxCombatArenaImage(${index})" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Image</button>` +
                           `<button type="button" data-keep-gm-open="true" onclick="pickSandboxCombatArenaMusic(${index})" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Musique</button>` +
-                          `<button type="button" data-keep-gm-open="true" onclick="clearSandboxCombatArenaMusic(${index})" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Couper musique</button>` +
                           `<button type="button" data-keep-gm-open="true" onclick="deleteSandboxCombatArena(${index})" style="padding:7px 9px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(214,110,110,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Supprimer</button>` +
                         `</div>` +
+                        tierEditor +
                       `</div>`
                     )
                   }).join("")
@@ -9362,6 +9449,7 @@ document.addEventListener("keydown", e => {
     const savePanel = document.getElementById("savePanel"); if (savePanel) { savePanel.remove(); return }
     const wantedEditor = document.getElementById("wantedEditor"); if (wantedEditor && wantedEditor.style.display !== "none") { wantedEditor.style.display = "none"; return }
     const mobSelectionMenu = document.getElementById("mobSelectionMenu"); if (mobSelectionMenu && mobSelectionMenu.style.display !== "none") { mobSelectionMenu.style.display = "none"; return }
+    if (window.__sandboxCombatArenaEditingIndex != null) { closeSandboxCombatArenaTierPicker(); return }
     const wantedBoard = document.getElementById("wantedBoardOverlay")
     const wantedOverlay = document.getElementById("wantedOverlay")
     if (wantedBoard && wantedOverlay) { if (typeof closeWantedBoard === "function") closeWantedBoard(); else wantedBoard.remove(); return }
