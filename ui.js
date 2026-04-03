@@ -91,6 +91,7 @@ function openCharacterSheet(id = null) {
   })
   document.getElementById("characterSheet").style.display = "block"
   loadGold(playerID)
+  try { if (typeof syncNotebookDockButtonState === "function") syncNotebookDockButtonState() } catch (_) {}
   // Verifier si des points libres sont disponibles
   if (!isGM || playerID === myToken?.id) setTimeout(() => checkFreePoints(playerID), 300)
 }
@@ -100,6 +101,7 @@ function closeCharacterSheet() {
   const sheet = document.getElementById("characterSheet"); if (!sheet) return
   sheet.style.display = "none"
   if (pendingLevelUp[currentSheetPlayer]) { triggerLevelUp(currentSheetPlayer); pendingLevelUp[currentSheetPlayer] = false }
+  try { if (typeof syncNotebookDockButtonState === "function") syncNotebookDockButtonState() } catch (_) {}
 }
 
 function forceCloseCharacterSheetWithoutSave() {
@@ -447,6 +449,170 @@ function buildGMEditableAttackBlock(playerID, attack, attackIndex) {
   return block
 }
 
+function cloneMobCombatAttack(attack) {
+  return {
+    name: String(attack && attack.name || "Attaque"),
+    icon: String(attack && attack.icon || "⚔"),
+    dmgMin: Math.max(0, parseInt(attack && attack.dmgMin, 10) || 0),
+    dmgMax: Math.max(0, parseInt(attack && attack.dmgMax, 10) || 0),
+    effect: String(attack && attack.effect || ""),
+    desc: String(attack && attack.desc || "")
+  }
+}
+
+function cloneMobSpecialAttack(attack) {
+  return {
+    name: String(attack && attack.name || "Attaque speciale"),
+    icon: String(attack && attack.icon || "✨"),
+    dmgMin: Math.max(0, parseInt(attack && attack.dmgMin, 10) || 0),
+    dmgMax: Math.max(0, parseInt(attack && attack.dmgMax, 10) || 0),
+    effect: String(attack && attack.effect || ""),
+    animation: String(attack && attack.animation || ""),
+    flavor: String(attack && attack.flavor || ""),
+    special: true
+  }
+}
+
+function getSandboxCombatMobDefinition(mobId) {
+  try {
+    const safeId = String(mobId || "").trim()
+    if (!safeId || typeof getSimpleSandboxMobs !== "function") return null
+    return getSimpleSandboxMobs().find(function(item) {
+      return String(item && item.id || "").trim() === safeId
+    }) || null
+  } catch (_) {}
+  return null
+}
+
+function getMobCombatAttacks(mobId, mobTier) {
+  const mobDefinition = getSandboxCombatMobDefinition(mobId)
+  if (mobDefinition && Array.isArray(mobDefinition.attacks) && mobDefinition.attacks.length) {
+    return mobDefinition.attacks.map(cloneMobCombatAttack)
+  }
+  const legacy = typeof getMobAttacksForMob === "function"
+    ? getMobAttacksForMob(mobId, mobTier)
+    : ((mobAttacks && mobAttacks[mobTier]) || (mobAttacks && mobAttacks.weak) || [])
+  return legacy.map(cloneMobCombatAttack)
+}
+
+function getMobCombatSpecialAttack(mobId, mobTier) {
+  const mobDefinition = getSandboxCombatMobDefinition(mobId)
+  if (mobDefinition && mobDefinition.specialAttack) return cloneMobSpecialAttack(mobDefinition.specialAttack)
+  return typeof getMobSpecialAttack === "function" ? cloneMobSpecialAttack(getMobSpecialAttack(mobId, mobTier)) : null
+}
+
+function saveMobCombatAttackSet(mobId, nextAttacks, nextSpecialAttack) {
+  try {
+    if (typeof getSimpleSandboxMobs !== "function" || typeof saveSimpleSandboxMobs !== "function") return false
+    const items = getSimpleSandboxMobs()
+    const targetIndex = items.findIndex(function(item) {
+      return String(item && item.id || "").trim() === String(mobId || "").trim()
+    })
+    if (targetIndex < 0) return false
+    items[targetIndex].attacks = (Array.isArray(nextAttacks) ? nextAttacks : []).map(cloneMobCombatAttack)
+    items[targetIndex].specialAttack = nextSpecialAttack ? cloneMobSpecialAttack(nextSpecialAttack) : null
+    return saveSimpleSandboxMobs(items)
+  } catch (_) {}
+  return false
+}
+
+function addMobCombatAttack(mobId) {
+  const attacks = getMobCombatAttacks(mobId, "weak")
+  attacks.push(cloneMobCombatAttack(null))
+  return saveMobCombatAttackSet(mobId, attacks, getMobCombatSpecialAttack(mobId, "weak"))
+}
+
+function moveMobCombatAttack(mobId, attackIndex, direction) {
+  const attacks = getMobCombatAttacks(mobId, "weak")
+  const sourceIndex = Number(attackIndex)
+  const destIndex = sourceIndex + Number(direction || 0)
+  if (sourceIndex < 0 || sourceIndex >= attacks.length || destIndex < 0 || destIndex >= attacks.length) return false
+  const moved = attacks.splice(sourceIndex, 1)[0]
+  attacks.splice(destIndex, 0, moved)
+  return saveMobCombatAttackSet(mobId, attacks, getMobCombatSpecialAttack(mobId, "weak"))
+}
+
+function deleteMobCombatAttack(mobId, attackIndex) {
+  const attacks = getMobCombatAttacks(mobId, "weak")
+  const sourceIndex = Number(attackIndex)
+  if (sourceIndex < 0 || sourceIndex >= attacks.length) return false
+  attacks.splice(sourceIndex, 1)
+  return saveMobCombatAttackSet(mobId, attacks, getMobCombatSpecialAttack(mobId, "weak"))
+}
+
+function updateMobCombatAttackField(mobId, attackIndex, field, value) {
+  const attacks = getMobCombatAttacks(mobId, "weak")
+  const target = attacks[Number(attackIndex)]
+  if (!target) return false
+  if (field === "dmgMin" || field === "dmgMax") target[field] = Math.max(0, parseInt(value, 10) || 0)
+  else target[field] = String(value || "").trim()
+  return saveMobCombatAttackSet(mobId, attacks, getMobCombatSpecialAttack(mobId, "weak"))
+}
+
+function updateMobCombatSpecialField(mobId, field, value) {
+  const attacks = getMobCombatAttacks(mobId, "weak")
+  const special = getMobCombatSpecialAttack(mobId, "weak") || cloneMobSpecialAttack(null)
+  if (field === "dmgMin" || field === "dmgMax") special[field] = Math.max(0, parseInt(value, 10) || 0)
+  else special[field] = String(value || "").trim()
+  return saveMobCombatAttackSet(mobId, attacks, special)
+}
+
+function buildGMEditableMobAttackBlock(mobId, attack, attackIndex) {
+  const block = document.createElement("div")
+  block.className = "combatBlock gmEditableAttackBlock"
+  block.innerHTML =
+    `<label class="gmAttackField"><span>Nom</span><input type="text" value="${String(attack.name || "").replace(/"/g, "&quot;")}"></label>` +
+    `<div class="gmAttackRow">` +
+      `<label class="gmAttackField"><span>Icone</span><input type="text" value="${String(attack.icon || "").replace(/"/g, "&quot;")}"></label>` +
+      `<label class="gmAttackField gmAttackDiceField"><span>Min</span><input type="number" min="0" max="999" value="${Math.max(0, parseInt(attack.dmgMin, 10) || 0)}"></label>` +
+      `<label class="gmAttackField gmAttackDiceField"><span>Max</span><input type="number" min="0" max="999" value="${Math.max(0, parseInt(attack.dmgMax, 10) || 0)}"></label>` +
+    `</div>` +
+    `<label class="gmAttackField"><span>Effet</span><input type="text" value="${String(attack.effect || "").replace(/"/g, "&quot;")}"></label>` +
+    `<label class="gmAttackField"><span>Description</span><textarea rows="2">${String(attack.desc || "")}</textarea></label>` +
+    `<div class="gmAttackControls">` +
+      `<button type="button">Monter</button>` +
+      `<button type="button">Descendre</button>` +
+      `<button type="button" class="danger">Supprimer</button>` +
+    `</div>`
+  const fields = ["name", "icon", "dmgMin", "dmgMax", "effect", "desc"]
+  block.querySelectorAll("input, textarea").forEach(function(input, index) {
+    input.addEventListener("change", function() {
+      updateMobCombatAttackField(mobId, attackIndex, fields[index], input.value)
+      renderAllMobPanels()
+    })
+  })
+  const controls = block.querySelectorAll(".gmAttackControls button")
+  controls[0].onclick = function() { const result = moveMobCombatAttack(mobId, attackIndex, -1); renderAllMobPanels(); return result }
+  controls[1].onclick = function() { const result = moveMobCombatAttack(mobId, attackIndex, 1); renderAllMobPanels(); return result }
+  controls[2].onclick = function() { const result = deleteMobCombatAttack(mobId, attackIndex); renderAllMobPanels(); return result }
+  return block
+}
+
+function buildGMEditableMobSpecialBlock(mobId, attack) {
+  const special = attack || cloneMobSpecialAttack(null)
+  const block = document.createElement("div")
+  block.className = "combatBlock gmEditableAttackBlock gmEditableSpecialAttackBlock"
+  block.innerHTML =
+    `<div class="gmMiniTitle">Attaque speciale</div>` +
+    `<label class="gmAttackField"><span>Nom</span><input type="text" value="${String(special.name || "").replace(/"/g, "&quot;")}"></label>` +
+    `<div class="gmAttackRow">` +
+      `<label class="gmAttackField"><span>Icone</span><input type="text" value="${String(special.icon || "").replace(/"/g, "&quot;")}"></label>` +
+      `<label class="gmAttackField gmAttackDiceField"><span>Min</span><input type="number" min="0" max="999" value="${Math.max(0, parseInt(special.dmgMin, 10) || 0)}"></label>` +
+      `<label class="gmAttackField gmAttackDiceField"><span>Max</span><input type="number" min="0" max="999" value="${Math.max(0, parseInt(special.dmgMax, 10) || 0)}"></label>` +
+    `</div>` +
+    `<label class="gmAttackField"><span>Effet</span><input type="text" value="${String(special.effect || "").replace(/"/g, "&quot;")}"></label>` +
+    `<label class="gmAttackField"><span>Animation</span><input type="text" value="${String(special.animation || "").replace(/"/g, "&quot;")}"></label>` +
+    `<label class="gmAttackField"><span>Texte</span><textarea rows="2">${String(special.flavor || "")}</textarea></label>`
+  const fields = ["name", "icon", "dmgMin", "dmgMax", "effect", "animation", "flavor"]
+  block.querySelectorAll("input, textarea").forEach(function(input, index) {
+    input.addEventListener("change", function() {
+      updateMobCombatSpecialField(mobId, fields[index], input.value)
+      renderAllMobPanels()
+    })
+  })
+  return block
+}
+
 function cleanupGMPlayerSheetListener(playerID) {
   if (!window.__gmMiniRefs || !window.__gmMiniRefs[playerID]) return
   const binding = window.__gmMiniRefs[playerID]
@@ -520,7 +686,8 @@ function openGMPlayerSheet(playerID) {
       box.appendChild(block)
     }
   })
-  panel.appendChild(box); makeDraggable(box)
+  panel.appendChild(box)
+  if (!isSandboxStudio) makeDraggable(box)
   const ref = db.ref("characters/" + playerID)
   const cb = snap => {
     const d = snap.val(); if (!d) return
@@ -620,46 +787,19 @@ function renderAllMobPanels() {
   const exT=document.getElementById("mobAttackToggle"); if(exT) exT.remove()
   const active = MOB_SLOTS.filter(s => activeMobSlots[s]); if (!active.length || !combatActive) return
 
-  const toggle = document.createElement("div"); toggle.id = "mobAttackToggle"
-  toggle.style.cssText = "position:fixed;bottom:160px;right:20px;z-index:9999999;font-family:Cinzel,serif;font-size:11px;color:#ff8888;background:rgba(10,0,0,0.9);border:1px solid rgba(180,40,40,0.5);border-radius:4px;padding:4px 10px;cursor:pointer;"
-  toggle.innerText = "âš” Attaques Mobs"
-
   const container = document.createElement("div"); container.id = "mobAttackPanel"
-  container.style.cssText = "position:fixed;bottom:200px;right:20px;width:270px;display:flex;flex-direction:column;gap:6px;z-index:9999999;max-height:65vh;overflow-y:auto;"
-
-  // Grab & drop pour le MJ
-  if (isGM) {
-    let dragging=false, ox=0, oy=0
-    container.style.cursor = "grab"
-    container.addEventListener("mousedown", e => {
-      if (e.target.tagName==="BUTTON"||e.target.tagName==="DIV"&&e.target.onclick) return
-      dragging=true; ox=e.clientX-container.offsetLeft; oy=e.clientY-container.offsetTop
-      container.style.cursor="grabbing"; e.preventDefault()
-    })
-    document.addEventListener("mousemove", e => {
-      if (!dragging) return
-      container.style.left=Math.max(0,Math.min(window.innerWidth-280,e.clientX-ox))+"px"
-      container.style.top=Math.max(0,Math.min(window.innerHeight-200,e.clientY-oy))+"px"
-      container.style.bottom="auto"; container.style.right="auto"
-    })
-    document.addEventListener("mouseup", () => { dragging=false; container.style.cursor="grab" })
-  }
-
-  toggle.onclick = () => { toggle.style.display="none"; container.style.display="flex" }
-  document.body.appendChild(toggle)
+  container.style.cssText = "position:fixed;top:50%;right:20px;transform:translateY(-50%);width:min(360px,28vw);display:flex;flex-direction:column;gap:10px;z-index:9999999;max-height:72vh;overflow-y:auto;padding:10px;border-radius:18px;background:linear-gradient(180deg,rgba(22,6,6,0.94),rgba(10,0,0,0.96));border:1px solid rgba(180,40,40,0.35);box-shadow:0 20px 60px rgba(0,0,0,0.4);"
   active.forEach(slot => { db.ref("combat/"+slot).once("value", snap => { const md=snap.val(); if(md) container.appendChild(buildMobSubPanel(md,slot)) }) })
   document.body.appendChild(container)
 }
 
 function buildMobSubPanel(mobData, slot) {
-  const panel = document.createElement("div"); panel.style.cssText = "background:rgba(10,0,0,0.92);border:2px solid rgba(180,40,40,0.6);border-radius:8px;padding:10px;"
+  const panel = document.createElement("div"); panel.style.cssText = "background:rgba(10,0,0,0.78);border:1px solid rgba(180,40,40,0.5);border-radius:14px;padding:12px;"
   const header = document.createElement("div"); header.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"
-  const tEl = document.createElement("div"); tEl.style.cssText = "font-family:Cinzel,serif;font-size:12px;color:#ff8888;font-weight:bold;"; tEl.innerText = "âš” "+(mobData.name||"MOB").toUpperCase()+" Niv."+(mobData.lvl||1); header.appendChild(tEl)
+  const tEl = document.createElement("div"); tEl.style.cssText = "font-family:Cinzel,serif;font-size:12px;color:#ff8888;font-weight:bold;"; tEl.innerText = "⚔ " + (mobData.name||"MOB").toUpperCase() + "  Niv " + (mobData.lvl||1); header.appendChild(tEl)
 
   if (isGM) {
-    const cBtn = document.createElement("button"); cBtn.style.cssText = "padding:2px 8px;font-size:11px;background:rgba(40,40,80,0.5);color:#8888ff;border:1px solid rgba(80,80,180,0.4);border-radius:3px;cursor:pointer;"; cBtn.innerText = "â€”"
-    cBtn.onclick=()=>{ const p=panel.closest("#mobAttackPanel"); if(p) p.style.display="none"; const tg=document.getElementById("mobAttackToggle"); if(tg) tg.style.display="block" }; header.appendChild(cBtn)
-    const xBtn = document.createElement("button"); xBtn.style.cssText = "padding:2px 8px;font-size:11px;background:rgba(120,0,0,0.5);color:#ff8888;border:1px solid rgba(180,0,0,0.4);border-radius:3px;cursor:pointer;"; xBtn.innerText = "âœ•"; xBtn.onclick=()=>removeMobSlot(slot); header.appendChild(xBtn)
+    const xBtn = document.createElement("button"); xBtn.style.cssText = "padding:2px 8px;font-size:11px;background:rgba(120,0,0,0.5);color:#ff8888;border:1px solid rgba(180,0,0,0.4);border-radius:3px;cursor:pointer;"; xBtn.innerText = "✕"; xBtn.onclick=()=>removeMobSlot(slot); header.appendChild(xBtn)
   }
   panel.appendChild(header)
 
@@ -667,7 +807,7 @@ function buildMobSubPanel(mobData, slot) {
   const hpWrap = document.createElement("div"); hpWrap.style.cssText = "width:100%;height:6px;background:rgba(80,0,0,0.5);border-radius:3px;margin-bottom:8px;"
   const hpFill = document.createElement("div"); hpFill.style.cssText = `width:${pct}%;height:100%;background:${pct>50?"#44ff44":pct>25?"#ffaa00":"#ff3333"};border-radius:3px;transition:width 0.3s;`; hpWrap.appendChild(hpFill); panel.appendChild(hpWrap)
 
-  const tier = mobData.tier||"weak", atks = typeof getMobAttacksForMob === "function" ? getMobAttacksForMob(mobData.name, tier) : (mobAttacks[tier]||mobAttacks.weak), mobLvl = mobData.lvl||1
+  const tier = mobData.tier||"weak", atks = getMobCombatAttacks(mobData.name, tier), mobLvl = mobData.lvl||1
   const getRange = (attack, lvl, mobTier) => {
     if (typeof getMobDamageRange === "function") return getMobDamageRange(attack, lvl, mobTier)
     const factor = 1 + Math.max(0, (lvl || 1) - 1) * 0.15
@@ -676,13 +816,28 @@ function buildMobSubPanel(mobData, slot) {
       max: Math.round((attack?.dmgMax || 0) * factor)
     }
   }
-  const specialAtk = typeof getMobSpecialAttack === "function" ? getMobSpecialAttack(mobData.name, tier) : null
+  const specialAtk = getMobCombatSpecialAttack(mobData.name, tier)
   const specialUsed = !!mobData.specialUsed
+  const isSandboxStudio = !!(document.body && document.body.classList.contains("sandbox-studio-mode"))
+  const mobDefinition = getSandboxCombatMobDefinition(mobData.name)
+
+  if (isSandboxStudio && isGM && mobDefinition) {
+    const addBtn = document.createElement("button")
+    addBtn.type = "button"
+    addBtn.className = "gmAttackAddButton"
+    addBtn.innerText = "+ Ajouter une attaque de mob"
+    addBtn.onclick = function() { addMobCombatAttack(mobData.name); renderAllMobPanels(); return false }
+    panel.appendChild(addBtn)
+    atks.forEach(function(atk, attackIndex) {
+      panel.appendChild(buildGMEditableMobAttackBlock(mobData.name, atk, attackIndex))
+    })
+    panel.appendChild(buildGMEditableMobSpecialBlock(mobData.name, specialAtk))
+    return panel
+  }
 
   if (isGM) {
-    // Bouton alÃ©atoire intelligent
     const rBtn = document.createElement("button"); rBtn.style.cssText = "width:100%;padding:5px;margin-bottom:5px;font-family:Cinzel,serif;font-size:10px;background:rgba(80,30,120,0.5);color:#cc88ff;border:1px solid rgba(120,50,200,0.5);border-radius:4px;cursor:pointer;"
-    rBtn.innerText = "ðŸŽ² AlÃ©atoire (ciblage auto)"
+    rBtn.innerText = "🎲 Aleatoire (ciblage auto)"
     rBtn.onclick = () => {
       const av = atks.filter(a=>a.name!==panel._lastAttack)
       const atk = (av.length?av:atks)[Math.floor(Math.random()*(av.length||atks.length))]
@@ -698,7 +853,7 @@ function buildMobSubPanel(mobData, slot) {
       const range = getRange(atk, mobLvl, tier)
       const min = range.min, max = range.max
       btn.style.cssText = `padding:6px 8px;margin-bottom:4px;background:rgba(120,10,10,${isCD?"0.2":"0.4"});border:1px solid rgba(180,40,40,${isCD?"0.2":"0.4"});border-radius:4px;cursor:${isCD?"not-allowed":"pointer"};opacity:${isCD?"0.5":"1"};`
-      btn.innerHTML = `<div style="display:flex;align-items:center;gap:6px;"><span style="font-size:14px;">${atk.icon}</span><span style="font-family:Cinzel,serif;font-size:10px;color:${isCD?"#666":"#ffcccc"};font-weight:bold;">${atk.name}${isCD?" â±":""}</span><span style="font-size:9px;color:#ff8888;margin-left:auto;">${min}-${max}</span></div>`
+      btn.innerHTML = `<div style="display:flex;align-items:center;gap:6px;"><span style="font-size:14px;">${atk.icon}</span><span style="font-family:Cinzel,serif;font-size:10px;color:${isCD?"#666":"#ffcccc"};font-weight:bold;">${atk.name}${isCD?" ⏱":""}</span><span style="font-size:9px;color:#ff8888;margin-left:auto;">${min}-${max}</span></div>`
       if (!isCD) {
         btn.onmouseenter=()=>btn.style.background="rgba(180,20,20,0.6)"
         btn.onmouseleave=()=>btn.style.background="rgba(120,10,10,0.4)"
@@ -716,7 +871,7 @@ function buildMobSubPanel(mobData, slot) {
       const sMin = specialRange.min, sMax = specialRange.max
       const sBtn = document.createElement("div")
       sBtn.style.cssText = `padding:8px 10px;margin:8px 0 4px;background:${specialUsed?"rgba(60,30,30,0.35)":"linear-gradient(135deg,rgba(120,20,20,0.88),rgba(40,0,0,0.96))"};border:1px solid ${specialUsed?"rgba(140,80,80,0.3)":"rgba(255,180,110,0.55)"};border-radius:6px;cursor:${specialUsed?"not-allowed":"pointer"};opacity:${specialUsed?"0.55":"1"};box-shadow:${specialUsed?"none":"0 0 24px rgba(255,120,60,0.18)"};`
-      sBtn.innerHTML = `<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:16px;">${specialAtk.icon}</span><span style="font-family:Cinzel,serif;font-size:10px;color:${specialUsed?"#aa8888":"#ffd6a0"};font-weight:bold;letter-spacing:0.5px;">${specialAtk.name}${specialUsed?" â€” UNIQUE DÃ‰JÃ€ UTILISÃ‰E":""}</span><span style="font-size:9px;color:${specialUsed?"#9a6a6a":"#ffb37a"};margin-left:auto;">${sMin}-${sMax}</span></div><div style="font-size:9px;color:${specialUsed?"#8a6a6a":"#ffb988"};margin-top:4px;line-height:1.35;">${specialAtk.flavor || "Attaque signature Ã  usage unique."}</div>`
+      sBtn.innerHTML = `<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:16px;">${specialAtk.icon}</span><span style="font-family:Cinzel,serif;font-size:10px;color:${specialUsed?"#aa8888":"#ffd6a0"};font-weight:bold;letter-spacing:0.5px;">${specialAtk.name}${specialUsed?" — UNIQUE DEJA UTILISEE":""}</span><span style="font-size:9px;color:${specialUsed?"#9a6a6a":"#ffb37a"};margin-left:auto;">${sMin}-${sMax}</span></div><div style="font-size:9px;color:${specialUsed?"#8a6a6a":"#ffb988"};margin-top:4px;line-height:1.35;">${specialAtk.flavor || "Attaque signature a usage unique."}</div>`
       if (!specialUsed) {
         sBtn.onmouseenter=()=>sBtn.style.filter="brightness(1.08)"
         sBtn.onmouseleave=()=>sBtn.style.filter=""
@@ -733,8 +888,8 @@ function buildMobSubPanel(mobData, slot) {
     const targetRow = document.createElement("div"); targetRow.style.cssText = "display:flex;gap:3px;margin-top:6px;flex-wrap:wrap;border-top:1px solid rgba(180,40,40,0.2);padding-top:6px;"
     const label = document.createElement("div"); label.style.cssText = "width:100%;font-family:Cinzel,serif;font-size:9px;color:#5a3a3a;margin-bottom:3px;"; label.innerText = "Forcer la cible :"
     targetRow.appendChild(label)
-    ;["greg","ju","elo","bibi"].forEach(pid => {
-      const btn = document.createElement("button"); btn.dataset.target=pid; btn.style.cssText = "padding:2px 6px;font-family:Cinzel,serif;font-size:9px;border-radius:2px;cursor:pointer;border:1px solid rgba(180,40,40,0.4);background:rgba(60,10,10,0.6);color:#ffaaaa;"; btn.innerText = pid.toUpperCase()
+    getVisibleCombatPlayerIds().forEach(pid => {
+      const btn = document.createElement("button"); btn.dataset.target=pid; btn.style.cssText = "padding:2px 6px;font-family:Cinzel,serif;font-size:9px;border-radius:2px;cursor:pointer;border:1px solid rgba(180,40,40,0.4);background:rgba(60,10,10,0.6);color:#ffaaaa;"; btn.innerText = typeof getPlayerDisplayName === "function" ? getPlayerDisplayName(pid) : pid.toUpperCase()
       btn.onclick=()=>{ targetRow.querySelectorAll("button[data-target]").forEach(b=>{ b.style.background=b.dataset.target===pid?"rgba(180,40,40,0.6)":"rgba(60,10,10,0.6)" }); panel._currentTarget=pid }
       targetRow.appendChild(btn)
     })
@@ -782,24 +937,24 @@ function applyMobDamageToPlayer(pid, dmg, attack, mobData, slot) {
 
 function launchMobAttackFromSlot(attack, mobData, panel, forcedTarget, slot) {
   const target = forcedTarget || panel._currentTarget
-  if (!target && attack.effect !== "all") { showNotification("âš  Choisissez une cible !"); return }
-  if (attack.special && mobData.specialUsed) { showNotification("âš  Attaque spÃ©ciale dÃ©jÃ  utilisÃ©e"); return }
+  if (!target && attack.effect !== "all") { showNotification("Choisissez une cible !"); return }
+  if (attack.special && mobData.specialUsed) { showNotification("Attaque speciale deja utilisee"); return }
   panel._lastAttack = attack.name
   animateMobDice(() => {
     const dmg = getMobDamage(attack, mobData.lvl||1, mobData.tier||"weak")
     const mobLabel = (mobData.name || "MOB").toUpperCase()
     const targetLabel = (attack.effect === "all" || target === "all") ? "TOUS" : String(target || "").toUpperCase()
-    const specialTag = attack.special ? " âœ¦ SPÃ‰CIALE" : ""
+    const specialTag = attack.special ? " ✦ SPECIALE" : ""
     if (attack.special && slot) db.ref("combat/" + slot + "/specialUsed").set(true)
     if (attack.effect === "all" || target === "all") {
-      ;["greg","ju","elo","bibi"].forEach(pid => applyMobDamageToPlayer(pid, dmg, attack, mobData, slot))
+      getVisibleCombatPlayerIds().forEach(pid => applyMobDamageToPlayer(pid, dmg, attack, mobData, slot))
       db.ref("game/mobAttackEvent").set({ attackName:attack.name, icon:attack.icon, dmg, target:"TOUS", mobName:(mobData.name||"MOB").toUpperCase(), time:Date.now(), special:!!attack.special, animation:attack.animation || "", flavor:attack.flavor || "" })
-      addMJLog(`${attack.icon} ${mobLabel} â€” ${attack.name}${specialTag} â†’ TOUS : ${dmg} dÃ©gÃ¢ts`)
+      addMJLog(`${attack.icon} ${mobLabel} -> ${attack.name}${specialTag} -> TOUS : ${dmg} degats`)
     } else {
       applyMobDamageToPlayer(target, dmg, attack, mobData, slot)
       db.ref("game/mobAttackEvent").set({ attackName:attack.name, icon:attack.icon, dmg, target:target.toUpperCase(), mobName:(mobData.name||"MOB").toUpperCase(), time:Date.now(), special:!!attack.special, animation:attack.animation || "", flavor:attack.flavor || "" })
-      addMJLog(`${attack.icon} ${mobLabel} â€” ${attack.name}${specialTag} â†’ ${targetLabel} : ${dmg} dÃ©gÃ¢ts`)
-      showNotification("ðŸ’¥ "+attack.name+" â†’ "+target.toUpperCase()+" â€” "+dmg+" dÃ©gÃ¢ts !"); screenShake()
+      addMJLog(`${attack.icon} ${mobLabel} -> ${attack.name}${specialTag} -> ${targetLabel} : ${dmg} degats`)
+      showNotification(attack.name + " -> " + target.toUpperCase() + " -> " + dmg + " degats !"); screenShake()
     }
     setTimeout(() => renderAllMobPanels(), 200)
   })
@@ -820,7 +975,8 @@ function addMobToFight(mobId, forceTier) {
     const effLvl=(tier==="boss"&&level>10)?10+(level-10)*0.65:level
     const hp=Math.round(base*(tMults[tier]||1.0)*Math.pow(1+effLvl*(tScales[tier]||0.12),1.6))
     const lvl=Math.max(1,level+(tLvl[tier]||0))
-    db.ref("combat/"+freeSlot).set({ name:mobId, hp, maxHP:hp, lvl, tier, slot:freeSlot }); activeMobSlots[freeSlot]=true
+    const idx=freeSlot==="mob2"?1:2, startX=Math.round((window.innerWidth-4*110)/2)
+    db.ref("combat/"+freeSlot).set({ name:mobId, hp, maxHP:hp, lvl, tier, slot:freeSlot, x:startX+(idx+4)*90, y:Math.round(window.innerHeight*0.25) }); activeMobSlots[freeSlot]=true
     showNotification("âš” "+mobId.toUpperCase()+" rejoint le combat !")
   })
 }
@@ -836,10 +992,12 @@ function spawnExtraMobToken(mobData, slot) {
   const existing=document.getElementById("mobToken_"+slot); if(existing) existing.remove()
   const tok=document.createElement("div"); tok.id="mobToken_"+slot; tok.className="token"
   const idx=slot==="mob2"?1:2, startX=Math.round((window.innerWidth-4*110)/2)
-  tok.style.cssText=`position:absolute;width:70px;height:70px;left:${startX+(idx+4)*90}px;top:${Math.round(window.innerHeight*0.25)}px;z-index:200;display:flex;flex-direction:column;align-items:center;cursor:pointer;`
-  const img=document.createElement("img"); img.style.cssText="width:60px;height:60px;object-fit:contain;border-radius:50%;border:2px solid #cc2200;box-shadow:0 0 10px rgba(200,0,0,0.5);"; img.src="images/"+mobData.name+".png"; img.onerror=()=>img.style.display="none"; tok.appendChild(img)
+  const startLeft = Math.max(80, Number(mobData && mobData.x) || (startX+(idx+4)*90))
+  const startTop = Math.max(80, Number(mobData && mobData.y) || Math.round(window.innerHeight*0.25))
+  tok.style.cssText=`position:absolute;width:70px;height:70px;left:${startLeft}px;top:${startTop}px;z-index:200;display:flex;flex-direction:column;align-items:center;cursor:grab;`
+  const img=document.createElement("img"); img.style.cssText="width:60px;height:60px;object-fit:contain;border-radius:50%;border:2px solid #cc2200;box-shadow:0 0 10px rgba(200,0,0,0.5);"; img.src=(typeof getCombatMobImagePath === "function" ? getCombatMobImagePath(mobData.name) : ("images/"+mobData.name+".png")); img.onerror=()=>img.style.display="none"; tok.appendChild(img)
   const label=document.createElement("div"); label.style.cssText="font-family:Cinzel,serif;font-size:9px;color:#ff8888;margin-top:2px;text-align:center;background:rgba(0,0,0,0.7);padding:1px 4px;border-radius:2px;"; label.innerText=(mobData.name||"MOB").toUpperCase()+" "+mobData.hp+"/"+mobData.maxHP; tok.appendChild(label)
-  db.ref("combat/"+slot).on("value",s=>{ const d=s.val(); if(d&&label) label.innerText=(d.name||"MOB").toUpperCase()+" "+d.hp+"/"+d.maxHP })
+  db.ref("combat/"+slot).on("value",s=>{ const d=s.val(); if(d&&label) { label.innerText=(d.name||"MOB").toUpperCase()+" "+d.hp+"/"+d.maxHP; if (Number.isFinite(Number(d.x))) tok.style.left = Number(d.x) + "px"; if (Number.isFinite(Number(d.y))) tok.style.top = Number(d.y) + "px" } })
   tok.addEventListener("mousedown",e=>{ if(!isGM) return; selected=tok; lastX=tok.offsetLeft; _state.tokenDragStart={x:e.clientX,y:e.clientY}; _state.tokenDragging=false; tok._fbSlot=slot; e.preventDefault() })
   container.appendChild(tok)
 }

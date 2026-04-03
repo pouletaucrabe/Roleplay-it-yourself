@@ -117,11 +117,24 @@ function _launchCombatWithMobs(mainMob, forceTier, extraMobs) {
       const hp = primaryStats ? primaryStats.hp : Math.round(((mobStats[mainMob] ? mobStats[mainMob].baseHP : 10)) * 1.0)
       const lvl = primaryStats ? primaryStats.level : Math.max(1, level)
       const runtimeTier = primaryStats ? primaryStats.runtimeTier : tier
+      const mainMobData = {
+        name: mainMob,
+        hp: hp,
+        maxHP: hp,
+        lvl: lvl,
+        tier: runtimeTier,
+        difficulty: tier,
+        slot: "mob",
+        x: 600,
+        y: 180
+      }
+      _state.pendingMainMobData = mainMobData
       try {
-        db.ref("combat/mob").set({ name:mainMob, hp, maxHP:hp, lvl, tier: runtimeTier, difficulty: tier }).catch(() => {})
+        db.ref("combat/mob").set(mainMobData).catch(() => {})
       } catch (_) {}
 
       _state.pendingExtraMobs = {}
+      _state.pendingExtraMobData = {}
       extraMobs.forEach((mob, i) => {
         const slot = ["mob2","mob3"][i]
         if (!slot || !mob) return
@@ -135,8 +148,22 @@ function _launchCombatWithMobs(mainMob, forceTier, extraMobs) {
         const lf2   = { weak:4,   medium:8,   high:14,  boss:30  }[tier2Runtime] || 4
         const hp2  = Math.round(base2 * mult2 + level * lf2 + Math.floor(level * level * 0.5))
         const lvl2 = Math.max(1, level + ({ weak:-1, medium:1, high:3, boss:8 }[tier2Runtime] || 0))
+        const startX = Math.round((window.innerWidth - 4 * 110) / 2)
+        const slotIndex = slot === "mob2" ? 1 : 2
+        const mobData = {
+          name: mob,
+          hp: hp2,
+          maxHP: hp2,
+          lvl: lvl2,
+          tier: tier2Runtime,
+          difficulty: tier2,
+          slot: slot,
+          x: startX + (slotIndex + 4) * 90,
+          y: Math.round(window.innerHeight * 0.25)
+        }
+        _state.pendingExtraMobData[slot] = mobData
         try {
-          db.ref("combat/" + slot).set({ name:mob, hp:hp2, maxHP:hp2, lvl:lvl2, tier:tier2Runtime, difficulty:tier2, slot }).catch(() => {})
+          db.ref("combat/" + slot).set(mobData).catch(() => {})
         } catch (_) {}
         activeMobSlots[slot] = true
       })
@@ -283,7 +310,12 @@ function _startCombatSequence(mob, tierMob) {
           spawnMobToken(mob)
           // Extra mobs
           ;["mob2","mob3"].forEach(slot => {
-            if (_state.pendingExtraMobs && _state.pendingExtraMobs[slot]) {
+            const directData = _state.pendingExtraMobData && _state.pendingExtraMobData[slot]
+            if (directData) {
+              const ex = document.getElementById("mobToken_" + slot)
+              if (ex) ex.remove()
+              spawnExtraMobToken(directData, slot)
+            } else if (_state.pendingExtraMobs && _state.pendingExtraMobs[slot]) {
               db.ref("combat/" + slot).once("value", snap => {
                 const md = snap.val()
                 if (md) { const ex = document.getElementById("mobToken_" + slot); if (ex) ex.remove(); spawnExtraMobToken(md, slot) }
@@ -389,11 +421,19 @@ function fadeToCombat() {
   const arena     = document.getElementById("combatArena")
   const tokenZone = document.getElementById("combatTokens")
   arena.style.cssText = "display:block;position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:100;"
-  tokenZone.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"
+  tokenZone.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:auto;"
 
   ;["greg","ju","elo","bibi"].forEach((id, i) => {
     const token = document.getElementById(id)
     if (!token) return
+    token.dataset.preCombatLeft = token.style.left || ""
+    token.dataset.preCombatTop = token.style.top || ""
+    token.dataset.preCombatWidth = token.style.width || ""
+    token.dataset.preCombatHeight = token.style.height || ""
+    token.dataset.preCombatTransform = token.style.transform || ""
+    token.dataset.preCombatPosition = token.style.position || ""
+    token.dataset.preCombatPointerEvents = token.style.pointerEvents || ""
+    token.dataset.preCombatDisplay = token.style.display || ""
     tokenZone.appendChild(token)
     token.style.transition = "none"; token.style.position = "absolute"; token.style.display = "flex"
     const startX = Math.round((window.innerWidth - 4 * 110) / 2)
@@ -406,8 +446,16 @@ function fadeToCombat() {
 
   const mob = document.getElementById("mobToken")
   if (mob) {
+    mob.dataset.preCombatLeft = mob.style.left || ""
+    mob.dataset.preCombatTop = mob.style.top || ""
+    mob.dataset.preCombatWidth = mob.style.width || ""
+    mob.dataset.preCombatHeight = mob.style.height || ""
+    mob.dataset.preCombatTransform = mob.style.transform || ""
+    mob.dataset.preCombatPosition = mob.style.position || ""
+    mob.dataset.preCombatPointerEvents = mob.style.pointerEvents || ""
+    mob.dataset.preCombatDisplay = mob.style.display || ""
     tokenZone.appendChild(mob)
-    mob.style.cssText = "position:absolute;left:650px;top:180px;display:flex;z-index:200;"
+    mob.style.cssText = "position:absolute;left:650px;top:180px;display:flex;z-index:200;pointer-events:auto;"
   }
 }
 
@@ -418,11 +466,13 @@ function spawnMobToken(mob) {
   if (!token || !img) return
 
   token.style.pointerEvents = "auto"; token.style.cursor = "grab"
+  token._fbSlot = "mob"
   if (tokenZone) tokenZone.appendChild(token)
   img.src = getCombatMobImagePath(mob)
   token.style.width = "130px"; token.style.height = "130px"
   img.style.width   = "130px"; img.style.height  = "130px"
-  token.style.left  = "600px"; token.style.top   = "180px"
+  token.style.left  = String(Number(_state.pendingMainMobData && _state.pendingMainMobData.x) || 600) + "px"
+  token.style.top   = String(Number(_state.pendingMainMobData && _state.pendingMainMobData.y) || 180) + "px"
   token.style.display = "flex"; token.style.zIndex = "200"; token.style.position = "absolute"
 
   const oldName = token.querySelector(".mobNameTag"); if (oldName) oldName.remove()
@@ -530,6 +580,8 @@ function endCombat() {
   const atkPanel = document.getElementById("mobAttackPanel"); if (atkPanel) atkPanel.remove()
   ;["mob2","mob3"].forEach(s => { activeMobSlots[s] = false })
   activeMobSlots["mob"] = false
+  _state.pendingExtraMobData = {}
+  _state.pendingMainMobData = null
 
   const ap = document.getElementById("addMobPanel"); if (ap) ap.style.display = "none"
   const allyPanel = document.getElementById("allyPNJPanel"); if (allyPanel) allyPanel.remove()
@@ -578,8 +630,22 @@ function returnToMap() {
       const token = document.getElementById(id)
       if (token && map) {
         map.appendChild(token)
-        token.style.top = ""; token.style.left = ""; token.style.transform = ""
-        token.style.width = ""; token.style.height = ""; token.style.position = "absolute"; token.style.pointerEvents = "auto"
+        token.style.left = token.dataset.preCombatLeft || token.style.left || ""
+        token.style.top = token.dataset.preCombatTop || token.style.top || ""
+        token.style.width = token.dataset.preCombatWidth || ""
+        token.style.height = token.dataset.preCombatHeight || ""
+        token.style.transform = token.dataset.preCombatTransform || ""
+        token.style.position = token.dataset.preCombatPosition || "absolute"
+        token.style.pointerEvents = token.dataset.preCombatPointerEvents || "auto"
+        token.style.display = token.dataset.preCombatDisplay || token.style.display || ""
+        delete token.dataset.preCombatLeft
+        delete token.dataset.preCombatTop
+        delete token.dataset.preCombatWidth
+        delete token.dataset.preCombatHeight
+        delete token.dataset.preCombatTransform
+        delete token.dataset.preCombatPosition
+        delete token.dataset.preCombatPointerEvents
+        delete token.dataset.preCombatDisplay
       }
     })
 

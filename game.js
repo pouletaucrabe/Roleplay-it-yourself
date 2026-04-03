@@ -172,11 +172,42 @@ function openPreviewPlayerSheet() {
     const isSameSheetOpen = !!(sheet && sheet.style.display === "block" && activePlayerId === String(previewPlayerId).trim().toLowerCase())
     if (isSameSheetOpen) {
       if (typeof closeCharacterSheet === "function") closeCharacterSheet()
+      syncNotebookDockButtonState()
       return false
     }
     if (typeof openCharacterSheet === "function") openCharacterSheet(previewPlayerId)
+    syncNotebookDockButtonState()
   } catch (_) {}
   return false
+}
+
+function syncNotebookDockButtonState() {
+  try {
+    const sharedPanel = document.getElementById("sharedNotebookPanel")
+    const playerPanel = document.getElementById("playerNotesPanel")
+    const sharedBtn = document.getElementById("sharedNotebookBtn")
+    const playerBtn = document.getElementById("playerNotesBtn")
+    const sheetBtn = document.getElementById("playerSheetBtn")
+    const characterSheet = document.getElementById("characterSheet")
+    const previewPlayerId = String(getSandboxPreviewPlayerId && getSandboxPreviewPlayerId() || "").trim().toLowerCase()
+    const activePlayerId = String(characterSheet && characterSheet.dataset && characterSheet.dataset.playerId || currentSheetPlayer || "").trim().toLowerCase()
+    const isSheetOpen = !!(characterSheet && characterSheet.style.display === "block")
+    const isPreviewSheetOpen = isSheetOpen && previewPlayerId && activePlayerId === previewPlayerId
+    if (sharedBtn) {
+      const active = !!(sharedPanel && sharedPanel.style.display !== "none" && sharedPanel.style.display)
+      sharedBtn.setAttribute("aria-pressed", active ? "true" : "false")
+      sharedBtn.classList.toggle("is-active", active)
+    }
+    if (playerBtn) {
+      const active = !!(playerPanel && playerPanel.style.display !== "none" && playerPanel.style.display)
+      playerBtn.setAttribute("aria-pressed", active ? "true" : "false")
+      playerBtn.classList.toggle("is-active", active)
+    }
+    if (sheetBtn) {
+      sheetBtn.setAttribute("aria-pressed", isPreviewSheetOpen ? "true" : "false")
+      sheetBtn.classList.toggle("is-active", isPreviewSheetOpen)
+    }
+  } catch (_) {}
 }
 
 function ensureSandboxStudioChromeVisible() {
@@ -187,7 +218,7 @@ function ensureSandboxStudioChromeVisible() {
       gmSaveBar: "block",
       sandboxPlayerSlotsBar: "block",
       sandboxStyleBar: "block",
-      sandboxPreviewBar: "block",
+      sandboxPreviewBar: "flex",
       gmBar: "flex",
       mjLog: "block",
       diceBar: "flex",
@@ -500,6 +531,7 @@ function toggleSharedNotebookPanel() {
     const shouldOpen = panel.style.display === "none" || !panel.style.display
     if (shouldOpen) panel.style.display = "block"
     else closeSharedNotebookPanel()
+    syncNotebookDockButtonState()
   } catch (_) {}
   return false
 }
@@ -513,6 +545,7 @@ function closeSharedNotebookPanel() {
     if (isGM) persistSharedNotebookState()
     const panel = document.getElementById("sharedNotebookPanel")
     if (panel) panel.style.display = "none"
+    syncNotebookDockButtonState()
   } catch (_) {}
   return false
 }
@@ -590,6 +623,7 @@ function updatePlayerNotesVisibility() {
       const panel = document.getElementById("playerNotesPanel")
       if (panel) panel.style.display = "none"
     }
+    syncNotebookDockButtonState()
   } catch (_) {}
 }
 
@@ -701,6 +735,7 @@ function togglePlayerNotesPanel() {
       persistPlayerNotes()
       panel.style.display = "none"
     }
+    syncNotebookDockButtonState()
   } catch (_) {}
   return false
 }
@@ -710,6 +745,7 @@ function closePlayerNotesPanel() {
     persistPlayerNotes()
     const panel = document.getElementById("playerNotesPanel")
     if (panel) panel.style.display = "none"
+    syncNotebookDockButtonState()
   } catch (_) {}
   return false
 }
@@ -2760,6 +2796,11 @@ db.ref("combat/mob").on("value", snap => {
     const pct = (data.hp / data.maxHP) * 100
     tokenBar.style.width = pct + "%"
     tokenText.innerText  = data.hp + " / " + data.maxHP
+  }
+  const token = document.getElementById("mobToken")
+  if (token) {
+    if (Number.isFinite(Number(data.x))) token.style.left = Number(data.x) + "px"
+    if (Number.isFinite(Number(data.y))) token.style.top = Number(data.y) + "px"
   }
 
   const nameEl = document.getElementById("mobName")
@@ -6541,7 +6582,32 @@ function getSimpleSandboxMobs() {
         tier: normalizeSandboxCombatTier(item && item.tier),
         baseHP: Math.max(10, Number(item && item.baseHP) || 30),
         combatOnly: !!(item && item.combatOnly),
-        tab: normalizeSandboxManagerTabName(item && item.tab)
+        action: item && item.action === "boss" ? "boss" : "diff",
+        tab: normalizeSandboxManagerTabName(item && item.tab),
+        attacks: Array.isArray(item && item.attacks)
+          ? item.attacks.map(function(attack) {
+              return {
+                name: String(attack && attack.name || "Attaque"),
+                icon: String(attack && attack.icon || "⚔"),
+                dmgMin: Math.max(0, Number(attack && attack.dmgMin) || 0),
+                dmgMax: Math.max(0, Number(attack && attack.dmgMax) || 0),
+                effect: String(attack && attack.effect || ""),
+                desc: String(attack && attack.desc || "")
+              }
+            })
+          : [],
+        specialAttack: item && item.specialAttack && typeof item.specialAttack === "object"
+          ? {
+              name: String(item.specialAttack.name || "Attaque speciale"),
+              icon: String(item.specialAttack.icon || "✨"),
+              dmgMin: Math.max(0, Number(item.specialAttack.dmgMin) || 0),
+              dmgMax: Math.max(0, Number(item.specialAttack.dmgMax) || 0),
+              effect: String(item.specialAttack.effect || ""),
+              animation: String(item.specialAttack.animation || ""),
+              flavor: String(item.specialAttack.flavor || ""),
+              special: true
+            }
+          : null
       }
     }) : []
   } catch (_) {}
@@ -6560,7 +6626,31 @@ function saveSimpleSandboxMobs(items) {
         baseHP: Math.max(10, Number(item && item.baseHP) || 30),
         combatOnly: !!(item && item.combatOnly),
         action: item && item.action === "boss" ? "boss" : "diff",
-        tab: normalizeSandboxManagerTabName(item && item.tab)
+        tab: normalizeSandboxManagerTabName(item && item.tab),
+        attacks: Array.isArray(item && item.attacks)
+          ? item.attacks.map(function(attack) {
+              return {
+                name: String(attack && attack.name || "Attaque"),
+                icon: String(attack && attack.icon || "⚔"),
+                dmgMin: Math.max(0, Number(attack && attack.dmgMin) || 0),
+                dmgMax: Math.max(0, Number(attack && attack.dmgMax) || 0),
+                effect: String(attack && attack.effect || ""),
+                desc: String(attack && attack.desc || "")
+              }
+            })
+          : [],
+        specialAttack: item && item.specialAttack && typeof item.specialAttack === "object"
+          ? {
+              name: String(item.specialAttack.name || "Attaque speciale"),
+              icon: String(item.specialAttack.icon || "✨"),
+              dmgMin: Math.max(0, Number(item.specialAttack.dmgMin) || 0),
+              dmgMax: Math.max(0, Number(item.specialAttack.dmgMax) || 0),
+              effect: String(item.specialAttack.effect || ""),
+              animation: String(item.specialAttack.animation || ""),
+              flavor: String(item.specialAttack.flavor || ""),
+              special: true
+            }
+          : null
       }
     }) : []
     const next = getCustomization()
@@ -6574,7 +6664,27 @@ function saveSimpleSandboxMobs(items) {
         baseHP: item.baseHP,
         combatOnly: item.combatOnly,
         action: item.action,
-        tab: item.tab || ""
+        tab: item.tab || "",
+        attacks: Array.isArray(item.attacks) ? item.attacks.map(function(attack) {
+          return {
+            name: attack.name,
+            icon: attack.icon,
+            dmgMin: attack.dmgMin,
+            dmgMax: attack.dmgMax,
+            effect: attack.effect,
+            desc: attack.desc
+          }
+        }) : [],
+        specialAttack: item.specialAttack ? {
+          name: item.specialAttack.name,
+          icon: item.specialAttack.icon,
+          dmgMin: item.specialAttack.dmgMin,
+          dmgMax: item.specialAttack.dmgMax,
+          effect: item.specialAttack.effect,
+          animation: item.specialAttack.animation,
+          flavor: item.specialAttack.flavor,
+          special: true
+        } : null
       }
     })
     saveCustomization(next)
@@ -9318,7 +9428,8 @@ document.addEventListener("mousemove", e => {
   if (sandboxStudio && isGM) selected.dataset.mjPlaced = "true"
   const now = Date.now()
   if (now - lastSend > sendDelay && (gx !== lastSentX || gy !== lastSentY)) {
-    if (!selected._fbSlot) db.ref("tokens/" + selected.id).update({ x: gx, y: gy })
+    if (selected._fbSlot) db.ref("combat/" + selected._fbSlot).update({ x: gx, y: gy }).catch(() => {})
+    else db.ref("tokens/" + selected.id).update({ x: gx, y: gy })
     lastSentX = gx; lastSentY = gy; lastSend = now
   }
 })
@@ -9326,7 +9437,11 @@ document.addEventListener("mousemove", e => {
 document.addEventListener("mouseup", () => {
   if (selected) {
     selected.style.transition = ""
-    if (isGM && !selected._fbSlot) {
+    if (isGM && selected._fbSlot) {
+      const finalX = parseInt(selected.style.left, 10) || 0
+      const finalY = parseInt(selected.style.top, 10) || 0
+      db.ref("combat/" + selected._fbSlot).update({ x: finalX, y: finalY }).catch(() => {})
+    } else if (isGM && !selected._fbSlot) {
       const finalX = parseInt(selected.style.left, 10) || 0
       const finalY = parseInt(selected.style.top, 10) || 0
       db.ref("tokens/" + selected.id).update({ x: finalX, y: finalY })
