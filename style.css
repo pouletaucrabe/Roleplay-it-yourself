@@ -2130,11 +2130,11 @@ body[data-project-theme="contemporain"] .hpBarTokenValue {
 
 #diceBar {
   position: fixed; bottom: 20px; right: 20px;
-  background: transparent;
+  background: url("images/boutonnoirlarge.png") center/100% 100% no-repeat;
   border: none;
   box-shadow: none;
   backdrop-filter: none;
-  padding: 18px 26px; border-radius: 4px;
+  padding: 14px 22px; border-radius: 4px;
   display: flex; gap: 6px; align-items: center;
   font-family: var(--font-body);
   z-index: 9999999;
@@ -2255,7 +2255,7 @@ body[data-project-theme="contemporain"] .hpBarTokenValue {
   transform: translate(-50%, -50%);
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  gap: 20px;
+  gap: 8px;
   background: none; border: none; box-shadow: none; padding: 0;
   opacity: 0; transition: opacity 0.4s;
   z-index: 9999999; pointer-events: none;
@@ -2282,48 +2282,55 @@ body[data-project-theme="contemporain"] .hpBarTokenValue {
 
 #diceResult .dice-player-label {
   font-family: var(--font-body); font-size: 15px;
-  color: #f4e1a6; letter-spacing: 3px;
+  color: #d8d8d6; letter-spacing: 3px;
   text-transform: uppercase; white-space: nowrap;
   text-shadow:
-    0 2px 0 rgba(52, 33, 10, 0.9),
-    0 0 10px rgba(30, 180, 200, 0.42),
-    0 0 18px rgba(0, 0, 0, 0.45);
-  -webkit-text-stroke: 0.35px rgba(50, 29, 10, 0.9);
+    0 1px 0 rgba(22, 18, 16, 0.95),
+    0 0 12px rgba(0, 0, 0, 0.48);
+  -webkit-text-stroke: 0.25px rgba(18, 14, 10, 0.82);
 }
 
 #diceResult .dice-3d-wrap {
-  perspective: 500px;
-  width: 110px; height: 110px;
+  perspective: 700px;
+  width: 112px; height: 112px;
 }
 
 #diceResult .dice-3d {
-  width: 110px; height: 110px;
+  width: 112px; height: 112px;
   position: relative; transform-style: preserve-3d;
-  filter: drop-shadow(0 10px 22px rgba(0,0,0,0.45));
+  filter: drop-shadow(0 14px 24px rgba(0,0,0,0.44));
 }
 
 #diceResult .dice-face {
-  position: absolute; width: 110px; height: 110px;
+  position: absolute; width: 112px; height: 112px;
   border-radius: 16px;
-  border: 1.5px solid rgba(30,180,200,0.5);
-  box-shadow: inset 0 0 18px rgba(30,120,160,0.25);
-  background: linear-gradient(145deg, rgba(8,22,32,0.97), rgba(5,14,22,0.99));
+  border: 2px solid rgba(210,170,72,0.72);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,223,138,0.1),
+    inset 0 -10px 18px rgba(0,0,0,0.18);
+  background: linear-gradient(145deg, #163f59, #0a2438);
   display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-body); font-size: 40px; font-weight: bold;
-  color: rgba(30,200,220,0.9);
-  text-shadow: 0 0 10px rgba(30,180,200,0.6);
+  font-family: var(--font-body); font-size: 42px; font-weight: bold;
+  color: #e0bc52;
+  text-shadow: 0 0 10px rgba(224,188,82,0.35), 0 2px 0 rgba(38,25,0,0.95);
   backface-visibility: hidden;
 }
 
-#diceResult .df1 { transform: rotateY(0deg)   translateZ(55px); }
-#diceResult .df2 { transform: rotateY(180deg) translateZ(55px); }
-#diceResult .df3 { transform: rotateY(90deg)  translateZ(55px); }
-#diceResult .df4 { transform: rotateY(-90deg) translateZ(55px); }
-#diceResult .df5 { transform: rotateX(90deg)  translateZ(55px); }
-#diceResult .df6 { transform: rotateX(-90deg) translateZ(55px); }
+#diceResult .df1 { transform: rotateY(0deg)   translateZ(56px); }
+#diceResult .df2 { transform: rotateY(180deg) translateZ(56px); }
+#diceResult .df3 { transform: rotateY(90deg)  translateZ(56px); }
+#diceResult .df4 { transform: rotateY(-90deg) translateZ(56px); }
+#diceResult .df5 { transform: rotateX(90deg)  translateZ(56px); }
+#diceResult .df6 { transform: rotateX(-90deg) translateZ(56px); }
 
 #diceResult .dice-result-label {
-  display: none !important;
+  display: block !important;
+  margin-top: -2px;
+  font-family: "Cinzel Decorative", "Cinzel", serif;
+  font-size: 52px;
+  line-height: 0.95;
+  color: #40d4ee;
+  text-shadow: 0 0 14px rgba(64,212,238,0.28), 0 2px 0 rgba(10,40,50,0.85);
 }
 
 #diceResult.crit .dice-face {
@@ -2348,8 +2355,8 @@ body[data-project-theme="contemporain"] .hpBarTokenValue {
 
 #diceResult.mjRoll .dice-face {
   border-color: rgba(212,168,53,0.7);
-  color: rgba(212,168,53,0.9);
-  text-shadow: 0 0 8px rgba(212,168,53,0.5);
+  color: #e0bc52;
+  text-shadow: 0 0 10px rgba(224,188,82,0.35), 0 2px 0 rgba(38,25,0,0.95);
 }
 
 #diceResult.dice-impact .dice-3d-wrap {
@@ -6016,6 +6023,10 @@ body[data-project-theme="contemporain"] .simpleSheetPortrait {
   border-radius: 2px; overflow: hidden; margin-top: 4px;
 }
 
+#mobHPBarTopLabel {
+  text-align: center;
+}
+
 #mobHPBarTop {
   height: 100%; width: 100%;
   background: linear-gradient(90deg, #2aff6a, #00aa44);
@@ -6036,6 +6047,22 @@ body[data-project-theme="contemporain"] .simpleSheetPortrait {
   background: rgba(5,15,20,0.9); color: var(--cream);
   border: 1px solid var(--teal-border); border-radius: 2px; padding: 4px;
 }
+
+#mobDamageApplyBtn {
+  padding: 6px 12px;
+  background: linear-gradient(135deg, rgba(10,40,50,0.9), rgba(5,22,30,0.95));
+  color: var(--cream);
+  border: 1px solid rgba(30,90,102,0.5);
+  border-radius: 6px;
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+
+#mobDamageApplyBtn:hover {
+  border-color: rgba(30,180,200,0.7);
+  box-shadow: 0 0 10px rgba(30,160,180,0.24);
+}
+
 
 #gmCombatButtons { display: flex; gap: 8px; justify-content: center; }
 
@@ -6087,6 +6114,17 @@ body[data-project-theme="contemporain"] .simpleSheetPortrait {
   overflow-y: auto;
 }
 
+.gmCombatPlayerRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#gmCombatDetailHost {
+  display: grid;
+  gap: 10px;
+}
+
 #mobAttackPanel .combatBlock,
 #mobAttackPanel .gmEditableAttackBlock {
   border-radius: 14px;
@@ -6109,6 +6147,14 @@ body[data-project-theme="contemporain"] .simpleSheetPortrait {
   border-color: rgba(30,180,200,0.7);
   box-shadow: 0 0 10px rgba(30,160,180,0.3);
   color: #e8f8ff;
+}
+
+.gmAttackButton.is-active,
+.gmAttackButton[aria-pressed="true"] {
+  border-color: rgba(240,208,135,0.82);
+  box-shadow: 0 0 0 1px rgba(240,208,135,0.22), 0 0 10px rgba(240,208,135,0.18);
+  background: linear-gradient(135deg, rgba(86,58,22,0.95), rgba(42,28,10,0.98));
+  color: #fff0cf;
 }
 
 .gmMiniSheet {
@@ -7565,10 +7611,10 @@ body {
 /* — Barre dés — */
 
 #diceBar {
-  background: transparent !important;
+  background: url("images/boutonnoirlarge.png") center/100% 100% no-repeat !important;
   border: none !important;
   box-shadow: none !important;
-  padding: 18px 18px !important;
+  padding: 14px 22px !important;
 }
 
 #diceBar::before {
@@ -9642,78 +9688,40 @@ body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .token img {
   width: 78px !important;
   height: 78px !important;
   border-radius: 50% !important;
-  background: linear-gradient(180deg, rgba(246,236,211,0.99), rgba(215,195,156,0.99)) !important;
+  background: rgba(9, 18, 28, 0.92) !important;
   box-shadow:
-    0 0 0 4px rgba(85, 58, 28, 0.96),
-    0 0 0 7px rgba(184, 146, 82, 0.96),
-    0 0 0 10px rgba(48, 31, 14, 0.98),
-    0 14px 24px rgba(36, 22, 11, 0.28),
-    inset 0 1px 0 rgba(255,250,233,0.92) !important;
+    0 0 0 2px rgba(126, 214, 255, 0.6),
+    0 0 14px rgba(70, 180, 235, 0.3),
+    0 0 24px rgba(32, 127, 189, 0.18) !important;
   position: relative;
   z-index: 2;
 }
 
 body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .token::before {
-  content: "" !important;
-  display: block !important;
-  position: absolute !important;
-  left: 50% !important;
-  top: 50% !important;
-  width: 96px !important;
-  height: 96px !important;
-  transform: translate(-50%, -50%) !important;
-  border-radius: 28px !important;
-  background:
-    linear-gradient(rgba(40,24,10,0.18), rgba(40,24,10,0.18)),
-    url("images/gold.jpg") center/180px auto repeat,
-    linear-gradient(135deg, rgba(121,83,42,0.98), rgba(73,47,24,0.99) 48%, rgba(47,29,13,1)) !important;
-  box-shadow:
-    0 0 0 2px rgba(212,174,104,0.78),
-    0 0 0 4px rgba(75,47,19,0.92),
-    inset 0 1px 0 rgba(255,232,181,0.24),
-    inset 0 -2px 0 rgba(28,16,7,0.55),
-    0 12px 28px rgba(31,18,9,0.34) !important;
-  border: 1px solid rgba(193,155,91,0.32) !important;
-  z-index: 1 !important;
+  content: none !important;
+  display: none !important;
 }
 
 body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .token::after {
-  content: "" !important;
-  display: block !important;
-  position: absolute !important;
-  left: 50% !important;
-  top: 50% !important;
-  width: 106px !important;
-  height: 106px !important;
-  transform: translate(-50%, -50%) !important;
-  border-radius: 32px !important;
-  box-shadow:
-    0 0 0 2px rgba(62,38,16,0.95),
-    0 0 0 4px rgba(214,182,112,0.52),
-    0 0 0 6px rgba(92,59,25,0.52),
-    0 16px 30px rgba(27,15,7,0.22) !important;
-  z-index: 0 !important;
-  pointer-events: none !important;
+  content: none !important;
+  display: none !important;
 }
 
 body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .nameTag {
   bottom: -44px !important;
   min-width: 110px !important;
-  padding: 9px 18px 11px !important;
-  border-radius: 10px !important;
-  background:
-    linear-gradient(rgba(35,20,9,0.16), rgba(35,20,9,0.16)),
-    url("images/bois.jpg") center/160px auto repeat,
-    linear-gradient(180deg, rgba(109,76,40,0.98), rgba(62,40,21,0.99)) !important;
-  border: 1px solid rgba(191,154,93,0.36) !important;
-  color: #f2dfb3 !important;
+  height: 42px !important;
+  padding: 10px 20px 8px !important;
+  border-radius: 0 !important;
+  background: url("images/cadremed.png") center/100% 100% no-repeat !important;
+  border: none !important;
+  color: #2f2014 !important;
   text-shadow:
-    0 1px 0 rgba(54,31,12,0.95),
-    0 0 10px rgba(0,0,0,0.34) !important;
-  box-shadow:
-    0 0 0 1px rgba(214,181,111,0.62),
-    inset 0 1px 0 rgba(255,232,181,0.12),
-    0 10px 18px rgba(49, 31, 18, 0.22) !important;
+    0 1px 0 rgba(255,244,214,0.88),
+    0 2px 0 rgba(132,90,48,0.48),
+    0 0 2px rgba(255,236,198,0.22) !important;
+  box-shadow: none !important;
+  -webkit-text-stroke: 0.25px rgba(101,64,33,0.35) !important;
 }
 
 body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .nameTag::before,
@@ -10758,4 +10766,144 @@ body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] button#sandboxPr
 body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] summary#sandboxPlayersBtn,
 body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] summary#sandboxStyleBtn {
   line-height: 1 !important;
+}
+
+/* Medieval menu reference */
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .gmSection {
+  background:
+    radial-gradient(circle at 50% -20%, rgba(151, 212, 255, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(36, 31, 28, 0.9), rgba(21, 23, 29, 0.94) 52%, rgba(11, 16, 24, 0.96)),
+    url("images/gold.jpg") center/440px auto repeat !important;
+  border: 1px solid rgba(195, 162, 89, 0.92) !important;
+  border-radius: 26px !important;
+  box-shadow:
+    0 22px 44px rgba(0,0,0,0.42),
+    0 0 32px rgba(68, 140, 205, 0.14),
+    inset 0 0 0 1px rgba(236, 210, 146, 0.12),
+    inset 0 0 34px rgba(18, 68, 103, 0.08) !important;
+  backdrop-filter: blur(3px) !important;
+  overflow: hidden !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .gmSection::before {
+  background:
+    linear-gradient(180deg, rgba(255,250,230,0.1), transparent 20%),
+    linear-gradient(90deg, rgba(215,184,112,0.24), transparent 10%, transparent 90%, rgba(215,184,112,0.24)),
+    radial-gradient(circle at 50% 0%, rgba(133, 205, 255, 0.14), transparent 26%) !important;
+  opacity: 1 !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .gmSection::after {
+  background: none !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .pnjTabs {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  margin: 2px 0 14px !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #pnjMenu .pnjTabs,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #mobMenu2 .pnjTabs,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] #elementsMenu .pnjTabs {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .pnjTab,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .mapCategoryButton,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .map-simple-btn {
+  min-height: 44px !important;
+  padding: 10px 14px !important;
+  border-radius: 5px !important;
+  border: 1px solid rgba(64, 179, 214, 0.72) !important;
+  background:
+    linear-gradient(180deg, rgba(19, 71, 97, 0.97), rgba(15, 47, 74, 0.98)),
+    linear-gradient(90deg, rgba(255, 223, 147, 0.08), rgba(255,255,255,0) 20%, rgba(255,255,255,0) 80%, rgba(255, 223, 147, 0.08)) !important;
+  color: #ead7a0 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(167, 227, 255, 0.14),
+    inset 0 0 0 1px rgba(214, 183, 109, 0.08),
+    0 0 0 1px rgba(5, 30, 40, 0.24),
+    0 0 18px rgba(51, 145, 201, 0.08) !important;
+  text-shadow: 0 1px 0 rgba(8, 15, 18, 0.9), 0 0 10px rgba(247, 220, 142, 0.08) !important;
+  font-family: "Cinzel", serif !important;
+  font-size: 16px !important;
+  letter-spacing: 0.6px !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .pnjTab.active {
+  background:
+    linear-gradient(180deg, rgba(28, 93, 120, 0.98), rgba(20, 69, 95, 0.99)),
+    linear-gradient(90deg, rgba(255, 229, 164, 0.1), transparent 24%, transparent 76%, rgba(255, 229, 164, 0.1)) !important;
+  color: #f2e2af !important;
+  border-color: rgba(109, 215, 255, 0.98) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(196, 236, 255, 0.18),
+    0 0 24px rgba(73, 177, 230, 0.18),
+    0 0 12px rgba(235, 202, 112, 0.08) !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .pnjTab:hover,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .mapCategoryButton:hover,
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .map-simple-btn:hover {
+  transform: none !important;
+  filter: brightness(1.08) saturate(1.04) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(184, 236, 255, 0.18),
+    0 0 22px rgba(73, 177, 230, 0.16),
+    0 0 12px rgba(235, 202, 112, 0.08) !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .mapCategoryButton {
+  justify-content: flex-start !important;
+  margin: 0 0 6px !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .mapCategoryButton .arrow {
+  color: #e9d8a3 !important;
+  margin-right: 10px !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .mapCategory {
+  margin: 0 0 8px !important;
+  padding: 2px 0 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .mapCategory button {
+  width: 100% !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+  padding: 10px 14px 10px 40px !important;
+  margin: 0 0 6px !important;
+  min-height: 42px !important;
+  border-radius: 4px !important;
+  border: 1px solid rgba(53, 157, 189, 0.6) !important;
+  background: linear-gradient(180deg, rgba(20, 63, 77, 0.94), rgba(15, 49, 62, 0.96)) !important;
+  color: #e6d9b4 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(165, 221, 248, 0.08),
+    0 0 12px rgba(46, 128, 170, 0.08) !important;
+  text-shadow: 0 1px 0 rgba(6, 12, 14, 0.92), 0 0 8px rgba(231, 200, 116, 0.05) !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .mapCategory button:hover {
+  transform: none !important;
+  filter: brightness(1.09) !important;
+  background: linear-gradient(180deg, rgba(26, 76, 94, 0.97), rgba(18, 58, 73, 0.98)) !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .pnjTabContent {
+  max-height: calc(100vh - 250px) !important;
+  padding-right: 2px !important;
+}
+
+body.sandbox-studio-mode[data-project-theme="medieval_fantasy"] .token img {
+  box-shadow:
+    0 0 0 2px rgba(122, 213, 255, 0.62),
+    0 0 14px rgba(77, 188, 243, 0.28),
+    0 0 28px rgba(220, 193, 104, 0.08) !important;
 }

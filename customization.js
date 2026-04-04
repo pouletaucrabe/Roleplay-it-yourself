@@ -441,6 +441,16 @@
         try { showLocation(startMapLabel) } catch (_) {}
       }
     }
+    const nativeStudioTitle = byId("nativeStudioTitle")
+    if (nativeStudioTitle) nativeStudioTitle.value = String((customization.project && customization.project.title) || "Roleplay It Yourself")
+    const nativeStudioTheme = byId("nativeStudioTheme")
+    if (nativeStudioTheme) nativeStudioTheme.value = String((customization.project && customization.project.theme) || "medieval_fantasy")
+    const nativeStudioPlayers = byId("nativeStudioPlayers")
+    if (nativeStudioPlayers) nativeStudioPlayers.value = String(projectCount)
+    const nativeStudioDifficulty = byId("nativeStudioCombatDifficultyPercent")
+    if (nativeStudioDifficulty) {
+      nativeStudioDifficulty.value = String(Math.max(50, Math.min(200, parseInt((customization.project && customization.project.combatDifficultyPercent), 10) || 100)))
+    }
     syncSandboxPlayerCountControls(projectCount)
   }
 

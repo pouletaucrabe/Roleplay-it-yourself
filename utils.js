@@ -57,6 +57,7 @@ function getDefaultCustomization() {
       title: "Roleplay It Yourself",
       theme: "medieval_fantasy",
       playerCount: 4,
+      combatDifficultyPercent: 100,
       tone: "epique",
       starterMode: "empty"
     },
@@ -1219,17 +1220,47 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const input = document.getElementById("mobDamageInput")
   if (input) {
-    input.addEventListener("keydown", e => {
-      if (e.key !== "Enter") return
+    const submitDamageFromInput = function(e) {
+      if (e && e.key && e.key !== "Enter") return
+      if (e) {
+        e.preventDefault()
+        e.stopPropagation()
+      }
+      if (typeof submitMobDamage === "function") {
+        submitMobDamage()
+        return
+      }
       if (!isGM) return
       const damage = parseInt(input.value)
       if (isNaN(damage) || damage <= 0) return
-      db.ref("combat/mob").once("value", snapshot => {
-        const mob = snapshot.val()
-        if (!mob) return
-        db.ref("combat/mob/hp").set(Math.max(0, mob.hp - damage))
-      })
+      if (typeof applyDamageToCombatMob === "function") applyDamageToCombatMob(damage, "mob")
+      else {
+        db.ref("combat/mob").once("value", snapshot => {
+          const mob = snapshot.val()
+          if (!mob) return
+          db.ref("combat/mob/hp").set(Math.max(0, mob.hp - damage))
+        })
+      }
       input.value = ""
+    }
+    input.addEventListener("keydown", submitDamageFromInput)
+    input.addEventListener("keyup", submitDamageFromInput)
+  }
+
+  const damageForm = document.getElementById("gmDamageRow")
+  if (damageForm) {
+    damageForm.addEventListener("submit", function(e) {
+      e.preventDefault()
+      if (typeof submitMobDamage === "function") submitMobDamage()
+    })
+  }
+
+  const damageButton = document.getElementById("mobDamageApplyBtn")
+  if (damageButton) {
+    damageButton.addEventListener("click", function(e) {
+      e.preventDefault()
+      e.stopPropagation()
+      if (typeof submitMobDamage === "function") submitMobDamage()
     })
   }
 

@@ -7,7 +7,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Cinzel+Decorative:wght@400;700&family=IM+Fell+English&family=Cormorant+SC:wght@500;700&family=Marcellus&family=Orbitron:wght@500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
   <title>Roleplay It Yourself</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='48'%3E%F0%9F%8E%B2%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css?v=219">
+<link rel="stylesheet" href="style.css?v=232">
   <style>
     #playerCodeBtn, #playerCodeBtn * {
       color: #ffd700 !important;
@@ -1014,13 +1014,14 @@
 <div id="gmDamagePanel">
   <div id="gmDamagePanelInner">
     <div id="mobHPDisplay">
-      <div id="mobHPBarTop"><span id="mobHPTopText">— / —</span></div>
+      <div id="mobHPBarTopLabel"><span id="mobHPTopText">— / —</span></div>
       <div id="mobHPBarTopContainer"><div id="mobHPBarTop"></div></div>
     </div>
-    <div id="gmDamageRow">
+    <form id="gmDamageRow" onsubmit="event.preventDefault(); return submitMobDamage();">
       <label>Degats :</label>
-      <input id="mobDamageInput" type="number" placeholder="0">
-    </div>
+      <input id="mobDamageInput" type="number" placeholder="0" onkeydown="if(event.key==='Enter'){event.preventDefault();event.stopPropagation();return submitMobDamage();}" onkeyup="if(event.key==='Enter'){event.preventDefault();event.stopPropagation();return submitMobDamage();}">
+      <button id="mobDamageApplyBtn" type="button" onclick="return submitMobDamage();">Appliquer</button>
+    </form>
     <div id="gmCombatButtons">
       <button id="btnVictoire" onclick="showVictory()">⚔ VICTOIRE</button>
       <button id="btnDefaite"  onclick="showDefeat()">☠ DEFAITE</button>
@@ -1133,14 +1134,14 @@
 <!-- 2. Variables d'Ã©tat -->
 <script src="state.js?v=2"></script>
 <!-- 3. Utilitaires (pas de dÃ©pendances Firebase) -->
-<script src="utils.js?v=31"></script>
-<script src="customization.js?v=60"></script>
+<script src="utils.js?v=37"></script>
+<script src="customization.js?v=61"></script>
 <!-- 4. Logique principale + Firebase listeners -->
-<script src="game.js?v=257"></script>
+<script src="game.js?v=277"></script>
 <!-- 5. Interface utilisateur -->
-<script src="ui.js?v=10"></script>
+<script src="ui.js?v=13"></script>
 <!-- 6. Combat -->
-<script src="combat.js?v=17"></script>
+<script src="combat.js?v=23"></script>
 <script>
 function applyMusicSliderToActiveAudio(normalized) {
   var safeValue = Math.max(0, Math.min(1, parseFloat(normalized) || 0))
@@ -1358,7 +1359,11 @@ function focusNativeStudioItem(type, index) {
   var categoryField = document.getElementById("nativeStudioItemCategory")
   var labelField = document.getElementById("nativeStudioItemLabel")
   var assetField = document.getElementById("nativeStudioItemAsset")
+  var pnjCombatRow = document.getElementById("nativeStudioItemPnjCombatRow")
+  var pnjCombatInput = document.getElementById("nativeStudioItemPnjCombatAsMob")
   if (typeField) typeField.value = type
+  if (pnjCombatRow) pnjCombatRow.style.display = type === "pnj" ? "flex" : "none"
+  if (pnjCombatInput) pnjCombatInput.checked = !!(item && item.combatAsMob)
   if (categoryField) categoryField.value = String(item.category || "")
   if (labelField) labelField.value = String(item.label || "")
   if (assetField) {
@@ -1414,6 +1419,10 @@ function deleteNativeStudioItem(type, index) {
 function openNativeStudioQuickCreate(type) {
   var typeField = document.getElementById("nativeStudioItemType")
   if (typeField) typeField.value = type
+  var pnjCombatRow = document.getElementById("nativeStudioItemPnjCombatRow")
+  var pnjCombatInput = document.getElementById("nativeStudioItemPnjCombatAsMob")
+  if (pnjCombatRow) pnjCombatRow.style.display = type === "pnj" ? "flex" : "none"
+  if (pnjCombatInput) pnjCombatInput.checked = false
   switchNativeStudioTab("advanced")
 }
 
@@ -1465,6 +1474,8 @@ function openNativeStudioFileDraftDialog(type, file) {
   document.getElementById("nativeStudioDraftCategory").value = "Local"
   document.getElementById("nativeStudioDraftAudio").value = ""
   document.getElementById("nativeStudioDraftMapFields").style.display = type === "map" ? "grid" : "none"
+  document.getElementById("nativeStudioDraftPnjCombatRow").style.display = type === "pnj" ? "flex" : "none"
+  document.getElementById("nativeStudioDraftPnjCombatAsMob").checked = false
   if (!dialog.open) dialog.showModal()
 }
 
@@ -1478,6 +1489,7 @@ async function confirmNativeStudioDraft() {
     var label = String(document.getElementById("nativeStudioDraftLabel").value || "").trim()
     var category = String(document.getElementById("nativeStudioDraftCategory").value || "").trim() || "Local"
     var audio = type === "map" ? String(document.getElementById("nativeStudioDraftAudio").value || "").trim() : ""
+    var pnjCombatAsMob = type === "pnj" ? !!document.getElementById("nativeStudioDraftPnjCombatAsMob").checked : false
     if (!label) {
       if (typeof showNotification === "function") showNotification("Nom obligatoire")
       return
@@ -1486,7 +1498,7 @@ async function confirmNativeStudioDraft() {
     var next = getCustomization()
     next.content = next.content || { maps: [], pnjs: [], highPnjs: [], mobs: [], combatArenas: [], documents: [] }
     if (type === "map") next.content.maps.push({ label: label, category: category, map: asset || "background.jpg", section: "lieux", audio: audio })
-    if (type === "pnj") next.content.pnjs.push({ label: label, category: category, image: asset || "" })
+    if (type === "pnj") next.content.pnjs.push({ label: label, category: category, image: asset || "", combatAsMob: pnjCombatAsMob, tier: "weak", baseHP: 30, attacks: [], specialAttack: null })
     if (type === "mob") {
       var mobId = String(label).toLowerCase().replace(/[^a-z0-9]+/g, "_")
       next.content.mobs.push({ label: label, category: category, id: mobId, tier: "weak", action: "diff", baseHP: 30, combatOnly: false })
@@ -1530,11 +1542,12 @@ async function saveNativeStudioContent() {
     var label = String(document.getElementById("nativeStudioItemLabel").value || "").trim()
     var asset = String(document.getElementById("nativeStudioItemAsset").value || "").trim()
     var fileInput = document.getElementById("nativeStudioItemFile")
+    var pnjCombatAsMobInput = document.getElementById("nativeStudioItemPnjCombatAsMob")
     var file = fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0] : null
     if (!label) return
     if (file) asset = await readNativeStudioFileAsDataURL(file)
     if (type === "map") next.content.maps.push({ label: label, category: category, map: asset || "background.jpg", section: "lieux", audio: "" })
-    if (type === "pnj") next.content.pnjs.push({ label: label, category: category, image: asset || "" })
+    if (type === "pnj") next.content.pnjs.push({ label: label, category: category, image: asset || "", combatAsMob: !!(pnjCombatAsMobInput && pnjCombatAsMobInput.checked), tier: "weak", baseHP: 30, attacks: [], specialAttack: null })
     if (type === "mob") {
       var mobId = String(label).toLowerCase().replace(/[^a-z0-9]+/g, "_")
       next.content.mobs.push({ label: label, category: category, id: mobId, tier: "weak", action: "diff", baseHP: 30, combatOnly: false })
@@ -1549,6 +1562,7 @@ async function saveNativeStudioContent() {
     document.getElementById("nativeStudioItemCategory").value = ""
     document.getElementById("nativeStudioItemLabel").value = ""
     document.getElementById("nativeStudioItemAsset").value = ""
+    if (pnjCombatAsMobInput) pnjCombatAsMobInput.checked = false
     if (fileInput) fileInput.value = ""
     renderNativeStudioContentList()
   } catch (e) {
@@ -4575,7 +4589,9 @@ function forceShowIntroHub() {
       <label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Titre</span><input id="nativeStudioTitle" type="text" value="Roleplay It Yourself" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"></label>
       <label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Ambiance</span><select id="nativeStudioTheme" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"><option value="medieval_fantasy">Medieval fantasy</option><option value="science_fiction">Science-fiction</option><option value="pirate">Pirate</option><option value="contemporain">Contemporaine</option></select></label>
       <label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Nombre de slots joueurs</span><input id="nativeStudioPlayers" type="number" min="1" max="4" value="4" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"></label>
-      <button type="button" onclick="try{var next=(typeof getCustomization==='function'?getCustomization():{project:{},players:{greg:{name:'Joueur 1'},ju:{name:'Joueur 2'},elo:{name:'Joueur 3'},bibi:{name:'Joueur 4'}},assets:{},content:{maps:[],pnjs:[],highPnjs:[],mobs:[],combatArenas:[],documents:[]}});next.project=next.project||{};next.project.title=document.getElementById('nativeStudioTitle').value||'Roleplay It Yourself';next.project.theme=document.getElementById('nativeStudioTheme').value||'medieval_fantasy';next.project.playerCount=Math.max(1,Math.min(4,parseInt(document.getElementById('nativeStudioPlayers').value,10)||4));if(typeof saveCustomization==='function')saveCustomization(next);if(typeof applyCustomizationToUI==='function')applyCustomizationToUI();}catch(e){}" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Appliquer</button>
+      <label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Difficulte globale des combats (%)</span><input id="nativeStudioCombatDifficultyPercent" type="number" min="50" max="200" step="5" value="100" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;"></label>
+      <div style="font-size:12px;line-height:1.6;color:#bfae8b;">100 = normal. En dessous, les rencontres deviennent plus souples. Au-dessus, faible, moyen, fort, boss et boss monde montent ensemble de facon logique.</div>
+      <button type="button" onclick="try{var next=(typeof getCustomization==='function'?getCustomization():{project:{},players:{greg:{name:'Joueur 1'},ju:{name:'Joueur 2'},elo:{name:'Joueur 3'},bibi:{name:'Joueur 4'}},assets:{},content:{maps:[],pnjs:[],highPnjs:[],mobs:[],combatArenas:[],documents:[]}});next.project=next.project||{};next.project.title=document.getElementById('nativeStudioTitle').value||'Roleplay It Yourself';next.project.theme=document.getElementById('nativeStudioTheme').value||'medieval_fantasy';next.project.playerCount=Math.max(1,Math.min(4,parseInt(document.getElementById('nativeStudioPlayers').value,10)||4));next.project.combatDifficultyPercent=Math.max(50,Math.min(200,parseInt(document.getElementById('nativeStudioCombatDifficultyPercent').value,10)||100));if(typeof saveCustomization==='function')saveCustomization(next);if(typeof applyCustomizationToUI==='function')applyCustomizationToUI();}catch(e){}" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Appliquer</button>
     </section>
     <section data-native-tab="players" style="display:none;gap:12px;padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);">
       <div style="font-size:13px;line-height:1.7;color:#cdbb96;">Ici, pense a la table de jeu. Le nombre de joueurs se regle dans l'onglet Bac a sable, puis les slots, noms et fiches pourront etre ajustes plus finement au fur et a mesure de la creation.</div>
@@ -4625,11 +4641,12 @@ function forceShowIntroHub() {
     <section data-native-tab="advanced" style="display:none;gap:12px;padding:16px;border:1px solid rgba(214,180,106,0.25);border-radius:12px;background:rgba(255,255,255,0.03);">
       <div style="font-size:13px;line-height:1.7;color:#cdbb96;">Ici, tu prepares un element en detail. Tu peux partir d'un fichier local ou remplir les champs a la main, puis revenir dans la liste pour le renommer, le deplacer ou le supprimer.</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:end;">
-        <label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Type</span><select id="nativeStudioItemType" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"><option value="map">Map</option><option value="pnj">PNJ</option><option value="mob">Mob</option><option value="document">Document</option></select></label>
+        <label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Type</span><select id="nativeStudioItemType" onchange="try{var row=document.getElementById('nativeStudioItemPnjCombatRow');var input=document.getElementById('nativeStudioItemPnjCombatAsMob');if(row)row.style.display=this.value==='pnj'?'flex':'none';if(input&&this.value!=='pnj')input.checked=false;}catch(e){}" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"><option value="map">Map</option><option value="pnj">PNJ</option><option value="mob">Mob</option><option value="document">Document</option></select></label>
         <label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Categorie</span><input id="nativeStudioItemCategory" type="text" placeholder="Ex : Mon univers" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label>
         <label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Titre</span><input id="nativeStudioItemLabel" type="text" placeholder="Ex : Taverne du Port" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label>
         <label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Asset / image / id</span><input id="nativeStudioItemAsset" type="text" placeholder="Ex : port.jpg" style="width:100%;padding:10px 12px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:13px;box-sizing:border-box;"></label>
         <label style="display:grid;gap:6px;"><span style="font-size:12px;color:#bfae8b;">Fichier local</span><input id="nativeStudioItemFile" type="file" accept="image/*" style="width:100%;padding:8px 0;color:#e8d6b3;font-family:Cinzel,serif;font-size:12px;box-sizing:border-box;"></label>
+        <label id="nativeStudioItemPnjCombatRow" style="display:none;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(214,180,106,0.18);border-radius:10px;"><input id="nativeStudioItemPnjCombatAsMob" type="checkbox" style="accent-color:#caa46b;width:16px;height:16px;"><span style="font-size:12px;line-height:1.5;color:#e9d2a0;">Ajouter aussi ce PNJ dans les mobs.</span></label>
         <button type="button" onclick="saveNativeStudioContent()" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ajouter</button>
       </div>
       <div style="font-size:12px;line-height:1.6;color:#bfae8b;">Astuce : apres chaque ajout, l'element apparait dans l'onglet Contenu avec des actions simples pour le reorganiser.</div>
@@ -4661,6 +4678,10 @@ function forceShowIntroHub() {
         <input id="nativeStudioDraftAudio" type="text" placeholder="Ex : audio/ma-musique.mp3" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:14px;box-sizing:border-box;">
       </label>
     </div>
+    <label id="nativeStudioDraftPnjCombatRow" style="display:none;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,0.04);border:1px solid rgba(214,180,106,0.18);border-radius:10px;">
+      <input id="nativeStudioDraftPnjCombatAsMob" type="checkbox" style="accent-color:#caa46b;width:16px;height:16px;">
+      <span style="font-size:12px;line-height:1.5;color:#e9d2a0;">Ajouter aussi ce PNJ dans les mobs pour preparer sa version combat.</span>
+    </label>
     <div style="display:flex;justify-content:flex-end;gap:10px;">
       <button type="button" onclick="document.getElementById('nativeStudioDraftDialog').close(); window.__nativeStudioDraft = null;" style="padding:10px 14px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Annuler</button>
       <button type="button" onclick="confirmNativeStudioDraft()" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Valider l'ajout</button>

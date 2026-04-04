@@ -69,10 +69,19 @@ function showMobSelectionMenu(mainMob, forceTier) {
       ? getSandboxCombatTierMeta(forceTier || (mobStats[mainMob] ? mobStats[mainMob].tier : "weak"))
       : { label: forceTier || "Faible" }
     sub.innerText = "Principal : " + mainMob.toUpperCase() + " • " + tierMeta.label
-    if (typeof getPartyLevel === "function" && typeof getSandboxMobEncounterStats === "function") {
+    if (typeof getPartyLevel === "function" && typeof getSandboxMobEncounterPreview === "function") {
       getPartyLevel(level => {
-        const stats = getSandboxMobEncounterStats(mainMob, forceTier || (mobStats[mainMob] ? mobStats[mainMob].tier : "weak"), level)
-        sub.innerText = "Principal : " + mainMob.toUpperCase() + " • " + tierMeta.label + " • Niv " + stats.level + " • " + stats.hp + " PV"
+        const renderPreview = function(partyVitals) {
+          const preview = getSandboxMobEncounterPreview(
+            mainMob,
+            forceTier || (mobStats[mainMob] ? mobStats[mainMob].tier : "weak"),
+            level,
+            partyVitals
+          )
+          sub.innerText = "Principal : " + mainMob.toUpperCase() + " • " + tierMeta.label + " • " + formatSandboxMobPreviewText(preview)
+        }
+        if (typeof getCombatPartyVitalitySnapshot === "function") getCombatPartyVitalitySnapshot(renderPreview)
+        else renderPreview({ currentHP: 100, maxHP: 100, avgLevel: level })
       })
     }
   }
@@ -110,72 +119,93 @@ function _launchCombatWithMobs(mainMob, forceTier, extraMobs) {
     : (forceTier || (mobStats[mainMob] ? mobStats[mainMob].tier : "weak"))
 
   getPartyLevel(level => {
-    try {
-      const primaryStats = typeof getSandboxMobEncounterStats === "function"
-        ? getSandboxMobEncounterStats(mainMob, tier, level)
-        : null
-      const hp = primaryStats ? primaryStats.hp : Math.round(((mobStats[mainMob] ? mobStats[mainMob].baseHP : 10)) * 1.0)
-      const lvl = primaryStats ? primaryStats.level : Math.max(1, level)
-      const runtimeTier = primaryStats ? primaryStats.runtimeTier : tier
-      const mainMobData = {
-        name: mainMob,
-        hp: hp,
-        maxHP: hp,
-        lvl: lvl,
-        tier: runtimeTier,
-        difficulty: tier,
-        slot: "mob",
-        x: 600,
-        y: 180
-      }
-      _state.pendingMainMobData = mainMobData
+    const buildEncounter = function(partyVitals) {
       try {
-        db.ref("combat/mob").set(mainMobData).catch(() => {})
-      } catch (_) {}
-
-      _state.pendingExtraMobs = {}
-      _state.pendingExtraMobData = {}
-      extraMobs.forEach((mob, i) => {
-        const slot = ["mob2","mob3"][i]
-        if (!slot || !mob) return
-        _state.pendingExtraMobs[slot] = mob
-        const tier2 = typeof normalizeSandboxCombatTier === "function"
-          ? normalizeSandboxCombatTier(mobStats[mob] ? mobStats[mob].tier : "weak")
-          : (mobStats[mob] ? mobStats[mob].tier : "weak")
-        const base2 = mobStats[mob] ? mobStats[mob].baseHP : 10
-        const tier2Runtime = tier2 === "worldboss" ? "boss" : tier2
-        const mult2 = { weak:1.2, medium:2.0, high:3.5, boss:6.0 }[tier2Runtime] || 1.2
-        const lf2   = { weak:4,   medium:8,   high:14,  boss:30  }[tier2Runtime] || 4
-        const hp2  = Math.round(base2 * mult2 + level * lf2 + Math.floor(level * level * 0.5))
-        const lvl2 = Math.max(1, level + ({ weak:-1, medium:1, high:3, boss:8 }[tier2Runtime] || 0))
-        const startX = Math.round((window.innerWidth - 4 * 110) / 2)
-        const slotIndex = slot === "mob2" ? 1 : 2
-        const mobData = {
-          name: mob,
-          hp: hp2,
-          maxHP: hp2,
-          lvl: lvl2,
-          tier: tier2Runtime,
-          difficulty: tier2,
-          slot: slot,
-          x: startX + (slotIndex + 4) * 90,
-          y: Math.round(window.innerHeight * 0.25)
+        const primaryStats = typeof getSandboxMobEncounterStats === "function"
+          ? getSandboxMobEncounterStats(mainMob, tier, level)
+          : null
+        const hp = primaryStats ? primaryStats.hp : Math.round(((mobStats[mainMob] ? mobStats[mainMob].baseHP : 10)) * 1.0)
+        const lvl = primaryStats ? primaryStats.level : Math.max(1, level)
+        const runtimeTier = primaryStats ? primaryStats.runtimeTier : tier
+        const bossLifeProfile = typeof buildBossLifeProfile === "function"
+          ? buildBossLifeProfile(lvl, hp, tier, partyVitals)
+          : { totalLives: 1, livesRemaining: 1, phaseHP: hp, encounterHP: hp }
+        const mainMobData = {
+          name: mainMob,
+          hp: bossLifeProfile.phaseHP,
+          maxHP: bossLifeProfile.phaseHP,
+          phaseHP: bossLifeProfile.phaseHP,
+          lvl: lvl,
+          tier: runtimeTier,
+          difficulty: tier,
+          slot: "mob",
+          x: 600,
+          y: 180,
+          totalLives: bossLifeProfile.totalLives,
+          livesRemaining: bossLifeProfile.livesRemaining,
+          encounterHP: bossLifeProfile.encounterHP
         }
-        _state.pendingExtraMobData[slot] = mobData
+        _state.pendingMainMobData = mainMobData
         try {
-          db.ref("combat/" + slot).set(mobData).catch(() => {})
+          if (typeof renderCombatMobDisplay === "function") renderCombatMobDisplay(mainMobData)
         } catch (_) {}
-        activeMobSlots[slot] = true
-      })
-      try { _syncCombatStart(mainMob, tier, extraMobs.filter(Boolean)).catch(() => {}) } catch (_) {}
-      combatSequence(mainMob, forceTier)
-    } catch (error) {
-      console.error("_launchCombatWithMobs failed:", error)
-      combatActive = false
-      if (typeof showNotification === "function") showNotification("Lancement du combat impossible")
-    } finally {
-      combatStarting = false
+        try {
+          db.ref("combat/mob").set(mainMobData).catch(() => {})
+        } catch (_) {}
+
+        _state.pendingExtraMobs = {}
+        _state.pendingExtraMobData = {}
+        extraMobs.forEach((mob, i) => {
+          const slot = ["mob2","mob3"][i]
+          if (!slot || !mob) return
+          _state.pendingExtraMobs[slot] = mob
+          const tier2 = typeof normalizeSandboxCombatTier === "function"
+            ? normalizeSandboxCombatTier(mobStats[mob] ? mobStats[mob].tier : "weak")
+            : (mobStats[mob] ? mobStats[mob].tier : "weak")
+          const base2 = mobStats[mob] ? mobStats[mob].baseHP : 10
+          const tier2Runtime = tier2 === "worldboss" ? "boss" : tier2
+          const mult2 = { weak:1.2, medium:2.0, high:3.5, boss:6.0 }[tier2Runtime] || 1.2
+          const lf2   = { weak:4,   medium:8,   high:14,  boss:30  }[tier2Runtime] || 4
+          const hp2  = Math.round(base2 * mult2 + level * lf2 + Math.floor(level * level * 0.5))
+          const lvl2 = Math.max(1, level + ({ weak:-1, medium:1, high:3, boss:8 }[tier2Runtime] || 0))
+          const extraLifeProfile = typeof buildBossLifeProfile === "function"
+            ? buildBossLifeProfile(lvl2, hp2, tier2, partyVitals)
+            : { totalLives: 1, livesRemaining: 1, phaseHP: hp2, encounterHP: hp2 }
+          const startX = Math.round((window.innerWidth - 4 * 110) / 2)
+          const slotIndex = slot === "mob2" ? 1 : 2
+          const mobData = {
+            name: mob,
+            hp: extraLifeProfile.phaseHP,
+            maxHP: extraLifeProfile.phaseHP,
+            phaseHP: extraLifeProfile.phaseHP,
+            lvl: lvl2,
+            tier: tier2Runtime,
+            difficulty: tier2,
+            slot: slot,
+            x: startX + (slotIndex + 4) * 90,
+            y: Math.round(window.innerHeight * 0.25),
+            totalLives: extraLifeProfile.totalLives,
+            livesRemaining: extraLifeProfile.livesRemaining,
+            encounterHP: extraLifeProfile.encounterHP
+          }
+          _state.pendingExtraMobData[slot] = mobData
+          try {
+            db.ref("combat/" + slot).set(mobData).catch(() => {})
+          } catch (_) {}
+          activeMobSlots[slot] = true
+        })
+        try { _syncCombatStart(mainMob, tier, extraMobs.filter(Boolean)).catch(() => {}) } catch (_) {}
+        combatSequence(mainMob, forceTier)
+      } catch (error) {
+        console.error("_launchCombatWithMobs failed:", error)
+        combatActive = false
+        if (typeof showNotification === "function") showNotification("Lancement du combat impossible")
+      } finally {
+        combatStarting = false
+      }
     }
+    if (typeof getCombatPartyVitalitySnapshot === "function") getCombatPartyVitalitySnapshot(buildEncounter)
+    else buildEncounter({ currentHP: 100, maxHP: 100, avgLevel: level })
   })
 }
 
@@ -269,6 +299,18 @@ function _startCombatSequence(mob, tierMob) {
 
   const intro = prepareCombatIntroDisplay()
   const cf    = document.getElementById("combatFilter")
+  const sharedDock = document.getElementById("sharedNotebookDock")
+  const playerNotesDock = document.getElementById("playerNotesDock")
+  const playerSheetDock = document.getElementById("playerSheetDock")
+  const gmBar = document.getElementById("gmBar")
+  const diceBar = document.getElementById("diceBar")
+  const diceLog = document.getElementById("diceLog")
+  if (sharedDock) sharedDock.style.display = "none"
+  if (playerNotesDock) playerNotesDock.style.display = "none"
+  if (playerSheetDock) playerSheetDock.style.display = "none"
+  if (gmBar) gmBar.style.display = "none"
+  if (diceBar) diceBar.style.display = "none"
+  if (diceLog) diceLog.style.display = "none"
   if (!keepMapMusic) {
     try { fadeMusicOut(() => {}) } catch (_) {}
   }
@@ -353,7 +395,15 @@ function _startCombatSequence(mob, tierMob) {
           if (isGM) {
             document.getElementById("gmDamagePanel").style.display = "block"
             document.getElementById("gmCombatPanel").style.display = "flex"
+            try {
+              if (typeof renderCombatMobDisplay === "function") {
+                renderCombatMobDisplay(_state.pendingMainMobData || { name: mob, hp: 1, maxHP: 1, lvl: "?", totalLives: 1, livesRemaining: 1 })
+              }
+            } catch (_) {}
           }
+          if (gmBar) gmBar.style.display = "flex"
+          if (diceBar) diceBar.style.display = "flex"
+          if (diceLog) diceLog.style.display = "block"
         }, 600)
       }, 800)
     }, 2500)
@@ -600,6 +650,9 @@ function endCombat() {
   const hud = document.getElementById("combatHUD"); if (hud) hud.style.display = "none"
   const attackBtn = document.getElementById("playerAttackBtn"); if (attackBtn) attackBtn.style.display = "none"
   const thuumBtn = document.getElementById("playerThuumBtn"); if (thuumBtn) thuumBtn.style.display = "none"
+  try {
+    if (typeof updatePlayerNotesVisibility === "function") updatePlayerNotesVisibility()
+  } catch (_) {}
   if (typeof closePlayerThuumPanel === "function") closePlayerThuumPanel()
   if (isGM) {
     db.ref("combat/mob").remove()
@@ -806,44 +859,48 @@ function openMobDiff(mobId, event) {
     const meta = typeof getSandboxCombatTierMeta === "function"
       ? getSandboxCombatTierMeta(tier)
       : { shortLabel: tier, accent: "#f5e6c8" }
-    const stats = typeof getSandboxMobEncounterStats === "function"
-      ? getSandboxMobEncounterStats(mobId, tier, fallbackLevel)
-      : { level: fallbackLevel, hp: 0 }
+    const preview = typeof getSandboxMobEncounterPreview === "function"
+      ? getSandboxMobEncounterPreview(mobId, tier, fallbackLevel, { currentHP: 100, maxHP: 100, avgLevel: fallbackLevel })
+      : { level: fallbackLevel, phaseHP: 0, totalLives: 1 }
     btn.style.display = "block"
     btn.style.borderColor = "rgba(214,180,106,0.28)"
     btn.style.boxShadow = "none"
     btn.innerHTML =
       `<span style="display:block;font-size:11px;color:${meta.accent || "#f5e6c8"};">${meta.shortLabel || meta.label || tier}</span>` +
-      `<span style="display:block;font-size:10px;color:#f5e6c8;margin-top:4px;">Niv ${stats.level} • ${stats.hp} PV</span>`
+      `<span style="display:block;font-size:10px;color:#f5e6c8;margin-top:4px;">${typeof formatSandboxMobPreviewText === "function" ? formatSandboxMobPreviewText(preview) : ("Niv " + preview.level + " • " + preview.phaseHP + " PV")}</span>`
   })
   if (typeof getPartyLevel === "function") {
     getPartyLevel(level => {
-      const recommendedTier = typeof getSandboxRecommendedMobTier === "function"
-        ? getSandboxRecommendedMobTier(mobId, level)
-        : "medium"
-      const recommendedMeta = typeof getSandboxCombatTierMeta === "function"
-        ? getSandboxCombatTierMeta(recommendedTier)
-        : { label: recommendedTier }
-      if (overview) overview.innerText = "Groupe niv. " + level + " • conseil : " + recommendedMeta.label
-      popup.querySelectorAll("[data-mob-diff-tier]").forEach(btn => {
-        const tier = btn.getAttribute("data-mob-diff-tier") || "weak"
-        const meta = typeof getSandboxCombatTierMeta === "function"
-          ? getSandboxCombatTierMeta(tier)
-          : { shortLabel: tier, accent: "#f5e6c8" }
-        const stats = typeof getSandboxMobEncounterStats === "function"
-          ? getSandboxMobEncounterStats(mobId, tier, level)
-          : { level, hp: 0 }
-        const isRecommended = typeof normalizeSandboxCombatTier === "function"
-          ? normalizeSandboxCombatTier(tier) === recommendedTier
-          : tier === recommendedTier
-        btn.style.display = "block"
-        btn.style.borderColor = isRecommended ? "rgba(240,208,135,0.95)" : "rgba(214,180,106,0.28)"
-        btn.style.boxShadow = isRecommended ? "0 0 0 1px rgba(240,208,135,0.22), 0 10px 18px rgba(0,0,0,0.2)" : "none"
-        btn.innerHTML =
-          `<span style="display:block;font-size:11px;color:${meta.accent || "#f5e6c8"};">${meta.shortLabel || meta.label || tier}</span>` +
-          `<span style="display:block;font-size:10px;color:#f5e6c8;margin-top:4px;">Niv ${stats.level} • ${stats.hp} PV</span>` +
-          (isRecommended ? `<span style="display:block;font-size:9px;color:#f0d087;margin-top:4px;">CONSEILLE</span>` : "")
-      })
+      const renderPreview = function(partyVitals) {
+        const recommendedTier = typeof getSandboxRecommendedMobTier === "function"
+          ? getSandboxRecommendedMobTier(mobId, level)
+          : "medium"
+        const recommendedMeta = typeof getSandboxCombatTierMeta === "function"
+          ? getSandboxCombatTierMeta(recommendedTier)
+          : { label: recommendedTier }
+        if (overview) overview.innerText = "Groupe niv. " + level + " • conseil : " + recommendedMeta.label
+        popup.querySelectorAll("[data-mob-diff-tier]").forEach(btn => {
+          const tier = btn.getAttribute("data-mob-diff-tier") || "weak"
+          const meta = typeof getSandboxCombatTierMeta === "function"
+            ? getSandboxCombatTierMeta(tier)
+            : { shortLabel: tier, accent: "#f5e6c8" }
+          const preview = typeof getSandboxMobEncounterPreview === "function"
+            ? getSandboxMobEncounterPreview(mobId, tier, level, partyVitals)
+            : { level, phaseHP: 0, totalLives: 1 }
+          const isRecommended = typeof normalizeSandboxCombatTier === "function"
+            ? normalizeSandboxCombatTier(tier) === recommendedTier
+            : tier === recommendedTier
+          btn.style.display = "block"
+          btn.style.borderColor = isRecommended ? "rgba(240,208,135,0.95)" : "rgba(214,180,106,0.28)"
+          btn.style.boxShadow = isRecommended ? "0 0 0 1px rgba(240,208,135,0.22), 0 10px 18px rgba(0,0,0,0.2)" : "none"
+          btn.innerHTML =
+            `<span style="display:block;font-size:11px;color:${meta.accent || "#f5e6c8"};">${meta.shortLabel || meta.label || tier}</span>` +
+            `<span style="display:block;font-size:10px;color:#f5e6c8;margin-top:4px;">${typeof formatSandboxMobPreviewText === "function" ? formatSandboxMobPreviewText(preview) : ("Niv " + preview.level + " • " + preview.phaseHP + " PV")}</span>` +
+            (isRecommended ? `<span style="display:block;font-size:9px;color:#f0d087;margin-top:4px;">CONSEILLE</span>` : "")
+        })
+      }
+      if (typeof getCombatPartyVitalitySnapshot === "function") getCombatPartyVitalitySnapshot(renderPreview)
+      else renderPreview({ currentHP: 100, maxHP: 100, avgLevel: level })
     })
   }
 
@@ -883,6 +940,16 @@ const MOB_SELECT_LIST = []
 function getCombatMobImagePath(mobId) {
   const safeId = String(mobId || "").trim()
   if (!safeId) return ""
+  try {
+    if (typeof getSimpleSandboxMobs === "function") {
+      const definition = getSimpleSandboxMobs().find(function(item) {
+        return String(item && item.id || "").trim() === safeId
+      })
+      if (definition && definition.__syntheticSource === "pnj" && definition.image) {
+        return String(definition.image || "").trim()
+      }
+    }
+  } catch (_) {}
   try {
     if (typeof getCustomization === "function") {
       const customization = getCustomization()

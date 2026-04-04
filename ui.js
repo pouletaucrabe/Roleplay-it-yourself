@@ -508,10 +508,21 @@ function saveMobCombatAttackSet(mobId, nextAttacks, nextSpecialAttack) {
     const targetIndex = items.findIndex(function(item) {
       return String(item && item.id || "").trim() === String(mobId || "").trim()
     })
-    if (targetIndex < 0) return false
-    items[targetIndex].attacks = (Array.isArray(nextAttacks) ? nextAttacks : []).map(cloneMobCombatAttack)
-    items[targetIndex].specialAttack = nextSpecialAttack ? cloneMobSpecialAttack(nextSpecialAttack) : null
-    return saveSimpleSandboxMobs(items)
+    if (targetIndex >= 0 && !(items[targetIndex] && items[targetIndex].__syntheticSource === "pnj")) {
+      items[targetIndex].attacks = (Array.isArray(nextAttacks) ? nextAttacks : []).map(cloneMobCombatAttack)
+      items[targetIndex].specialAttack = nextSpecialAttack ? cloneMobSpecialAttack(nextSpecialAttack) : null
+      return saveSimpleSandboxMobs(items)
+    }
+    if (typeof getSimpleSandboxPnjs !== "function" || typeof saveSimpleSandboxPnjs !== "function") return false
+    const pnjs = getSimpleSandboxPnjs()
+    const pnjIndex = pnjs.findIndex(function(item) {
+      return ("pnjmob_" + String(item && item.id || "").trim()) === String(mobId || "").trim()
+    })
+    if (pnjIndex < 0) return false
+    pnjs[pnjIndex].combatAsMob = true
+    pnjs[pnjIndex].attacks = (Array.isArray(nextAttacks) ? nextAttacks : []).map(cloneMobCombatAttack)
+    pnjs[pnjIndex].specialAttack = nextSpecialAttack ? cloneMobSpecialAttack(nextSpecialAttack) : null
+    return saveSimpleSandboxPnjs(pnjs)
   } catch (_) {}
   return false
 }
@@ -646,17 +657,41 @@ function showGMCombatPanel() {
   if (!isGM) return
   if (window.__gmMiniRefs) Object.keys(window.__gmMiniRefs).forEach(cleanupGMPlayerSheetListener)
   const panel = document.getElementById("gmCombatPanel"); panel.innerHTML = ""
+  panel.dataset.activePlayer = ""
+  const buttonRow = document.createElement("div")
+  buttonRow.className = "gmCombatPlayerRow"
+  const detailHost = document.createElement("div")
+  detailHost.id = "gmCombatDetailHost"
   getVisibleCombatPlayerIds().forEach(function(playerId) {
     const p = { id: playerId, name: typeof getPlayerDisplayName === "function" ? getPlayerDisplayName(playerId) : playerId }
     const btn = document.createElement("button"); btn.className = "gmAttackButton"; btn.innerText = p.name
-    btn.onclick = () => openGMPlayerSheet(p.id); panel.appendChild(btn)
+    btn.dataset.playerId = p.id
+    btn.onclick = function() { return openGMPlayerSheet(p.id) }
+    buttonRow.appendChild(btn)
   })
+  panel.appendChild(buttonRow)
+  panel.appendChild(detailHost)
   panel.style.display = "flex"
 }
 
 function openGMPlayerSheet(playerID) {
   const panel = document.getElementById("gmCombatPanel")
-  const old = document.getElementById("gmMini_" + playerID); if (old) { cleanupGMPlayerSheetListener(playerID); old.remove(); return }
+  if (!panel) return false
+  const host = document.getElementById("gmCombatDetailHost") || panel
+  const currentActive = String(panel.dataset.activePlayer || "").trim().toLowerCase()
+  const wantedPlayer = String(playerID || "").trim().toLowerCase()
+  host.innerHTML = ""
+  panel.querySelectorAll(".gmAttackButton").forEach(function(button) {
+    const active = String(button.dataset.playerId || "").trim().toLowerCase() === wantedPlayer && currentActive !== wantedPlayer
+    button.classList.toggle("is-active", active)
+    button.setAttribute("aria-pressed", active ? "true" : "false")
+  })
+  if (currentActive === wantedPlayer) {
+    cleanupGMPlayerSheetListener(playerID)
+    panel.dataset.activePlayer = ""
+    return false
+  }
+  panel.dataset.activePlayer = playerID
   const box = document.createElement("div"); box.className = "gmMiniSheet"; box.id = "gmMini_" + playerID
   const title = document.createElement("div"); title.className = "gmMiniTitle"
   const titleImg = document.createElement("img")
@@ -686,7 +721,7 @@ function openGMPlayerSheet(playerID) {
       box.appendChild(block)
     }
   })
-  panel.appendChild(box)
+  host.appendChild(box)
   if (!isSandboxStudio) makeDraggable(box)
   const ref = db.ref("characters/" + playerID)
   const cb = snap => {
@@ -975,8 +1010,11 @@ function addMobToFight(mobId, forceTier) {
     const effLvl=(tier==="boss"&&level>10)?10+(level-10)*0.65:level
     const hp=Math.round(base*(tMults[tier]||1.0)*Math.pow(1+effLvl*(tScales[tier]||0.12),1.6))
     const lvl=Math.max(1,level+(tLvl[tier]||0))
+    const lifeProfile = typeof buildBossLifeProfile === "function"
+      ? buildBossLifeProfile(lvl, hp, tier, null)
+      : { totalLives: 1, livesRemaining: 1, phaseHP: hp, encounterHP: hp }
     const idx=freeSlot==="mob2"?1:2, startX=Math.round((window.innerWidth-4*110)/2)
-    db.ref("combat/"+freeSlot).set({ name:mobId, hp, maxHP:hp, lvl, tier, slot:freeSlot, x:startX+(idx+4)*90, y:Math.round(window.innerHeight*0.25) }); activeMobSlots[freeSlot]=true
+    db.ref("combat/"+freeSlot).set({ name:mobId, hp:lifeProfile.phaseHP, maxHP:lifeProfile.phaseHP, phaseHP:lifeProfile.phaseHP, lvl, tier, slot:freeSlot, x:startX+(idx+4)*90, y:Math.round(window.innerHeight*0.25), totalLives:lifeProfile.totalLives, livesRemaining:lifeProfile.livesRemaining, encounterHP:lifeProfile.encounterHP }); activeMobSlots[freeSlot]=true
     showNotification("âš” "+mobId.toUpperCase()+" rejoint le combat !")
   })
 }
@@ -2292,8 +2330,11 @@ function _applyAllyResult(pnj, action, roll, targetId) {
         db.ref("combat/"+slot).once("value", s => {
           const mobData = s.val()
           if (!mobData || mobData.hp === undefined) return
-          const newHP = Math.max(0, mobData.hp - dmg)
-          db.ref("combat/"+slot+"/hp").set(newHP)
+          if (typeof applyDamageToCombatMob === "function") applyDamageToCombatMob(dmg, slot)
+          else {
+            const newHP = Math.max(0, mobData.hp - dmg)
+            db.ref("combat/"+slot+"/hp").set(newHP)
+          }
           applied = true
         })
       })

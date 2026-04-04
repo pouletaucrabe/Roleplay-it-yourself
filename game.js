@@ -2733,13 +2733,19 @@ function usePlayerThuum(forcedWord) {
 
   db.ref("combat/mob").once("value", snap => {
     const mob = snap.val()
-    if (mob) db.ref("combat/mob/hp").set(Math.max(1, (mob.hp || 0) - mainDmg))
+    if (mob) {
+      if (typeof applyDamageToCombatMob === "function") applyDamageToCombatMob(mainDmg, "mob")
+      else db.ref("combat/mob/hp").set(Math.max(0, (mob.hp || 0) - mainDmg))
+    }
   })
 
   ;["mob2", "mob3"].forEach(slot => {
     db.ref("combat/" + slot).once("value", snap => {
       const mob = snap.val()
-      if (mob) db.ref("combat/" + slot + "/hp").set(Math.max(1, (mob.hp || 0) - splash))
+      if (mob) {
+        if (typeof applyDamageToCombatMob === "function") applyDamageToCombatMob(splash, slot)
+        else db.ref("combat/" + slot + "/hp").set(Math.max(1, (mob.hp || 0) - splash))
+      }
     })
   })
 
@@ -2770,16 +2776,8 @@ if (typeof resetAuroraPresentation === "function") resetAuroraPresentation()
 // â”€â”€â”€ combat/mob â€” listener unique fusionnÃ© â”€â”€â”€
 db.ref("combat/mob").on("value", snap => {
   const data = snap.val()
-
-  // Barre HP panneau MJ
-  const topBar  = document.getElementById("mobHPBarTop")
-  const topText = document.getElementById("mobHPTopText")
-  if (topBar && topText && data) {
-    const pct = Math.max(0, (data.hp / data.maxHP) * 100)
-    topBar.style.width = pct + "%"
-    topText.innerText  = data.name.toUpperCase() + "  " + data.hp + " / " + data.maxHP + "  (Niv " + (data.lvl || "?") + ")"
-    topBar.style.background = pct > 60 ? "linear-gradient(90deg,#3cff6b,#0b8a3a)" : pct > 30 ? "linear-gradient(90deg,#ffb347,#ff7b00)" : "linear-gradient(90deg,#ff4040,#8b0000)"
-  }
+  try { window.__lastCombatMobData = data ? Object.assign({}, data) : null } catch (_) {}
+  renderCombatMobDisplay(data)
 
   const hud = document.getElementById("mobHUD")
   if (!combatActive || !data) {
@@ -2788,25 +2786,6 @@ db.ref("combat/mob").on("value", snap => {
     if (token) token.style.display = "none"
     return
   }
-
-  // Token HUD (barre au-dessus du token)
-  const tokenBar  = document.getElementById("mobTokenHPBar")
-  const tokenText = document.getElementById("mobTokenHPText")
-  if (tokenBar && tokenText) {
-    const pct = (data.hp / data.maxHP) * 100
-    tokenBar.style.width = pct + "%"
-    tokenText.innerText  = data.hp + " / " + data.maxHP
-  }
-  const token = document.getElementById("mobToken")
-  if (token) {
-    if (Number.isFinite(Number(data.x))) token.style.left = Number(data.x) + "px"
-    if (Number.isFinite(Number(data.y))) token.style.top = Number(data.y) + "px"
-  }
-
-  const nameEl = document.getElementById("mobName")
-  if (nameEl) nameEl.innerText = data.name.toUpperCase() + "  â€¢  NIV " + (data.lvl || "?")
-  const hpText = document.getElementById("mobHPText")
-  if (hpText) hpText.innerText = "HP " + data.hp + " / " + data.maxHP
 
     if (isGM) {
       hud.style.display = "block"
@@ -3691,6 +3670,196 @@ function getMaxHP(playerId, level) {
   return s ? s.hp : 100
 }
 
+function getCombatRelevantPlayerIds() {
+  const baseIds = ["greg", "ju", "elo", "bibi"]
+  return baseIds.filter(function(id) {
+    const token = document.getElementById(id)
+    if (!token) return false
+    if (token.classList.contains("playerDead")) return false
+    const display = token.style && token.style.display ? token.style.display : ""
+    return display !== "none"
+  })
+}
+
+function getCombatPartyVitalitySnapshot(callback) {
+  const done = typeof callback === "function" ? callback : function() {}
+  try {
+    const ids = getCombatRelevantPlayerIds()
+    if (!ids.length) {
+      done({ ids: [], currentHP: 100, maxHP: 100, avgLevel: 1 })
+      return
+    }
+    let remaining = ids.length
+    let totalCurrent = 0
+    let totalMax = 0
+    let totalLevel = 0
+    ids.forEach(function(id) {
+      db.ref("characters/" + id).once("value", function(snapshot) {
+        const data = snapshot.val() || {}
+        const level = Math.max(1, parseInt(data.lvl, 10) || 1)
+        const maxHP = Math.max(1, parseInt(data.hpMax, 10) || getMaxHP(id, level))
+        const currentHP = Math.max(0, Math.min(maxHP, parseInt(data.hp, 10) || maxHP))
+        totalCurrent += currentHP
+        totalMax += maxHP
+        totalLevel += level
+        remaining -= 1
+        if (remaining <= 0) {
+          done({
+            ids: ids.slice(),
+            currentHP: Math.max(1, totalCurrent),
+            maxHP: Math.max(1, totalMax),
+            avgLevel: Math.max(1, Math.round(totalLevel / ids.length))
+          })
+        }
+      }, function() {
+        remaining -= 1
+        totalCurrent += 100
+        totalMax += 100
+        totalLevel += 1
+        if (remaining <= 0) {
+          done({
+            ids: ids.slice(),
+            currentHP: Math.max(1, totalCurrent),
+            maxHP: Math.max(1, totalMax),
+            avgLevel: Math.max(1, Math.round(totalLevel / ids.length))
+          })
+        }
+      })
+    })
+  } catch (_) {
+    done({ ids: [], currentHP: 100, maxHP: 100, avgLevel: 1 })
+  }
+}
+
+function buildBossLifeProfile(mobLevel, mobHP, tier, partyVitals) {
+  return {
+    totalLives: 1,
+    livesRemaining: 1,
+    phaseHP: Math.max(1, Number(mobHP) || 1),
+    encounterHP: Math.max(1, Number(mobHP) || 1)
+  }
+}
+
+function getCombatMobLifeLabel(mobData) {
+  return ""
+}
+
+function renderCombatMobDisplay(data) {
+  try {
+    const safeData = data && typeof data === "object" ? data : null
+    try { window.__lastCombatMobData = safeData ? Object.assign({}, safeData) : null } catch (_) {}
+    const topBarCandidates = Array.from(document.querySelectorAll('[id="mobHPBarTop"]'))
+    const topBar  = topBarCandidates.length ? topBarCandidates[topBarCandidates.length - 1] : document.getElementById("mobHPBarTop")
+    const topText = document.getElementById("mobHPTopText")
+    const hud = document.getElementById("mobHUD")
+    if (!safeData) {
+      if (topBar) topBar.style.width = "0%"
+      if (topText) topText.innerText = "— / —"
+      if (hud) hud.style.display = "none"
+      return
+    }
+    const maxHP = Math.max(1, Number(safeData.maxHP) || 1)
+    const hp = Math.max(0, Number(safeData.hp) || 0)
+    const pct = Math.max(0, Math.min(100, (hp / maxHP) * 100))
+    if (topBar) {
+      topBar.style.width = pct + "%"
+      topBar.style.background = pct > 60 ? "linear-gradient(90deg,#3cff6b,#0b8a3a)" : pct > 30 ? "linear-gradient(90deg,#ffb347,#ff7b00)" : "linear-gradient(90deg,#ff4040,#8b0000)"
+    }
+    if (topText) topText.innerText = String(safeData.name || "MOB").toUpperCase() + "  " + hp + " / " + maxHP + "  (Niv " + (safeData.lvl || "?") + ")" + getCombatMobLifeLabel(safeData)
+    const tokenBar  = document.getElementById("mobTokenHPBar")
+    const tokenText = document.getElementById("mobTokenHPText")
+    if (tokenBar) tokenBar.style.width = pct + "%"
+    if (tokenText) tokenText.innerText = hp + " / " + maxHP
+    const nameEl = document.getElementById("mobName")
+    if (nameEl) nameEl.innerText = String(safeData.name || "MOB").toUpperCase() + "  •  NIV " + (safeData.lvl || "?") + getCombatMobLifeLabel(safeData)
+    const hpText = document.getElementById("mobHPText")
+    if (hpText) hpText.innerText = "HP " + hp + " / " + maxHP + getCombatMobLifeLabel(safeData)
+    const token = document.getElementById("mobToken")
+    if (token) {
+      if (Number.isFinite(Number(safeData.x))) token.style.left = Number(safeData.x) + "px"
+      if (Number.isFinite(Number(safeData.y))) token.style.top = Number(safeData.y) + "px"
+    }
+  } catch (_) {}
+}
+
+function applyDamageToCombatMob(damage, slot) {
+  const targetSlot = String(slot || "mob").trim() || "mob"
+  const delta = parseInt(damage, 10) || 0
+  if (!delta) return
+  const applyToMobData = function(mob) {
+    if (!mob) return false
+    const currentHP = Math.max(0, parseInt(mob.hp, 10) || 0)
+    const maxHP = Math.max(1, parseInt(mob.maxHP, 10) || parseInt(mob.phaseHP, 10) || currentHP || 1)
+    const nextHP = Math.max(0, Math.min(maxHP, currentHP - delta))
+    const nextData = Object.assign({}, mob, {
+      hp: nextHP,
+      maxHP: maxHP,
+      phaseHP: maxHP,
+      totalLives: 1,
+      livesRemaining: 1,
+      encounterHP: maxHP
+    })
+    db.ref("combat/" + targetSlot).update({
+      hp: nextData.hp,
+      maxHP: nextData.maxHP,
+      phaseHP: nextData.phaseHP,
+      totalLives: 1,
+      livesRemaining: 1,
+      encounterHP: nextData.maxHP
+    }).catch(() => {})
+    if (targetSlot === "mob" && nextData) renderCombatMobDisplay(nextData)
+    if (targetSlot === "mob") {
+      try { window.__lastCombatMobData = Object.assign({}, nextData) } catch (_) {}
+      if (combatActive && Math.max(0, parseInt(nextData.hp, 10) || 0) <= 0 && !window.__combatOutcomeShowing) {
+        try { showVictory() } catch (_) {}
+      }
+    }
+    return true
+  }
+
+  if (targetSlot === "mob" && window.__lastCombatMobData) {
+    if (applyToMobData(Object.assign({}, window.__lastCombatMobData))) return
+  }
+
+  db.ref("combat/" + targetSlot).once("value", function(snapshot) {
+    const mob = snapshot && typeof snapshot.val === "function" ? snapshot.val() : null
+    applyToMobData(mob)
+  }, function() {})
+}
+
+function submitMobDamage() {
+  try {
+    const input = document.getElementById("mobDamageInput")
+    if (!input) return false
+    const damage = parseInt(input.value, 10) || 0
+    if (!damage) return false
+    try {
+      if (typeof showNotification === "function") showNotification("Degats envoyes : " + damage)
+    } catch (_) {}
+    if (!window.__lastCombatMobData) {
+      try {
+        if (typeof showNotification === "function") showNotification("Aucun mob actif")
+      } catch (_) {}
+      return false
+    }
+    applyDamageToCombatMob(damage, "mob")
+    input.value = ""
+  } catch (_) {}
+  return false
+}
+
+try {
+  window.submitMobDamage = submitMobDamage
+} catch (_) {}
+
+function restoreCombatMobHP(slot) {
+  return false
+}
+
+try {
+  window.restoreCombatMobHP = restoreCombatMobHP
+} catch (_) {}
+
 function updateTokenFromDB(snapshot) {
   const id   = snapshot.key
   const data = snapshot.val()
@@ -4184,7 +4353,9 @@ function escapeSandboxInlineArg(value) {
 
 function getSandboxMobBaseDefinition(mobId) {
   const stats = (typeof mobStats === "object" && mobStats) ? mobStats[mobId] : null
-  const runtimeItems = typeof getSandboxContentItems === "function" ? getSandboxContentItems("mob") : []
+  const runtimeItems = typeof getSimpleSandboxMobs === "function"
+    ? getSimpleSandboxMobs()
+    : (typeof getSandboxContentItems === "function" ? getSandboxContentItems("mob") : [])
   const custom = Array.isArray(runtimeItems) ? runtimeItems.find(item => String(item && item.id || "") === String(mobId || "")) : null
   return {
     id: mobId,
@@ -4195,9 +4366,20 @@ function getSandboxMobBaseDefinition(mobId) {
   }
 }
 
+function getSandboxCombatDifficultyPercent() {
+  try {
+    const customization = typeof getCustomization === "function" ? getCustomization() : null
+    const project = customization && customization.project ? customization.project : {}
+    return Math.max(50, Math.min(200, parseInt(project.combatDifficultyPercent, 10) || 100))
+  } catch (_) {}
+  return 100
+}
+
 function getSandboxCombatScalingForTier(tier, partyLevel) {
   const normalized = normalizeSandboxCombatTier(tier)
   const level = Math.max(1, Number(partyLevel) || 1)
+  const difficultyPercent = getSandboxCombatDifficultyPercent()
+  const difficultyFactor = difficultyPercent / 100
   const tierSettings = {
     weak:      { mult: 1.0, scale: 0.12, levelOffset: -1, runtimeTier: "weak", reduceAfter10: 1.0 },
     medium:    { mult: 1.6, scale: 0.18, levelOffset: 1,  runtimeTier: "medium", reduceAfter10: 1.0 },
@@ -4212,10 +4394,12 @@ function getSandboxCombatScalingForTier(tier, partyLevel) {
   return {
     tier: normalized,
     runtimeTier: selected.runtimeTier,
-    mult: selected.mult,
-    scale: selected.scale,
+    mult: Math.max(0.35, selected.mult * difficultyFactor),
+    scale: Math.max(0.06, selected.scale * (0.75 + difficultyFactor * 0.25)),
     levelOffset: selected.levelOffset,
-    effectiveLevel
+    effectiveLevel,
+    difficultyPercent,
+    difficultyFactor
   }
 }
 
@@ -4234,6 +4418,25 @@ function getSandboxMobEncounterStats(mobId, tier, partyLevel) {
     maxHP: hp,
     baseHP: mob.baseHP
   }
+}
+
+function getSandboxMobEncounterPreview(mobId, tier, partyLevel, partyVitals) {
+  const stats = getSandboxMobEncounterStats(mobId, tier, partyLevel)
+  const lifeProfile = typeof buildBossLifeProfile === "function"
+    ? buildBossLifeProfile(stats.level, stats.hp, tier, partyVitals)
+    : { totalLives: 1, livesRemaining: 1, phaseHP: stats.hp, encounterHP: stats.hp }
+  return {
+    ...stats,
+    totalLives: Math.max(1, parseInt(lifeProfile.totalLives, 10) || 1),
+    livesRemaining: Math.max(1, parseInt(lifeProfile.livesRemaining, 10) || 1),
+    phaseHP: Math.max(1, parseInt(lifeProfile.phaseHP, 10) || stats.hp || 1),
+    encounterHP: Math.max(1, parseInt(lifeProfile.encounterHP, 10) || stats.hp || 1)
+  }
+}
+
+function formatSandboxMobPreviewText(preview) {
+  if (!preview) return "Niv 1 • 1 PV"
+  return "Niv " + (parseInt(preview.level, 10) || 1) + " • " + (parseInt(preview.phaseHP, 10) || 1) + " PV"
 }
 
 function getSandboxRecommendedMobTier(mobId, partyLevel) {
@@ -4257,40 +4460,44 @@ function refreshSandboxMobDifficultyCards() {
   const cards = Array.from(document.querySelectorAll("[data-sandbox-mob-card]"))
   if (!cards.length) return
   getPartyLevel(level => {
-    cards.forEach(card => {
-      const mobId = String(card.dataset.mobId || "")
-      if (!mobId) return
-      const definition = getSandboxMobBaseDefinition(mobId)
-      const recommendedTier = getSandboxRecommendedMobTier(mobId, level)
-      const overview = card.querySelector("[data-sandbox-mob-overview]")
-      const recommendation = card.querySelector("[data-sandbox-mob-recommendation]")
-      if (overview) {
-        const nativeMeta = getSandboxCombatTierMeta(definition.baseTier)
-        overview.textContent = "Base : " + nativeMeta.label + " • Groupe niv. " + level
-      }
-      if (recommendation) {
-        const recMeta = getSandboxCombatTierMeta(recommendedTier)
-        recommendation.textContent = "Conseil : " + recMeta.label
-      }
+    const renderCards = function(partyVitals) {
+      cards.forEach(card => {
+        const mobId = String(card.dataset.mobId || "")
+        if (!mobId) return
+        const definition = getSandboxMobBaseDefinition(mobId)
+        const recommendedTier = getSandboxRecommendedMobTier(mobId, level)
+        const overview = card.querySelector("[data-sandbox-mob-overview]")
+        const recommendation = card.querySelector("[data-sandbox-mob-recommendation]")
+        if (overview) {
+          const nativeMeta = getSandboxCombatTierMeta(definition.baseTier)
+          overview.textContent = "Base : " + nativeMeta.label + " • Groupe niv. " + level
+        }
+        if (recommendation) {
+          const recMeta = getSandboxCombatTierMeta(recommendedTier)
+          recommendation.textContent = "Conseil : " + recMeta.label
+        }
 
-      card.querySelectorAll("[data-mob-tier-btn]").forEach(button => {
-        const tier = button.getAttribute("data-mob-tier") || "weak"
-        const meta = getSandboxCombatTierMeta(tier)
-        const stats = getSandboxMobEncounterStats(mobId, tier, level)
-        const isRecommended = normalizeSandboxCombatTier(tier) === recommendedTier
-        button.style.borderColor = isRecommended ? "rgba(240,208,135,0.95)" : "rgba(214,180,106,0.24)"
-        button.style.boxShadow = isRecommended ? "0 0 0 1px rgba(240,208,135,0.28), 0 12px 26px rgba(0,0,0,0.22)" : "none"
-        button.style.background = isRecommended
-          ? "linear-gradient(180deg, rgba(112,70,26,0.98), rgba(61,34,16,0.98))"
-          : "linear-gradient(180deg, rgba(28,24,20,0.98), rgba(16,12,10,0.98))"
-        button.innerHTML =
-          `<span style="display:block;font-size:11px;color:${meta.accent};letter-spacing:1px;">${meta.shortLabel}</span>` +
-          `<span style="display:block;font-size:10px;color:#f5e6c8;margin-top:4px;">Niv ${stats.level} • ${stats.hp} PV</span>` +
-          (isRecommended
-            ? `<span style="display:block;font-size:9px;color:#f0d087;margin-top:4px;letter-spacing:1px;">CONSEILLE</span>`
-            : "")
+        card.querySelectorAll("[data-mob-tier-btn]").forEach(button => {
+          const tier = button.getAttribute("data-mob-tier") || "weak"
+          const meta = getSandboxCombatTierMeta(tier)
+          const preview = getSandboxMobEncounterPreview(mobId, tier, level, partyVitals)
+          const isRecommended = normalizeSandboxCombatTier(tier) === recommendedTier
+          button.style.borderColor = isRecommended ? "rgba(240,208,135,0.95)" : "rgba(214,180,106,0.24)"
+          button.style.boxShadow = isRecommended ? "0 0 0 1px rgba(240,208,135,0.28), 0 12px 26px rgba(0,0,0,0.22)" : "none"
+          button.style.background = isRecommended
+            ? "linear-gradient(180deg, rgba(112,70,26,0.98), rgba(61,34,16,0.98))"
+            : "linear-gradient(180deg, rgba(28,24,20,0.98), rgba(16,12,10,0.98))"
+          button.innerHTML =
+            `<span style="display:block;font-size:11px;color:${meta.accent};letter-spacing:1px;">${meta.shortLabel}</span>` +
+            `<span style="display:block;font-size:10px;color:#f5e6c8;margin-top:4px;">${formatSandboxMobPreviewText(preview)}</span>` +
+            (isRecommended
+              ? `<span style="display:block;font-size:9px;color:#f0d087;margin-top:4px;letter-spacing:1px;">CONSEILLE</span>`
+              : "")
+        })
       })
-    })
+    }
+    if (typeof getCombatPartyVitalitySnapshot === "function") getCombatPartyVitalitySnapshot(renderCards)
+    else renderCards({ currentHP: 100, maxHP: 100, avgLevel: level })
   })
 }
 
@@ -5983,19 +6190,26 @@ function _buildDice3D(resultBox) {
 
   const wrap = document.createElement("div")
   wrap.className = "dice-3d-wrap"
-  wrap.style.cssText = "perspective:500px;width:110px;height:110px;filter:drop-shadow(0 10px 22px rgba(0,0,0,0.45));"
+  wrap.style.cssText = "perspective:700px;width:112px;height:112px;filter:drop-shadow(0 14px 24px rgba(0,0,0,0.44));"
   const cube = document.createElement("div")
   cube.className = "dice-3d"
   cube.id = "dice3d"
-  cube.style.cssText = "width:110px;height:110px;position:relative;transform-style:preserve-3d;filter:none;"
-  const faceBgs = ["linear-gradient(145deg,#3a2510,#2a1a0c)","linear-gradient(145deg,#180d06,#100804)","linear-gradient(145deg,#221508,#1a0e06)","linear-gradient(145deg,#1a0e06,#140b04)","linear-gradient(145deg,#2e1c0a,#221508)","linear-gradient(145deg,#160c05,#100804)"]
+  cube.style.cssText = "width:112px;height:112px;position:relative;transform-style:preserve-3d;filter:none;"
+  const faceBgs = [
+    "linear-gradient(145deg,#163f59,#0a2438)",
+    "linear-gradient(145deg,#102f47,#091f31)",
+    "linear-gradient(145deg,#1b4f6f,#0b2940)",
+    "linear-gradient(145deg,#12384f,#081d2d)",
+    "linear-gradient(145deg,#174869,#0c2740)",
+    "linear-gradient(145deg,#13384f,#0a1f31)"
+  ]
   const faceVals = [1, 6, 3, 4, 5, 2]
   const faceClasses = ["df1","df2","df3","df4","df5","df6"]
   faceClasses.forEach((cls, i) => {
     const f = document.createElement("div")
     f.className = "dice-face " + cls
     f.textContent = faceVals[i]
-    f.style.cssText = "position:absolute;width:110px;height:110px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-family:'Cinzel',Georgia,serif;font-size:44px;font-weight:700;color:#f0c060;text-shadow:0 0 12px rgba(240,192,96,0.6),0 2px 0 rgba(40,20,0,0.9);backface-visibility:hidden;border:2px solid rgba(214,180,106,0.5);background:" + faceBgs[i]
+    f.style.cssText = "position:absolute;width:112px;height:112px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-family:'Cinzel',Georgia,serif;font-size:42px;font-weight:700;color:#e0bc52;text-shadow:0 0 10px rgba(224,188,82,0.35),0 2px 0 rgba(38,25,0,0.95);backface-visibility:hidden;border:2px solid rgba(210,170,72,0.72);box-shadow:inset 0 0 0 1px rgba(255,223,138,0.1), inset 0 -10px 18px rgba(0,0,0,0.18);background:" + faceBgs[i]
     cube.appendChild(f)
   })
   wrap.appendChild(cube)
@@ -6574,7 +6788,7 @@ function getSimpleSandboxMobs() {
     if (typeof getCustomization !== "function") return []
     const data = getCustomization()
     const content = data && data.content ? data.content : {}
-    return Array.isArray(content.mobs) ? content.mobs.map(function(item, index) {
+    const baseMobs = Array.isArray(content.mobs) ? content.mobs.map(function(item, index) {
       return {
         id: String(item && item.id || ("mob_" + index)),
         label: String(item && item.label || "Mob"),
@@ -6610,6 +6824,29 @@ function getSimpleSandboxMobs() {
           : null
       }
     }) : []
+    const used = new Set(baseMobs.map(function(item) { return String(item && item.id || "").trim() }).filter(Boolean))
+    getSimpleSandboxPnjs().forEach(function(pnj, index) {
+      if (!pnj || !pnj.combatAsMob) return
+      const syntheticId = "pnjmob_" + String(pnj.id || ("pnj_" + index)).trim()
+      if (used.has(syntheticId)) return
+      used.add(syntheticId)
+      baseMobs.push({
+        id: syntheticId,
+        label: String(pnj.label || "PNJ"),
+        category: String(pnj.category || "PNJ"),
+        tier: normalizeSandboxCombatTier(pnj.tier || "weak"),
+        baseHP: Math.max(10, Number(pnj.baseHP) || 30),
+        combatOnly: true,
+        action: "diff",
+        tab: normalizeSandboxManagerTabName(pnj.tab),
+        attacks: Array.isArray(pnj.attacks) ? pnj.attacks.map(function(attack) { return { ...attack } }) : [],
+        specialAttack: pnj.specialAttack && typeof pnj.specialAttack === "object" ? { ...pnj.specialAttack } : null,
+        __syntheticSource: "pnj",
+        __linkedPnjId: String(pnj.id || ""),
+        image: String(pnj.image || "")
+      })
+    })
+    return baseMobs
   } catch (_) {}
   return []
 }
@@ -6617,7 +6854,9 @@ function getSimpleSandboxMobs() {
 function saveSimpleSandboxMobs(items) {
   try {
     if (typeof getCustomization !== "function" || typeof saveCustomization !== "function") return false
-    const safeItems = Array.isArray(items) ? items.map(function(item, index) {
+    const safeItems = Array.isArray(items) ? items.filter(function(item) {
+      return !(item && item.__syntheticSource === "pnj")
+    }).map(function(item, index) {
       return {
         id: String(item && item.id || ("mob_" + index)),
         label: String(item && item.label || "Mob"),
@@ -7171,6 +7410,20 @@ function buildSandboxManagerPanel(options) {
   const mobActiveTab = options.type === "mob" ? getSandboxManagerActiveTab("mob") : "all"
   const visibleMobItems = options.type === "mob" ? getSandboxVisibleManagerItems("mob", mobItems) : []
   const combatArenaItems = options.type === "mob" ? getSimpleSandboxCombatArenas() : []
+  const pnjMobTutorialDismissed = options.type === "pnj"
+    ? (function() {
+        try { return localStorage.getItem("sandbox_pnj_mob_tutorial_closed") === "1" } catch (_) {}
+        return false
+      })()
+    : true
+  const pnjMobTutorial = options.type === "pnj" && !pnjMobTutorialDismissed
+    ? `<div style="display:grid;gap:8px;padding:12px;border-radius:12px;background:rgba(16,48,58,0.62);border:1px solid rgba(74,190,224,0.34);">` +
+        `<div style="display:flex;justify-content:space-between;gap:10px;align-items:start;">` +
+          `<div style="font-size:13px;line-height:1.6;color:#f5e6c8;">Coche un PNJ pour l'ajouter aussi dans les mobs. Ca aide le MJ a anticiper les folies des joueurs en preparant a l'avance les versions combat des personnages qui peuvent basculer.</div>` +
+          `<button type="button" data-keep-gm-open="true" onclick="try{localStorage.setItem('sandbox_pnj_mob_tutorial_closed','1');renderSandboxManagerPanelById('pnjMenu')}catch(_){ } return false;" style="padding:6px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Fermer</button>` +
+        `</div>` +
+      `</div>`
+    : ""
   const actions = options.type === "map"
     ? ""
     : options.type === "mob"
@@ -7238,6 +7491,7 @@ function buildSandboxManagerPanel(options) {
         `<div style="font-size:14px;letter-spacing:2px;color:#e6c27a;">${options.title}</div>` +
         `<div style="font-size:12px;line-height:1.6;color:rgba(255,240,210,0.82);">${options.body}</div>` +
       `</div>` +
+      pnjMobTutorial +
       (options.type === "map"
         ? mapActions
         : options.type === "mob"
@@ -7883,7 +8137,12 @@ function getSimpleSandboxPnjs() {
         label: String(item && item.label || "PNJ"),
         image: String(item && item.image || ""),
         category: String(item && item.category || "Custom"),
-        tab: normalizeSandboxManagerTabName(item && item.tab)
+        tab: normalizeSandboxManagerTabName(item && item.tab),
+        combatAsMob: !!(item && item.combatAsMob),
+        tier: normalizeSandboxCombatTier(item && item.tier),
+        baseHP: Math.max(10, Number(item && item.baseHP) || 30),
+        attacks: Array.isArray(item && item.attacks) ? item.attacks.map(function(attack) { return { ...attack } }) : [],
+        specialAttack: item && item.specialAttack && typeof item.specialAttack === "object" ? { ...item.specialAttack } : null
       }))
       return window.__simpleSandboxPnjs
     }
@@ -7898,7 +8157,12 @@ function getSimpleSandboxPnjs() {
       label: String(item && item.label || "PNJ"),
       image: String(item && item.image || ""),
       category: String(item && item.category || "Custom"),
-      tab: normalizeSandboxManagerTabName(item && item.tab)
+      tab: normalizeSandboxManagerTabName(item && item.tab),
+      combatAsMob: !!(item && item.combatAsMob),
+      tier: normalizeSandboxCombatTier(item && item.tier),
+      baseHP: Math.max(10, Number(item && item.baseHP) || 30),
+      attacks: Array.isArray(item && item.attacks) ? item.attacks.map(function(attack) { return { ...attack } }) : [],
+      specialAttack: item && item.specialAttack && typeof item.specialAttack === "object" ? { ...item.specialAttack } : null
     })) : []
     return window.__simpleSandboxPnjs
   } catch (_) {}
@@ -7913,7 +8177,12 @@ function saveSimpleSandboxPnjs(items) {
       label: String(item && item.label || "PNJ"),
       image: String(item && item.image || ""),
       category: String(item && item.category || "Custom"),
-      tab: normalizeSandboxManagerTabName(item && item.tab)
+      tab: normalizeSandboxManagerTabName(item && item.tab),
+      combatAsMob: !!(item && item.combatAsMob),
+      tier: normalizeSandboxCombatTier(item && item.tier),
+      baseHP: Math.max(10, Number(item && item.baseHP) || 30),
+      attacks: Array.isArray(item && item.attacks) ? item.attacks.map(function(attack) { return { ...attack } }) : [],
+      specialAttack: item && item.specialAttack && typeof item.specialAttack === "object" ? { ...item.specialAttack } : null
     })) : []
     window.__simpleSandboxPnjs = safeItems
     if (typeof getCustomization === "function" && typeof saveCustomization === "function") {
@@ -7924,7 +8193,12 @@ function saveSimpleSandboxPnjs(items) {
         label: item.label,
         image: item.image,
         category: item.category,
-        tab: item.tab || ""
+        tab: item.tab || "",
+        combatAsMob: !!item.combatAsMob,
+        tier: item.tier || "weak",
+        baseHP: item.baseHP || 30,
+        attacks: Array.isArray(item.attacks) ? item.attacks.map(function(attack) { return { ...attack } }) : [],
+        specialAttack: item.specialAttack ? { ...item.specialAttack } : null
       }))
       saveCustomization(next)
       try { if (typeof applyCustomizationToUI === "function") applyCustomizationToUI() } catch (_) {}
@@ -8083,9 +8357,11 @@ function openSandboxPnjCreateComposerV2() {
   const composer = overlay.querySelector("[data-pnj-manager-composer]")
   const nameInput = overlay.querySelector("[data-pnj-manager-name]")
   const fileInput = overlay.querySelector("[data-pnj-manager-file]")
+  const combatAsMobInput = overlay.querySelector("[data-pnj-manager-combat-as-mob]")
   if (composer) composer.style.display = "grid"
   if (nameInput) nameInput.value = ""
   if (fileInput) fileInput.value = ""
+  if (combatAsMobInput) combatAsMobInput.checked = false
   return false
 }
 
@@ -8095,6 +8371,7 @@ function submitSandboxPnjManagerCreateV2() {
     if (!overlay) return false
     const nameInput = overlay.querySelector("[data-pnj-manager-name]")
     const fileInput = overlay.querySelector("[data-pnj-manager-file]")
+    const combatAsMobInput = overlay.querySelector("[data-pnj-manager-combat-as-mob]")
     const fallbackName = fileInput && fileInput.files && fileInput.files[0]
       ? String(fileInput.files[0].name || "PNJ").replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim()
       : "PNJ"
@@ -8125,7 +8402,12 @@ function submitSandboxPnjManagerCreateV2() {
         label: nextLabel,
         image: image,
         category: "Custom",
-        tab: activeTab !== "all" && activeTab !== "__untabbed__" ? activeTab : ""
+        tab: activeTab !== "all" && activeTab !== "__untabbed__" ? activeTab : "",
+        combatAsMob: !!(combatAsMobInput && combatAsMobInput.checked),
+        tier: "weak",
+        baseHP: 30,
+        attacks: [],
+        specialAttack: null
       })
       saveSimpleSandboxPnjs(items)
       closeSandboxPnjCreateComposerV2()
@@ -8212,9 +8494,36 @@ function createSandboxPnjManagerCard(item, index) {
     moveSandboxPnjToTab(index)
   })
 
+  const combatMobBtn = document.createElement("button")
+  combatMobBtn.type = "button"
+  combatMobBtn.className = "sandboxMapManagerActionButton"
+  combatMobBtn.style.cssText = item && item.combatAsMob
+    ? "padding:8px 10px;background:rgba(18,60,42,0.48);color:#def6e7;border:1px solid rgba(90,180,120,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+    : "padding:8px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+  combatMobBtn.textContent = item && item.combatAsMob ? "Ajoute aux mobs : oui" : "Ajoute aux mobs : non"
+  combatMobBtn.addEventListener("click", function(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    const items = getSimpleSandboxPnjs().slice()
+    const target = items[Number(index)]
+    if (!target) return
+    target.combatAsMob = !target.combatAsMob
+    if (target.combatAsMob) {
+      target.tier = normalizeSandboxCombatTier(target.tier || "weak")
+      target.baseHP = Math.max(10, Number(target.baseHP) || 30)
+      target.attacks = Array.isArray(target.attacks) ? target.attacks : []
+      target.specialAttack = target.specialAttack && typeof target.specialAttack === "object" ? target.specialAttack : null
+    }
+    saveSimpleSandboxPnjs(items)
+    renderSandboxPnjManagerOverlayV2()
+    try { renderSandboxManagerPanelById("mobMenu2") } catch (_) {}
+    if (typeof showNotification === "function") showNotification(target.combatAsMob ? "PNJ ajoute aux mobs" : "PNJ retire des mobs")
+  })
+
   if (!previewMode) {
     actionsRow.appendChild(renameBtn)
     actionsRow.appendChild(moveTabBtn)
+    actionsRow.appendChild(combatMobBtn)
     actionsRow.appendChild(deleteBtn)
     card.addEventListener("dragover", function(event) {
       event.preventDefault()
@@ -8354,6 +8663,7 @@ function openSandboxPnjManagerV2() {
           `<div class="sandboxMapManagerComposer" data-pnj-manager-composer style="display:none;grid-template-columns:1fr;gap:10px;padding:12px;border-radius:14px;background:rgba(0,0,0,0.16);border:1px solid rgba(214,180,106,0.18);">` +
             `<input type="text" class="sandboxMapManagerInput" data-pnj-manager-name placeholder="Nom du PNJ" style="padding:10px 12px;border-radius:10px;border:1px solid rgba(214,180,106,0.2);background:rgba(10,18,30,0.55);color:#f5e6c8;font-family:Cinzel,serif;">` +
             `<input type="file" class="sandboxMapManagerFileInput" data-pnj-manager-file accept="image/*" style="color:#f5e6c8;font-family:Cinzel,serif;">` +
+            `<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:rgba(18,60,42,0.22);border:1px solid rgba(90,180,120,0.22);color:#e8d6b3;font-size:12px;line-height:1.5;"><input type="checkbox" data-pnj-manager-combat-as-mob style="accent-color:#caa46b;width:16px;height:16px;"><span>Ajouter aussi ce PNJ dans les mobs pour anticiper ses versions combat.</span></label>` +
             `<div class="sandboxMapManagerComposerActions" style="display:flex;gap:8px;flex-wrap:wrap;">` +
               `<button type="button" class="sandboxMapManagerActionButton sandboxMapManagerPrimaryButton" data-pnj-manager-action="confirm-create" style="padding:9px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter</button>` +
               `<button type="button" class="sandboxMapManagerActionButton" data-pnj-manager-action="cancel-create" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Annuler</button>` +
