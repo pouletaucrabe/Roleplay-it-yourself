@@ -1844,7 +1844,83 @@ function applyProjectThemeToDocument(themeValue) {
     var panel = overlay ? overlay.querySelector(".simpleSheetPanel") : null
     if (panel) panel.setAttribute("data-sheet-theme", nextTheme)
   } catch (e) {}
+  applyTosScreenFrame(nextTheme)
   return nextTheme
+}
+
+// Déclencher au chargement initial dès que le thème est connu
+document.addEventListener("DOMContentLoaded", function() {
+  setTimeout(function() {
+    var theme = document.body.getAttribute("data-project-theme") || "medieval_fantasy"
+    applyTosScreenFrame(theme)
+  }, 600)
+})
+
+function applyTosScreenFrame(theme) {
+  // Nettoyer le frame et les particules existantes
+  var oldFrame = document.getElementById("tos-screen-frame")
+  if (oldFrame) oldFrame.remove()
+  document.querySelectorAll(".tos-sparkle").forEach(function(el) { el.remove() })
+  clearInterval(window.__tosSparkleInterval)
+
+  if (theme !== "medieval_fantasy") return
+
+  // Créer le frame overlay
+  var frame = document.createElement("div")
+  frame.id = "tos-screen-frame"
+  document.body.appendChild(frame)
+
+  // Positions fixes en px sur les 4 bords (calculées au moment du spawn)
+  function randomEdgePos() {
+    var side = Math.floor(Math.random() * 4)
+    var vw = window.innerWidth
+    var vh = window.innerHeight
+    var margin = 30 // px depuis le bord
+    if (side === 0) return { left: Math.random() * vw, top: margin }           // haut
+    if (side === 1) return { left: vw - margin,        top: Math.random() * vh } // droite
+    if (side === 2) return { left: Math.random() * vw, top: vh - margin }       // bas
+    return             { left: margin,                 top: Math.random() * vh } // gauche
+  }
+
+  function spawnSparkle() {
+    var pos = randomEdgePos()
+    var el = document.createElement("div")
+    var isGold = Math.random() < 0.28
+    el.className = "tos-sparkle" + (isGold ? " gold" : "")
+    // Taille variée : petite poussière ou plus grosse braise
+    var size = Math.random() < 0.5 ? (2 + Math.random() * 4) : (6 + Math.random() * 10)
+    var dur  = 3 + Math.random() * 5          // 3–8s, très lent
+    var delay = -(Math.random() * dur)          // commence à un moment aléatoire du cycle
+    // Dérive horizontale douce (±15px) et montée naturelle (8–30px)
+    var dx   = ((Math.random() - 0.5) * 30).toFixed(1)
+    var rise = -(8 + Math.random() * 28)       // monte vers le haut
+    el.style.cssText = [
+      "width:"        + size + "px",
+      "height:"       + size + "px",
+      "left:"         + (pos.left - size / 2).toFixed(1) + "px",
+      "top:"          + (pos.top  - size / 2).toFixed(1) + "px",
+      "--tos-dur:"    + dur.toFixed(1)   + "s",
+      "--tos-delay:"  + delay.toFixed(1) + "s",
+      "--tos-dx:"     + dx               + "px",
+      "--tos-rise:"   + rise.toFixed(1)  + "px"
+    ].join(";")
+    document.body.appendChild(el)
+    return el
+  }
+
+  // Spawn initial échelonné
+  for (var s = 0; s < 36; s++) spawnSparkle()
+
+  // Régénère doucement
+  window.__tosSparkleInterval = setInterval(function() {
+    if (document.body.getAttribute("data-project-theme") !== "medieval_fantasy") {
+      clearInterval(window.__tosSparkleInterval)
+      return
+    }
+    var sparkles = document.querySelectorAll(".tos-sparkle")
+    if (sparkles.length > 55) sparkles[0].remove()
+    spawnSparkle()
+  }, 700)
 }
 
 function openCharacterSheetFallback(playerId) {

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/Poulet/Documents/ROLEPLAY IT YOURSELF/**)",
+      "Bash(grep -En \"^\\\\s*//\" \"c:/Users/Poulet/Documents/ROLEPLAY IT YOURSELF/game.js\")",
+      "Bash(grep -En \"^[[:space:]]*//[[:space:]]*\\(console|debug|log|info|warn|error|unused|dead|old|remove\\)\" \"c:/Users/Poulet/Documents/ROLEPLAY IT YOURSELF/game.js\")"
+    ]
+  }
+}

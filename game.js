@@ -25,8 +25,6 @@ if (typeof window.stopMenuSparks !== "function") window.stopMenuSparks = functio
 if (typeof window.stopAllMusic !== "function") window.stopAllMusic = function () {}
 if (typeof window.preloadAssets !== "function") window.preloadAssets = function () {}
 
-function closeGMAuthModal() {}
-function closePlayerAuthModal() {}
 function tryAutoSelectAuthenticatedPlayer() { return false }
 
 function getGlobalUiModeStorageKey() {
@@ -1206,7 +1204,7 @@ function openSandboxExportOverlay(exportEntry) {
           `<div style="font-size:24px;letter-spacing:2px;color:#f0d087;">Export de partie</div>` +
           `<div style="margin-top:8px;font-size:13px;line-height:1.6;color:#cdbb96;">L’export a bien ete prepare. Tu peux telecharger la version combinee, la version MJ seule ou la version Joueur seule.</div>` +
         `</div>` +
-        `<button type="button" id="sandboxExportClose" style="padding:10px 14px;background:#222;color:#f3e7cf;border:1px solid #555;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Fermer</button>` +
+        `<button type="button" id="sandboxExportClose" style="padding:10px 14px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.4);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;">Fermer</button>` +
       `</div>` +
       `<div style="display:grid;gap:12px;">` +
         `<div style="padding:14px 16px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(214,180,106,0.16);">` +
@@ -1215,9 +1213,9 @@ function openSandboxExportOverlay(exportEntry) {
           `<div style="margin-top:6px;font-size:11px;color:#97886c;">${String(exportEntry.label || "Version jouable")}</div>` +
         `</div>` +
         `<div style="display:flex;flex-wrap:wrap;gap:10px;">` +
-          `<button type="button" id="sandboxExportCombined" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Telecharger export complet</button>` +
-          `<button type="button" id="sandboxExportMJ" style="padding:10px 16px;background:rgba(15,40,56,0.72);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Telecharger version MJ</button>` +
-          `<button type="button" id="sandboxExportPlayer" style="padding:10px 16px;background:rgba(15,40,56,0.72);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Telecharger version Joueur</button>` +
+          `<button type="button" id="sandboxExportCombined" style="padding:10px 16px;background:linear-gradient(180deg,#122638,#0a1a27);color:#f0e8d0;border:1px solid rgba(160,125,40,0.75);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;">Telecharger export complet</button>` +
+          `<button type="button" id="sandboxExportMJ" style="padding:10px 16px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;">Telecharger version MJ</button>` +
+          `<button type="button" id="sandboxExportPlayer" style="padding:10px 16px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;">Telecharger version Joueur</button>` +
         `</div>` +
         `<div style="padding:14px 16px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(214,180,106,0.16);font-size:12px;line-height:1.7;color:#cdbb96;">` +
           `L’aperçu JSON a ete retire pour fiabiliser l’export sur les gros bacs a sable. Utilise les boutons ci-dessus pour telecharger le fichier.` +
@@ -1546,7 +1544,7 @@ function openSessionLobbyOverlay(sessionData) {
         <div style="font-size:26px;letter-spacing:2px;color:#f0d087;">Partie prete</div>
         <div style="font-size:13px;line-height:1.6;color:#cdbb96;margin-top:8px;">Partage ce code avec les joueurs pour qu'ils rejoignent la session.</div>
       </div>
-      <button type="button" id="sessionLobbyClose" style="padding:10px 14px;background:#222;color:#f3e7cf;border:1px solid #555;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Fermer</button>
+      <button type="button" id="sessionLobbyClose" style="padding:10px 14px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.4);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;">Fermer</button>
     </div>
     <div style="display:grid;gap:14px;">
       <div style="padding:18px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid rgba(214,180,106,0.22);">
@@ -1557,8 +1555,8 @@ function openSessionLobbyOverlay(sessionData) {
       </div>
       <div id="sessionLobbySlots" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;"></div>
       <div style="display:flex;justify-content:flex-end;gap:10px;">
-        <button type="button" id="sessionLobbyCopy" style="padding:10px 14px;background:rgba(15,40,56,0.72);color:#e9d8af;border:1px solid rgba(80,126,150,0.35);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Copier le code</button>
-        <button type="button" id="sessionLobbyBoard" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Ouvrir le board</button>
+        <button type="button" id="sessionLobbyCopy" style="padding:10px 14px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;">Copier le code</button>
+        <button type="button" id="sessionLobbyBoard" style="padding:10px 16px;background:linear-gradient(180deg,#122638,#0a1a27);color:#f0e8d0;border:1px solid rgba(160,125,40,0.75);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;">Ouvrir le board</button>
       </div>
     </div>
   `
@@ -1616,8 +1614,8 @@ function openJoinSessionOverlay() {
       <input id="joinSessionCodeInput" type="text" placeholder="Ex : A1B2-C3D4" style="width:100%;padding:12px 14px;background:rgba(8,8,8,0.9);border:1px solid rgba(180,150,90,0.45);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;font-size:16px;box-sizing:border-box;text-transform:uppercase;">
     </label>
     <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px;">
-      <button type="button" id="joinSessionCancel" style="padding:10px 14px;background:#222;color:#f3e7cf;border:1px solid #555;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Fermer</button>
-      <button type="button" id="joinSessionConfirm" style="padding:10px 16px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;">Rejoindre</button>
+      <button type="button" id="joinSessionCancel" style="padding:10px 14px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.4);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;">Fermer</button>
+      <button type="button" id="joinSessionConfirm" style="padding:10px 16px;background:linear-gradient(180deg,#122638,#0a1a27);color:#f0e8d0;border:1px solid rgba(160,125,40,0.75);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;">Rejoindre</button>
     </div>
   `
   overlay.appendChild(panel)
@@ -2543,7 +2541,7 @@ function renderPlayerPowersPanel() {
   tabs.forEach(tab => {
     const btn = document.createElement("button")
     btn.dataset.tab = tab
-    btn.style.cssText = "padding:6px 12px;font-family:'Cinzel',serif;font-size:12px;letter-spacing:1px;border:1px solid rgba(120,92,44,0.38);border-radius:999px;background:rgba(18,14,10,0.65);color:#d5c39a;cursor:pointer;"
+    btn.style.cssText = "padding:6px 12px;font-family:'Cinzel',serif;font-size:12px;letter-spacing:1px;border:1px solid rgba(160,125,40,0.5);border-radius:2px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;cursor:pointer;"
     btn.innerText = tab === "ally" ? "Invoc" : tab === "thuum" ? "Thu'um" : "Runes"
     btn.onclick = () => paintTab(tab)
     tabRow.appendChild(btn)
@@ -7394,7 +7392,7 @@ function buildSandboxManagerPanel(options) {
   const startMapLaunch = options.type === "map"
     ? (
         `<button type="button" onclick="return launchOnboardingStartMap()" ` +
-        `style="padding:9px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;${startMapAsset ? "" : "opacity:0.92;"}">` +
+        `style="padding:9px 10px;background:linear-gradient(180deg,#122638,#0a1a27);color:#f0e8d0;border:1px solid rgba(160,125,40,0.75);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;${startMapAsset ? "" : "opacity:0.92;"}">` +
           `${startMapLabel}` +
         `</button>`
       )
@@ -7402,7 +7400,7 @@ function buildSandboxManagerPanel(options) {
   const mapActions = options.type === "map"
     ? `<div style="display:flex;flex-wrap:wrap;gap:8px;">` +
         startMapLaunch +
-        `<button type="button" onclick="return createSandboxMapFromPanel()" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Nouvelle map</button>` +
+        `<button type="button" onclick="return createSandboxMapFromPanel()" style="padding:9px 10px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Nouvelle map</button>` +
       `</div>`
     : ""
   const mobItems = options.type === "mob" ? getSimpleSandboxMobs() : []
@@ -7420,7 +7418,7 @@ function buildSandboxManagerPanel(options) {
     ? `<div style="display:grid;gap:8px;padding:12px;border-radius:12px;background:rgba(16,48,58,0.62);border:1px solid rgba(74,190,224,0.34);">` +
         `<div style="display:flex;justify-content:space-between;gap:10px;align-items:start;">` +
           `<div style="font-size:13px;line-height:1.6;color:#f5e6c8;">Coche un PNJ pour l'ajouter aussi dans les mobs. Ca aide le MJ a anticiper les folies des joueurs en preparant a l'avance les versions combat des personnages qui peuvent basculer.</div>` +
-          `<button type="button" data-keep-gm-open="true" onclick="try{localStorage.setItem('sandbox_pnj_mob_tutorial_closed','1');renderSandboxManagerPanelById('pnjMenu')}catch(_){ } return false;" style="padding:6px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Fermer</button>` +
+          `<button type="button" data-keep-gm-open="true" onclick="try{localStorage.setItem('sandbox_pnj_mob_tutorial_closed','1');renderSandboxManagerPanelById('pnjMenu')}catch(_){ } return false;" style="padding:6px 10px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Fermer</button>` +
         `</div>` +
       `</div>`
     : ""
@@ -7439,17 +7437,17 @@ function buildSandboxManagerPanel(options) {
           return (
             `<div data-sandbox-mob-card data-mob-id="${mobId.replace(/"/g, "&quot;")}" ondragover="event.preventDefault();return false" ondrop="dropSandboxMob(${fullIndex});return false" style="display:grid;gap:8px;padding:10px;background:rgba(0,0,0,0.18);border:1px solid rgba(214,180,106,0.18);border-radius:10px;">` +
               `<div style="display:flex;gap:8px;align-items:center;">` +
-                `<button type="button" data-keep-gm-open="true" onclick="openMobDiff('${safeMobId}', event)" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;">` +
+                `<button type="button" data-keep-gm-open="true" onclick="openMobDiff('${safeMobId}', event)" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(200,165,60,0.55);border-radius:2px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;">` +
                   `<span>${label}</span>` +
                   `<span style="font-size:11px;color:#bfae8b;">Combat</span>` +
                 `</button>` +
-                `<span title="Glisser pour reordonner" draggable="true" ondragstart="startSandboxMobDrag(${fullIndex})" ondragend="endSandboxMobDrag()" style="width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f0d087;font-size:16px;cursor:grab;">::</span>` +
+                `<span title="Glisser pour reordonner" draggable="true" ondragstart="startSandboxMobDrag(${fullIndex})" ondragend="endSandboxMobDrag()" style="width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:2px;border:1px solid rgba(160,125,40,0.4);background:rgba(8,20,32,0.5);color:#c8a84b;font-size:16px;cursor:grab;">::</span>` +
               `</div>` +
               `<div style="font-size:11px;color:#bfae8b;">${category} • ${tierMeta.label}${tabMeta ? " • " + tabMeta : ""}${item && item.combatOnly ? " • PNJ combat" : ""}</div>` +
               `<div style="display:flex;flex-wrap:wrap;gap:6px;">` +
-                `<button type="button" data-keep-gm-open="true" onclick="renameSandboxMob(${fullIndex})" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Renommer</button>` +
-                `<button type="button" data-keep-gm-open="true" onclick="moveSandboxMobToTab(${fullIndex})" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Onglet</button>` +
-                `<button type="button" data-keep-gm-open="true" onclick="deleteSandboxMob(${fullIndex})" style="padding:7px 9px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(214,110,110,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Supprimer</button>` +
+                `<button type="button" data-keep-gm-open="true" onclick="renameSandboxMob(${fullIndex})" style="padding:7px 9px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Renommer</button>` +
+                `<button type="button" data-keep-gm-open="true" onclick="moveSandboxMobToTab(${fullIndex})" style="padding:7px 9px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Onglet</button>` +
+                `<button type="button" data-keep-gm-open="true" onclick="deleteSandboxMob(${fullIndex})" style="padding:7px 9px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(185,90,90,0.4);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Supprimer</button>` +
               `</div>` +
             `</div>`
           )
@@ -7460,11 +7458,11 @@ function buildSandboxManagerPanel(options) {
         const label = String(item.label || "Sans titre")
         const category = String(item.category || "Custom")
         const launchButton = options.type === "map"
-          ? `<button type="button" onclick="launchSandboxMap(${index})" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 10px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;">` +
+          ? `<button type="button" onclick="launchSandboxMap(${index})" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 10px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(200,165,60,0.55);border-radius:2px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;">` +
               `<span style="text-align:left;">${label}</span>` +
               `<span style="font-size:11px;color:#bfae8b;">Ouvrir</span>` +
             `</button>`
-          : `<button type="button" onclick="focusNativeStudioItem('${options.type}', ${index})" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 10px;background:rgba(255,255,255,0.05);border:1px solid rgba(214,180,106,0.2);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;">` +
+          : `<button type="button" onclick="focusNativeStudioItem('${options.type}', ${index})" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 10px;background:linear-gradient(180deg,#0c1c2a,#060f18);border:1px solid rgba(160,125,40,0.5);border-radius:2px;color:#f0e8d0;font-family:Cinzel,serif;cursor:pointer;flex:1;">` +
               `<span style="text-align:left;">${label}</span>` +
               `<span style="font-size:11px;color:#bfae8b;">${category}</span>` +
             `</button>`
@@ -7472,13 +7470,13 @@ function buildSandboxManagerPanel(options) {
           `<div style="display:grid;gap:8px;padding:10px;background:rgba(0,0,0,0.18);border:1px solid rgba(214,180,106,0.18);border-radius:10px;">` +
             `<div style="display:flex;gap:8px;align-items:stretch;">` +
               launchButton +
-              `<button type="button" onclick="editSandboxItemSettings('${options.type}', ${index})" title="Personnaliser" style="width:42px;min-width:42px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:16px;">?</button>` +
+              `<button type="button" onclick="editSandboxItemSettings('${options.type}', ${index})" title="Personnaliser" style="width:42px;min-width:42px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:16px;">?</button>` +
             `</div>` +
             `<div style="font-size:11px;color:#bfae8b;">${category}${options.type === "map" && item.audio ? " • musique perso" : ""}</div>` +
             `<div style="display:flex;flex-wrap:wrap;gap:6px;">` +
-              `<button type="button" onclick="moveNativeStudioItem('${options.type}', ${index}, -1)" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Monter</button>` +
-              `<button type="button" onclick="moveNativeStudioItem('${options.type}', ${index}, 1)" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Descendre</button>` +
-              `<button type="button" onclick="deleteNativeStudioItem('${options.type}', ${index})" style="padding:7px 9px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(214,110,110,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Supprimer</button>` +
+              `<button type="button" onclick="moveNativeStudioItem('${options.type}', ${index}, -1)" style="padding:7px 9px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Monter</button>` +
+              `<button type="button" onclick="moveNativeStudioItem('${options.type}', ${index}, 1)" style="padding:7px 9px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Descendre</button>` +
+              `<button type="button" onclick="deleteNativeStudioItem('${options.type}', ${index})" style="padding:7px 9px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(185,90,90,0.4);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Supprimer</button>` +
             `</div>` +
           `</div>`
         )
@@ -7497,21 +7495,21 @@ function buildSandboxManagerPanel(options) {
         : options.type === "mob"
         ? `<div style="display:grid;gap:10px;">` +
             `<div data-mob-manager-tabs style="display:flex;flex-wrap:wrap;gap:8px;">` +
-              `<button type="button" data-keep-gm-open="true" onclick="return selectSandboxMobTab('all')" style="padding:8px 12px;border-radius:999px;border:1px solid ${mobActiveTab === "all" ? "#caa46b" : "rgba(214,180,106,0.24)"};background:${mobActiveTab === "all" ? "linear-gradient(#7a5533,#4b321c)" : "rgba(255,255,255,0.05)"};color:#f5e6c8;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Tous</button>` +
+              `<button type="button" data-keep-gm-open="true" onclick="return selectSandboxMobTab('all')" style="padding:8px 12px;border-radius:2px;border:1px solid ${mobActiveTab === "all" ? "rgba(200,165,60,0.95)" : "rgba(160,125,40,0.75)"};background:${mobActiveTab === "all" ? "linear-gradient(180deg,#1a3a52,#0f2438)" : "linear-gradient(180deg,#122638,#0a1a27)"};color:${mobActiveTab === "all" ? "#fff8e8" : "#f0e8d0"};cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Tous</button>` +
               mobTabs.map(function(tab) {
                 const safeTab = escapeSandboxInlineArg(tab)
                 const active = mobActiveTab === tab
-                return `<button type="button" data-keep-gm-open="true" onclick="return selectSandboxMobTab('${safeTab}')" style="padding:8px 12px;border-radius:999px;border:1px solid ${active ? "#caa46b" : "rgba(214,180,106,0.24)"};background:${active ? "linear-gradient(#7a5533,#4b321c)" : "rgba(255,255,255,0.05)"};color:#f5e6c8;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">${tab}</button>`
+                return `<button type="button" data-keep-gm-open="true" onclick="return selectSandboxMobTab('${safeTab}')" style="padding:8px 12px;border-radius:2px;border:1px solid ${active ? "rgba(200,165,60,0.95)" : "rgba(160,125,40,0.75)"};background:${active ? "linear-gradient(180deg,#1a3a52,#0f2438)" : "linear-gradient(180deg,#122638,#0a1a27)"};color:${active ? "#fff8e8" : "#f0e8d0"};cursor:pointer;font-family:Cinzel,serif;font-size:12px;">${tab}</button>`
               }).join("") +
-              `<button type="button" data-keep-gm-open="true" onclick="return createSandboxManagerTab('mob')" style="padding:8px 12px;border-radius:999px;border:1px dashed rgba(214,180,106,0.34);background:rgba(0,0,0,0.12);color:#f0d087;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">+ Onglet</button>` +
+              `<button type="button" data-keep-gm-open="true" onclick="return createSandboxManagerTab('mob')" style="padding:8px 12px;border-radius:2px;border:1px dashed rgba(160,125,40,0.5);background:rgba(8,20,32,0.6);color:#c8a84b;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">+ Onglet</button>` +
             `</div>` +
             `<div style="display:flex;flex-wrap:wrap;gap:8px;">` +
-              `<button type="button" data-keep-gm-open="true" onclick="return createSandboxMobFromPanel()" style="padding:9px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter un mob</button>` +
+              `<button type="button" data-keep-gm-open="true" onclick="return createSandboxMobFromPanel()" style="padding:9px 10px;background:linear-gradient(180deg,#122638,#0a1a27);color:#f0e8d0;border:1px solid rgba(160,125,40,0.75);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter un mob</button>` +
             `</div>` +
           `</div>`
         : `<div style="display:flex;flex-wrap:wrap;gap:8px;">` +
-            `<button type="button" onclick="triggerNativeStudioLocalAdd('${options.type}')" style="padding:9px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter un fichier local</button>` +
-            `<button type="button" onclick="openNativeStudioQuickCreate('${options.type}')" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter manuellement</button>` +
+            `<button type="button" onclick="triggerNativeStudioLocalAdd('${options.type}')" style="padding:9px 10px;background:linear-gradient(180deg,#122638,#0a1a27);color:#f0e8d0;border:1px solid rgba(160,125,40,0.75);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter un fichier local</button>` +
+            `<button type="button" onclick="openNativeStudioQuickCreate('${options.type}')" style="padding:9px 10px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter manuellement</button>` +
           `</div>`
       ) +
       `<div data-sandbox-map-list style="display:grid;gap:10px;">${actions}</div>` +
@@ -7519,7 +7517,7 @@ function buildSandboxManagerPanel(options) {
         ? `<div style="display:grid;gap:10px;padding-top:10px;border-top:1px solid rgba(214,180,106,0.18);">` +
             `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">` +
               `<div style="font-size:14px;letter-spacing:2px;color:#e6c27a;">Arenes de combat</div>` +
-              `<button type="button" data-keep-gm-open="true" onclick="return createSandboxCombatArenaFromPanel()" style="padding:9px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter une arene</button>` +
+              `<button type="button" data-keep-gm-open="true" onclick="return createSandboxCombatArenaFromPanel()" style="padding:9px 10px;background:linear-gradient(180deg,#122638,#0a1a27);color:#f0e8d0;border:1px solid rgba(160,125,40,0.75);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter une arene</button>` +
             `</div>` +
             `<div style="font-size:12px;line-height:1.6;color:rgba(255,240,210,0.82);">Le MJ choisit ici une image d'arene, une musique et une difficulte cible. Le combat prend ensuite automatiquement la bonne arene selon le niveau lance pour le mob.</div>` +
             `<div style="display:grid;gap:10px;">` +
@@ -7543,27 +7541,27 @@ function buildSandboxManagerPanel(options) {
                             }).join("") +
                           `</div>` +
                           `<div style="display:flex;justify-content:flex-end;gap:8px;">` +
-                            `<button type="button" data-keep-gm-open="true" onclick="return closeSandboxCombatArenaTierPicker()" style="padding:8px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Annuler</button>` +
-                            `<button type="button" data-keep-gm-open="true" onclick="return saveSandboxCombatArenaTierPicker()" style="padding:8px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Valider</button>` +
+                            `<button type="button" data-keep-gm-open="true" onclick="return closeSandboxCombatArenaTierPicker()" style="padding:8px 10px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Annuler</button>` +
+                            `<button type="button" data-keep-gm-open="true" onclick="return saveSandboxCombatArenaTierPicker()" style="padding:8px 10px;background:linear-gradient(180deg,#122638,#0a1a27);color:#f0e8d0;border:1px solid rgba(160,125,40,0.75);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Valider</button>` +
                           `</div>` +
                         `</div>`
                       : ""
                     return (
                       `<div ondragover="event.preventDefault();return false" ondrop="dropSandboxCombatArena(${index});return false" style="display:grid;gap:8px;padding:10px;background:rgba(0,0,0,0.18);border:1px solid rgba(214,180,106,0.18);border-radius:10px;">` +
                         `<div style="display:flex;gap:8px;align-items:center;">` +
-                          `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;flex:1;">` +
+                          `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(200,165,60,0.55);border-radius:2px;color:#f5e6c8;font-family:Cinzel,serif;flex:1;">` +
                             `<span>${String(item && item.label || "Arene")}</span>` +
                             `<span style="font-size:11px;color:#bfae8b;">${tierLabels}</span>` +
                           `</div>` +
-                          `<span title="Glisser pour reordonner" draggable="true" ondragstart="startSandboxCombatArenaDrag(${index})" ondragend="endSandboxCombatArenaDrag()" style="width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f0d087;font-size:16px;cursor:grab;">::</span>` +
+                          `<span title="Glisser pour reordonner" draggable="true" ondragstart="startSandboxCombatArenaDrag(${index})" ondragend="endSandboxCombatArenaDrag()" style="width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:2px;border:1px solid rgba(160,125,40,0.4);background:rgba(8,20,32,0.5);color:#c8a84b;font-size:16px;cursor:grab;">::</span>` +
                         `</div>` +
                         `<div style="font-size:11px;color:#bfae8b;">${String(item && item.category || "Combat")} • ${tierLabels} • ${imageState} • ${audioState}</div>` +
                         `<div style="display:flex;flex-wrap:wrap;gap:6px;">` +
-                          `<button type="button" data-keep-gm-open="true" onclick="renameSandboxCombatArena(${index})" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Renommer</button>` +
-                          `<button type="button" data-keep-gm-open="true" onclick="configureSandboxCombatArena(${index})" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Difficulte</button>` +
-                          `<button type="button" data-keep-gm-open="true" onclick="replaceSandboxCombatArenaImage(${index})" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Image</button>` +
-                          `<button type="button" data-keep-gm-open="true" onclick="pickSandboxCombatArenaMusic(${index})" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Musique</button>` +
-                          `<button type="button" data-keep-gm-open="true" onclick="deleteSandboxCombatArena(${index})" style="padding:7px 9px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(214,110,110,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Supprimer</button>` +
+                          `<button type="button" data-keep-gm-open="true" onclick="renameSandboxCombatArena(${index})" style="padding:7px 9px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Renommer</button>` +
+                          `<button type="button" data-keep-gm-open="true" onclick="configureSandboxCombatArena(${index})" style="padding:7px 9px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Difficulte</button>` +
+                          `<button type="button" data-keep-gm-open="true" onclick="replaceSandboxCombatArenaImage(${index})" style="padding:7px 9px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Image</button>` +
+                          `<button type="button" data-keep-gm-open="true" onclick="pickSandboxCombatArenaMusic(${index})" style="padding:7px 9px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Musique</button>` +
+                          `<button type="button" data-keep-gm-open="true" onclick="deleteSandboxCombatArena(${index})" style="padding:7px 9px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(185,90,90,0.4);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Supprimer</button>` +
                         `</div>` +
                         tierEditor +
                       `</div>`
@@ -7640,7 +7638,7 @@ function forceRenderMapMenuPanelList() {
 
       const launchBtn = document.createElement("button")
       launchBtn.type = "button"
-      launchBtn.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;"
+      launchBtn.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(200,165,60,0.55);border-radius:2px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;"
       launchBtn.innerHTML = `<span>${label}</span><span style="font-size:11px;color:#bfae8b;">Lancer</span>`
       launchBtn.addEventListener("click", function(event) {
         event.preventDefault()
@@ -7651,7 +7649,7 @@ function forceRenderMapMenuPanelList() {
       const dragHandle = document.createElement("span")
       dragHandle.title = "Glisser pour reordonner"
       dragHandle.setAttribute("draggable", "true")
-      dragHandle.style.cssText = "width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f0d087;font-size:16px;"
+      dragHandle.style.cssText = "width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:2px;border:1px solid rgba(160,125,40,0.4);background:rgba(8,20,32,0.5);color:#c8a84b;font-size:16px;"
       dragHandle.textContent = "::"
       dragHandle.addEventListener("dragstart", function(event) {
         event.stopPropagation()
@@ -7666,7 +7664,7 @@ function forceRenderMapMenuPanelList() {
 
       const renameBtn = document.createElement("button")
       renameBtn.type = "button"
-      renameBtn.style.cssText = "padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;"
+      renameBtn.style.cssText = "padding:7px 9px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;"
       renameBtn.textContent = "Renommer"
       renameBtn.addEventListener("click", function(event) {
         event.preventDefault()
@@ -7676,7 +7674,7 @@ function forceRenderMapMenuPanelList() {
 
       const deleteBtn = document.createElement("button")
       deleteBtn.type = "button"
-      deleteBtn.style.cssText = "padding:7px 9px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(214,110,110,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;"
+      deleteBtn.style.cssText = "padding:7px 9px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(185,90,90,0.4);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;"
       deleteBtn.textContent = "Supprimer"
       deleteBtn.addEventListener("click", function(event) {
         event.preventDefault()
@@ -7722,15 +7720,15 @@ function appendSandboxMapCardToVisiblePanel(item) {
     card.style.cssText = "display:grid;gap:8px;padding:10px;background:rgba(0,0,0,0.18);border:1px solid rgba(214,180,106,0.18);border-radius:10px;cursor:grab;"
     card.innerHTML =
       `<div style="display:flex;gap:8px;align-items:center;">` +
-        `<button type="button" data-map-action="launch" data-map-key="${mapKey}" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;">` +
+        `<button type="button" data-map-action="launch" data-map-key="${mapKey}" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(200,165,60,0.55);border-radius:2px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;">` +
           `<span>${String(item && item.label || "Sans titre")}</span>` +
           `<span style="font-size:11px;color:#bfae8b;">Lancer</span>` +
         `</button>` +
-        `<span title="Glisser pour reordonner" style="width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f0d087;font-size:16px;">::</span>` +
+        `<span title="Glisser pour reordonner" style="width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:2px;border:1px solid rgba(160,125,40,0.4);background:rgba(8,20,32,0.5);color:#c8a84b;font-size:16px;">::</span>` +
       `</div>` +
       `<div style="display:flex;flex-wrap:wrap;gap:6px;">` +
-        `<button type="button" data-map-action="rename" data-map-key="${mapKey}" style="padding:7px 9px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Renommer</button>` +
-        `<button type="button" data-map-action="delete" data-map-key="${mapKey}" style="padding:7px 9px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(214,110,110,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Supprimer</button>` +
+        `<button type="button" data-map-action="rename" data-map-key="${mapKey}" style="padding:7px 9px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Renommer</button>` +
+        `<button type="button" data-map-action="delete" data-map-key="${mapKey}" style="padding:7px 9px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(185,90,90,0.4);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:11px;">Supprimer</button>` +
       `</div>`
     host.appendChild(card)
   } catch (_) {}
@@ -8090,7 +8088,7 @@ function renderSandboxManagerTabsRow(type, overlay, items) {
     btn.type = "button"
     btn.textContent = label
     btn.setAttribute("data-keep-gm-open", "true")
-    btn.style.cssText = "padding:8px 12px;border-radius:999px;border:1px solid " + (isActive ? "#caa46b" : "rgba(214,180,106,0.24)") + ";background:" + (isActive ? "linear-gradient(#7a5533,#4b321c)" : "rgba(255,255,255,0.05)") + ";color:#f5e6c8;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+    btn.style.cssText = "padding:8px 12px;border-radius:2px;border:1px solid " + (isActive ? "rgba(200,165,60,0.95)" : "rgba(160,125,40,0.75)") + ";background:" + (isActive ? "linear-gradient(180deg,#1a3a52,#0f2438)" : "linear-gradient(180deg,#122638,#0a1a27)") + ";color:" + (isActive ? "#fff8e8" : "#f0e8d0") + ";cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
     btn.dataset.managerTab = id
     btn.addEventListener("click", function(event) {
       event.preventDefault()
@@ -8119,7 +8117,7 @@ function renderSandboxManagerTabsRow(type, overlay, items) {
     addBtn.type = "button"
     addBtn.textContent = "+ Onglet"
     addBtn.setAttribute("data-keep-gm-open", "true")
-    addBtn.style.cssText = "padding:8px 12px;border-radius:999px;border:1px dashed rgba(214,180,106,0.34);background:rgba(0,0,0,0.12);color:#f0d087;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+    addBtn.style.cssText = "padding:8px 12px;border-radius:2px;border:1px dashed rgba(160,125,40,0.5);background:rgba(8,20,32,0.6);color:#c8a84b;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
     addBtn.addEventListener("click", function(event) {
       event.preventDefault()
       event.stopPropagation()
@@ -8434,7 +8432,7 @@ function createSandboxPnjManagerCard(item, index) {
   const launchBtn = document.createElement("button")
   launchBtn.type = "button"
   launchBtn.className = "sandboxMapManagerLaunchButton"
-  launchBtn.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;"
+  launchBtn.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(200,165,60,0.55);border-radius:2px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;"
   launchBtn.innerHTML = previewMode
     ? `<span>${label}</span>`
     : `<span>${label}</span><span style="font-size:11px;color:#bfae8b;">Afficher</span>`
@@ -8449,7 +8447,7 @@ function createSandboxPnjManagerCard(item, index) {
   dragHandle.className = "sandboxMapManagerDragHandle"
   dragHandle.setAttribute("draggable", "true")
   dragHandle.title = "Glisser pour reordonner"
-  dragHandle.style.cssText = "width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f0d087;font-size:16px;cursor:grab;"
+  dragHandle.style.cssText = "width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:2px;border:1px solid rgba(160,125,40,0.4);background:rgba(8,20,32,0.5);color:#c8a84b;font-size:16px;cursor:grab;"
   dragHandle.textContent = "::"
   dragHandle.addEventListener("dragstart", function(event) {
     event.stopPropagation()
@@ -8464,7 +8462,7 @@ function createSandboxPnjManagerCard(item, index) {
   const renameBtn = document.createElement("button")
   renameBtn.type = "button"
   renameBtn.className = "sandboxMapManagerActionButton"
-  renameBtn.style.cssText = "padding:8px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+  renameBtn.style.cssText = "padding:8px 10px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
   renameBtn.textContent = "Renommer"
   renameBtn.addEventListener("click", function(event) {
     event.preventDefault()
@@ -8475,7 +8473,7 @@ function createSandboxPnjManagerCard(item, index) {
   const deleteBtn = document.createElement("button")
   deleteBtn.type = "button"
   deleteBtn.className = "sandboxMapManagerDeleteButton"
-  deleteBtn.style.cssText = "padding:8px 10px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(214,110,110,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+  deleteBtn.style.cssText = "padding:8px 10px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(185,90,90,0.4);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
   deleteBtn.textContent = "Supprimer"
   deleteBtn.addEventListener("click", function(event) {
     event.preventDefault()
@@ -8486,7 +8484,7 @@ function createSandboxPnjManagerCard(item, index) {
   const moveTabBtn = document.createElement("button")
   moveTabBtn.type = "button"
   moveTabBtn.className = "sandboxMapManagerActionButton"
-  moveTabBtn.style.cssText = "padding:8px 10px;background:rgba(18,60,42,0.48);color:#def6e7;border:1px solid rgba(90,180,120,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+  moveTabBtn.style.cssText = "padding:8px 10px;background:rgba(18,60,42,0.48);color:#def6e7;border:1px solid rgba(90,180,120,0.35);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
   moveTabBtn.textContent = getSandboxItemTab(item) ? "Onglet : " + getSandboxItemTab(item) : "Mettre en onglet"
   moveTabBtn.addEventListener("click", function(event) {
     event.preventDefault()
@@ -8498,8 +8496,8 @@ function createSandboxPnjManagerCard(item, index) {
   combatMobBtn.type = "button"
   combatMobBtn.className = "sandboxMapManagerActionButton"
   combatMobBtn.style.cssText = item && item.combatAsMob
-    ? "padding:8px 10px;background:rgba(18,60,42,0.48);color:#def6e7;border:1px solid rgba(90,180,120,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
-    : "padding:8px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+    ? "padding:8px 10px;background:rgba(18,60,42,0.48);color:#def6e7;border:1px solid rgba(90,180,120,0.35);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+    : "padding:8px 10px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
   combatMobBtn.textContent = item && item.combatAsMob ? "Ajoute aux mobs : oui" : "Ajoute aux mobs : non"
   combatMobBtn.addEventListener("click", function(event) {
     event.preventDefault()
@@ -8657,7 +8655,7 @@ function openSandboxPnjManagerV2() {
             `<button type="button" class="sandboxMapManagerActionButton sandboxMapManagerCloseButton" data-pnj-manager-action="close" style="padding:8px 12px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:10px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Fermer</button>` +
           `</div>` +
           (previewMode ? `` : `<div class="sandboxMapManagerToolbar" style="display:flex;flex-wrap:wrap;gap:8px;">` +
-            `<button type="button" class="sandboxMapManagerActionButton sandboxMapManagerPrimaryButton" data-pnj-manager-action="new-pnj" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Nouveau PNJ</button>` +
+            `<button type="button" class="sandboxMapManagerActionButton sandboxMapManagerPrimaryButton" data-pnj-manager-action="new-pnj" style="padding:9px 10px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Nouveau PNJ</button>` +
           `</div>`) +
           `<div data-pnj-manager-tabs style="display:flex;flex-wrap:wrap;gap:8px;"></div>` +
           `<div class="sandboxMapManagerComposer" data-pnj-manager-composer style="display:none;grid-template-columns:1fr;gap:10px;padding:12px;border-radius:14px;background:rgba(0,0,0,0.16);border:1px solid rgba(214,180,106,0.18);">` +
@@ -8665,8 +8663,8 @@ function openSandboxPnjManagerV2() {
             `<input type="file" class="sandboxMapManagerFileInput" data-pnj-manager-file accept="image/*" style="color:#f5e6c8;font-family:Cinzel,serif;">` +
             `<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:rgba(18,60,42,0.22);border:1px solid rgba(90,180,120,0.22);color:#e8d6b3;font-size:12px;line-height:1.5;"><input type="checkbox" data-pnj-manager-combat-as-mob style="accent-color:#caa46b;width:16px;height:16px;"><span>Ajouter aussi ce PNJ dans les mobs pour anticiper ses versions combat.</span></label>` +
             `<div class="sandboxMapManagerComposerActions" style="display:flex;gap:8px;flex-wrap:wrap;">` +
-              `<button type="button" class="sandboxMapManagerActionButton sandboxMapManagerPrimaryButton" data-pnj-manager-action="confirm-create" style="padding:9px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter</button>` +
-              `<button type="button" class="sandboxMapManagerActionButton" data-pnj-manager-action="cancel-create" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Annuler</button>` +
+              `<button type="button" class="sandboxMapManagerActionButton sandboxMapManagerPrimaryButton" data-pnj-manager-action="confirm-create" style="padding:9px 10px;background:linear-gradient(180deg,#122638,#0a1a27);color:#f0e8d0;border:1px solid rgba(160,125,40,0.75);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter</button>` +
+              `<button type="button" class="sandboxMapManagerActionButton" data-pnj-manager-action="cancel-create" style="padding:9px 10px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Annuler</button>` +
             `</div>` +
           `</div>` +
           `<div class="sandboxMapManagerDebug" data-pnj-manager-debug style="font-size:11px;color:#bfae8b;"></div>` +
@@ -8758,7 +8756,7 @@ function createSandboxMapManagerCard(item, index) {
   const launchBtn = document.createElement("button")
   launchBtn.type = "button"
   launchBtn.className = "sandboxMapManagerLaunchButton"
-  launchBtn.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;"
+  launchBtn.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(200,165,60,0.55);border-radius:2px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;"
   launchBtn.innerHTML = previewMode
     ? `<span>${label}</span>`
     : `<span>${label}</span><span style="font-size:11px;color:#bfae8b;">Lancer</span>`
@@ -8772,7 +8770,7 @@ function createSandboxMapManagerCard(item, index) {
   dragHandle.className = "sandboxMapManagerDragHandle"
   dragHandle.setAttribute("draggable", "true")
   dragHandle.title = "Glisser pour reordonner"
-  dragHandle.style.cssText = "width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f0d087;font-size:16px;cursor:grab;"
+  dragHandle.style.cssText = "width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:2px;border:1px solid rgba(160,125,40,0.4);background:rgba(8,20,32,0.5);color:#c8a84b;font-size:16px;cursor:grab;"
   dragHandle.textContent = "::"
   dragHandle.addEventListener("dragstart", function(event) {
     event.stopPropagation()
@@ -8789,7 +8787,7 @@ function createSandboxMapManagerCard(item, index) {
   const renameBtn = document.createElement("button")
   renameBtn.type = "button"
   renameBtn.className = "sandboxMapManagerActionButton"
-  renameBtn.style.cssText = "padding:8px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+  renameBtn.style.cssText = "padding:8px 10px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
   renameBtn.textContent = "Renommer"
   renameBtn.addEventListener("click", function(event) {
     event.preventDefault()
@@ -8801,7 +8799,7 @@ function createSandboxMapManagerCard(item, index) {
   const musicBtn = document.createElement("button")
   musicBtn.type = "button"
   musicBtn.className = "sandboxMapManagerActionButton"
-  musicBtn.style.cssText = "padding:8px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+  musicBtn.style.cssText = "padding:8px 10px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
   musicBtn.textContent = musicLabel ? "Musique : OK" : "Musique"
   musicBtn.title = musicLabel || "Ajouter une musique"
   musicBtn.addEventListener("click", function(event) {
@@ -8813,7 +8811,7 @@ function createSandboxMapManagerCard(item, index) {
   const deleteBtn = document.createElement("button")
   deleteBtn.type = "button"
   deleteBtn.className = "sandboxMapManagerDeleteButton"
-  deleteBtn.style.cssText = "padding:8px 10px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(214,110,110,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+  deleteBtn.style.cssText = "padding:8px 10px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(185,90,90,0.4);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
   deleteBtn.textContent = "Supprimer"
   deleteBtn.addEventListener("click", function(event) {
     event.preventDefault()
@@ -8824,7 +8822,7 @@ function createSandboxMapManagerCard(item, index) {
   const moveTabBtn = document.createElement("button")
   moveTabBtn.type = "button"
   moveTabBtn.className = "sandboxMapManagerActionButton"
-  moveTabBtn.style.cssText = "padding:8px 10px;background:rgba(18,60,42,0.48);color:#def6e7;border:1px solid rgba(90,180,120,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+  moveTabBtn.style.cssText = "padding:8px 10px;background:rgba(18,60,42,0.48);color:#def6e7;border:1px solid rgba(90,180,120,0.35);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
   moveTabBtn.textContent = getSandboxItemTab(item) ? "Onglet : " + getSandboxItemTab(item) : "Mettre en onglet"
   moveTabBtn.addEventListener("click", function(event) {
     event.preventDefault()
@@ -10278,7 +10276,7 @@ function createSimpleSandboxMapCard(item, index) {
   const launchBtn = document.createElement("button")
   launchBtn.type = "button"
   launchBtn.className = "sandboxMapManagerLaunchButton"
-  launchBtn.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(240,202,112,0.36);border-radius:8px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;"
+  launchBtn.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;background:linear-gradient(180deg, rgba(36,68,92,0.96), rgba(12,34,50,0.98));border:1px solid rgba(200,165,60,0.55);border-radius:2px;color:#f5e6c8;font-family:Cinzel,serif;cursor:pointer;flex:1;text-align:left;"
   launchBtn.innerHTML = previewMode
     ? `<span>${String(item.label || "Sans titre")}</span>`
     : `<span>${String(item.label || "Sans titre")}</span><span style="font-size:11px;color:#bfae8b;">Lancer</span>`
@@ -10292,7 +10290,7 @@ function createSimpleSandboxMapCard(item, index) {
   dragHandle.className = "sandboxMapManagerDragHandle"
   dragHandle.setAttribute("draggable", "true")
   dragHandle.title = "Glisser pour reordonner"
-  dragHandle.style.cssText = "width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(214,180,106,0.24);background:rgba(255,255,255,0.05);color:#f0d087;font-size:16px;cursor:grab;"
+  dragHandle.style.cssText = "width:32px;min-width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:2px;border:1px solid rgba(160,125,40,0.4);background:rgba(8,20,32,0.5);color:#c8a84b;font-size:16px;cursor:grab;"
   dragHandle.textContent = "::"
   dragHandle.addEventListener("dragstart", function(event) {
     event.stopPropagation()
@@ -10323,7 +10321,7 @@ function createSimpleSandboxMapCard(item, index) {
   const renameBtn = document.createElement("button")
   renameBtn.type = "button"
   renameBtn.className = "sandboxMapManagerActionButton"
-  renameBtn.style.cssText = "padding:8px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+  renameBtn.style.cssText = "padding:8px 10px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
   renameBtn.textContent = "Renommer"
   renameBtn.addEventListener("click", function(event) {
     event.preventDefault()
@@ -10334,7 +10332,7 @@ function createSimpleSandboxMapCard(item, index) {
   const musicBtn = document.createElement("button")
   musicBtn.type = "button"
   musicBtn.className = "sandboxMapManagerActionButton"
-  musicBtn.style.cssText = "padding:8px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+  musicBtn.style.cssText = "padding:8px 10px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
   musicBtn.textContent = item.audio ? "Musique : OK" : "Musique"
   musicBtn.title = item.audio ? String(item.audio) : "Ajouter une musique"
   musicBtn.addEventListener("click", function(event) {
@@ -10346,7 +10344,7 @@ function createSimpleSandboxMapCard(item, index) {
   const deleteBtn = document.createElement("button")
   deleteBtn.type = "button"
   deleteBtn.className = "sandboxMapManagerDeleteButton"
-  deleteBtn.style.cssText = "padding:8px 10px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(214,110,110,0.28);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
+  deleteBtn.style.cssText = "padding:8px 10px;background:rgba(90,22,22,0.55);color:#ffd7d7;border:1px solid rgba(185,90,90,0.4);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;"
   deleteBtn.textContent = "Supprimer"
   deleteBtn.addEventListener("click", function(event) {
     event.preventDefault()
@@ -10611,7 +10609,7 @@ function openSandboxMapManagerV2() {
             `<button type="button" class="sandboxMapManagerActionButton sandboxMapManagerCloseButton" data-map-manager-action="close" style="padding:8px 12px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:10px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Fermer</button>` +
           `</div>` +
           `<div class="sandboxMapManagerToolbar" style="display:flex;flex-wrap:wrap;gap:8px;">` +
-            `<button type="button" class="sandboxMapManagerActionButton sandboxMapManagerPrimaryButton" data-map-manager-action="new-map" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Nouvelle map</button>` +
+            `<button type="button" class="sandboxMapManagerActionButton sandboxMapManagerPrimaryButton" data-map-manager-action="new-map" style="padding:9px 10px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Nouvelle map</button>` +
           `</div>` +
           `<div data-map-manager-tabs style="display:flex;flex-wrap:wrap;gap:8px;"></div>` +
           `<div class="sandboxMapManagerComposer" data-map-manager-composer style="display:none;grid-template-columns:1fr;gap:10px;padding:12px;border-radius:14px;background:rgba(0,0,0,0.16);border:1px solid rgba(214,180,106,0.18);">` +
@@ -10623,8 +10621,8 @@ function openSandboxMapManagerV2() {
             `</label>` +
             `<input type="file" class="sandboxMapManagerFileInput" data-map-manager-file accept="image/*" style="color:#f5e6c8;font-family:Cinzel,serif;">` +
             `<div class="sandboxMapManagerComposerActions" style="display:flex;gap:8px;flex-wrap:wrap;">` +
-              `<button type="button" class="sandboxMapManagerActionButton sandboxMapManagerPrimaryButton" data-map-manager-action="confirm-create" style="padding:9px 10px;background:linear-gradient(#7a5533,#4b321c);color:#f5e6c8;border:1px solid #caa46b;border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter</button>` +
-              `<button type="button" class="sandboxMapManagerActionButton" data-map-manager-action="cancel-create" style="padding:9px 10px;background:rgba(255,255,255,0.05);color:#f5e6c8;border:1px solid rgba(214,180,106,0.24);border-radius:8px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Annuler</button>` +
+              `<button type="button" class="sandboxMapManagerActionButton sandboxMapManagerPrimaryButton" data-map-manager-action="confirm-create" style="padding:9px 10px;background:linear-gradient(180deg,#122638,#0a1a27);color:#f0e8d0;border:1px solid rgba(160,125,40,0.75);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Ajouter</button>` +
+              `<button type="button" class="sandboxMapManagerActionButton" data-map-manager-action="cancel-create" style="padding:9px 10px;background:linear-gradient(180deg,#0c1c2a,#060f18);color:#f0e8d0;border:1px solid rgba(160,125,40,0.5);border-radius:2px;cursor:pointer;font-family:Cinzel,serif;font-size:12px;">Annuler</button>` +
             `</div>` +
           `</div>` +
           `<div class="sandboxMapManagerDebug" data-map-manager-debug style="font-size:11px;color:#bfae8b;"></div>` +

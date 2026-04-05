@@ -1,4 +1,20 @@
 ﻿
+const THEME_MAP = {
+  "1": "medieval_fantasy",
+  "2": "science_fiction",
+  "3": "pirate",
+  "4": "contemporain",
+  "medieval fantasy": "medieval_fantasy",
+  "medieval_fantasy": "medieval_fantasy",
+  "science-fiction": "science_fiction",
+  "science fiction": "science_fiction",
+  "science_fiction": "science_fiction",
+  "sf": "science_fiction",
+  "pirate": "pirate",
+  "contemporaine": "contemporain",
+  "contemporain": "contemporain"
+}
+
 function applyCustomizationToUI() {
   if (typeof getCustomization !== "function") return
   const customization = getCustomization()
@@ -55,25 +71,9 @@ function openCustomizationPanel() {
   const nextThemeInput = window.prompt(themeMessage, currentThemeChoice)
   if (nextThemeInput == null) return
 
-  const themeMap = {
-    "1": "medieval_fantasy",
-    "2": "science_fiction",
-    "3": "pirate",
-    "4": "contemporain",
-    "medieval fantasy": "medieval_fantasy",
-    "medieval_fantasy": "medieval_fantasy",
-    "science-fiction": "science_fiction",
-    "science fiction": "science_fiction",
-    "science_fiction": "science_fiction",
-    "sf": "science_fiction",
-    "pirate": "pirate",
-    "contemporaine": "contemporain",
-    "contemporain": "contemporain"
-  }
-
   const next = getCustomization()
   next.project.title = String(nextTitle || "").trim() || currentTitle
-  next.project.theme = themeMap[String(nextThemeInput || "").trim().toLowerCase()] || currentTheme
+  next.project.theme = THEME_MAP[String(nextThemeInput || "").trim().toLowerCase()] || currentTheme
   saveCustomization(next)
   applyCustomizationToUI()
   if (typeof showNotification === "function") showNotification("Projet mis a jour")
@@ -113,22 +113,7 @@ function openProjectCreationWizard() {
   if (themeChoice == null) return
 
   const normalizedChoice = String(themeChoice || "").trim().toLowerCase()
-  const themeMap = {
-    "1": "medieval_fantasy",
-    "2": "science_fiction",
-    "3": "pirate",
-    "4": "contemporain",
-    "medieval fantasy": "medieval_fantasy",
-    "medieval_fantasy": "medieval_fantasy",
-    "science-fiction": "science_fiction",
-    "science fiction": "science_fiction",
-    "science_fiction": "science_fiction",
-    "sf": "science_fiction",
-    "pirate": "pirate",
-    "contemporaine": "contemporain",
-    "contemporain": "contemporain"
-  }
-  const selectedTheme = themeMap[normalizedChoice] || "medieval_fantasy"
+  const selectedTheme = THEME_MAP[normalizedChoice] || "medieval_fantasy"
 
   const baseCustomization = typeof getDefaultCustomization === "function"
     ? getDefaultCustomization()
